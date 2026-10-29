@@ -114,7 +114,7 @@ export function ambientFor(sp) {
 /** 입자가 나올 자리 (모델 좌표계 기준 높이 1) */
 export function ambientPos(THREE, model, from) {
   const p = new THREE.Vector3();
-  const s = model.scale.y || 1;
+  const s = model.parent ? 1 : (model.scale.y || 1); // matrixWorld에 이미 크기가 들어 있음
   if (from === 'top') p.set((Math.random() - 0.5) * 0.12, 0.95 * s, 0);
   else if (from === 'above') p.set((Math.random() - 0.5) * 0.9, 1.25 * s, (Math.random() - 0.5) * 0.4);
   else if (from === 'around') { const a = Math.random() * Math.PI * 2; p.set(Math.cos(a) * 0.5 * s, (0.2 + Math.random() * 0.7) * s, Math.sin(a) * 0.35 * s); }

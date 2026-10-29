@@ -90,11 +90,13 @@ function playerIcon() {
   });
 }
 
-function spawnIcon(spawn, near) {
+function spawnIcon(spawn, near, fresh = false) {
   const sp = speciesById[spawn.speciesId];
+  // 몬스터마다 움직이는 박자를 다르게 (같은 자리면 항상 같은 박자)
+  const delay = -((spawn.id.length * 37 + spawn.id.charCodeAt(spawn.id.length - 1) * 13) % 24) / 10;
   return L.divIcon({
     className: 'spawn-icon',
-    html: `<div class="spawn ${near ? 'near' : ''} r-${sp.rarity}">${monsterSVG(sp, { size: 52 })}</div>`,
+    html: `<div class="spawn ${near ? 'near' : ''} ${fresh ? 'fresh' : ''} r-${sp.rarity}" style="--d:${delay}s">${fresh ? '<span class="rustle"><i>🍃</i><i>🌿</i><i>🍃</i></span>' : ''}${monsterSVG(sp, { size: 52 })}</div>`,
     iconSize: [52, 52],
     iconAnchor: [26, 46],
   });
@@ -257,7 +259,7 @@ function refreshWorld() {
       if (existing._near !== near) { existing.setIcon(spawnIcon(s, near)); existing._near = near; }
       continue;
     }
-    const m = L.marker([s.lat, s.lng], { icon: spawnIcon(s, near) }).addTo(map)
+    const m = L.marker([s.lat, s.lng], { icon: spawnIcon(s, near, seenFirstSpawns) }).addTo(map)
       .on('click', () => tapSpawn(s));
     m._near = near;
     spawnMarkers.set(s.id, m);
@@ -265,6 +267,7 @@ function refreshWorld() {
   for (const [id, m] of spawnMarkers) {
     if (!keep.has(id)) { map.removeLayer(m); spawnMarkers.delete(id); }
   }
+  if (list.length) seenFirstSpawns = true;
   for (const stop of CONFIG.stops) {
     const m = stopMarkers.get(stop.id);
     const ready = stopReady(stop);
@@ -308,6 +311,8 @@ function tapMaterial(m) {
   const mk = matMarkers.get(m.id);
   if (mk) { map.removeLayer(mk); matMarkers.delete(m.id); }
 }
+
+let seenFirstSpawns = false; // 처음 지도 열 때는 한꺼번에 튀어나오지 않게
 
 function renderNearby(list) {
   const sorted = list.map(s => ({ s, d: distanceM(me, s) })).sort((a, b) => a.d - b.d).slice(0, 8);

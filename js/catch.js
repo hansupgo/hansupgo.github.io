@@ -9,6 +9,29 @@ import { CONFIG } from './config.js';
 import { RARITY, KINDS, speciesById, monsterSVG, josa } from './monsters.js';
 import { store } from './store.js';
 import { createStage } from './stage3d.js';
+import { zoneAt, distanceM } from './spawn.js';
+import { weather, timeOfDay } from './weather.js';
+
+/** 만난 곳에 맞는 3D 배경: 남곡초(특별) → 학교, 연못 → 연못, 공원 → 공원, 단지 가까이 → 아파트 단지 */
+function placeFor(spawn) {
+  if (spawn.special) return 'school';
+  const z = zoneAt(spawn);
+  if (z === 'water') return 'pond';
+  if (z === 'park') return 'park';
+  const near = CONFIG.stops.some(st => !st.special && distanceM(st, spawn) < 170);
+  if (near) return 'town';
+  const school = CONFIG.stops.find(st => st.special);
+  if (school && distanceM(school, spawn) < 120) return 'school';
+  return 'park';
+}
+
+/** 화면이 살짝 흔들림 (맞았을 때) */
+function shake() {
+  const el = $('enc-stage');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
 
 const $ = (id) => document.getElementById(id);
 const AR_KEY = 'hansupgo.ar';
@@ -73,6 +96,7 @@ async function startCamera() {
       return Boolean(stream);
     }
     stream = got;
+    s3?.showBackdrop(false); // 카메라 화면이 배경
     const v = $('cam');
     v.srcObject = stream;
     await v.play().catch(() => {});
@@ -86,6 +110,7 @@ async function startCamera() {
 }
 
 function stopCamera() {
+  if (stream) s3?.showBackdrop(true);
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null;
   $('cam').srcObject = null;
@@ -163,6 +188,10 @@ export async function startEncounter(spawn, onDone) {
   if (s3on) {
     s3.setCreature(sp, mode);
     mon.innerHTML = '';
+    if (mode !== 'fish') {
+      s3.showBackdrop(true);
+      s3.setBackdrop(placeFor(spawn), { tod: timeOfDay(), weather: weather().kind });
+    } else s3.setBackdrop(null);
   } else {
     mon.innerHTML = monsterSVG(sp, { size: 220 });
     monState('appear');
@@ -204,6 +233,8 @@ async function startRealAR() {
 function endEncounter(result) {
   stopLoop();
   stopCamera();
+  // 끝날 때 남은 꽃가루·꼬리 치우기 (숨긴 화면에선 애니메이션이 끝나지 않음)
+  document.querySelectorAll('#enc-stage .confetti, #enc-stage .ball-trail').forEach(n => n.remove());
   if (s3?.inXR) s3.endXR();
   s3?.clear();
   fishHold = false;
@@ -227,6 +258,8 @@ async function succeed(extraMsg = '') {
   const who = sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를');
   setMsg(`${extraMsg}${who} ${verb}! +${gained} XP${isNew ? ' · 새로 등록!' : ''}`, 'good');
   monState('happy');
+  if (s3on) s3.burst(mode === 'fish' ? 'splash' : 'catch');
+  confetti();
   await wait(1700);
   endEncounter({ caught: true, gained, isNew });
 }
@@ -239,6 +272,7 @@ async function flee(text) {
   setMsg(text, 'bad');
   store.markFled(cur);
   monState('leave');
+  if (s3on) s3.burst(mode === 'fish' ? 'splash' : 'flee');
   await wait(1400);
   endEncounter({ caught: false, fled: true });
 }
@@ -326,7 +360,7 @@ function onBallUp(e) {
   const end = still ? tail : up;
   // 3D 때문에 폰이 버벅이면 손가락 움직임이 띄엄띄엄 들어옴 → 멈춘 걸로 잘못 보지 않게
   const gaps = samples.slice(1).map((s, i) => s.t - samples[i].t);
-  const janky = gaps.some(g => g > 60) || up.t - tail.t > 60;
+  const janky = gaps.some(g => g > 60); // 손가락을 잠깐 멈춘 건 버벅임이 아님
   const paused = still && up.t - tail.t > (janky ? 450 : 150);
   const first = [...samples].reverse().find(s => end.t - s.t >= 40) || samples[0];
   const dt = Math.max(16, end.t - first.t);
@@ -335,7 +369,7 @@ function onBallUp(e) {
   const last = end;
   // 버벅일 때: 마지막 순간 속도 대신 전체 손짓의 방향으로 던짐 (위로 80px 넘게 밀었으면)
   const all = { dx: end.x - samples[0].x, dy: end.y - samples[0].y, dt: end.t - samples[0].t };
-  if (vy > -0.35 && janky && !paused && all.dy < -80 && all.dt < 1200) {
+  if (vy > -0.35 && janky && !paused && all.dy < -80 && all.dt < 2500) {
     // 손짓 방향을 따라가다 몬스터 높이에서 떨어지게 (화면 크기와 상관없이)
     const st = stage();
     const c = monCenter();
@@ -381,6 +415,7 @@ function throwBall(x, y, vx, vy) {
     b.style.left = `${sx + (endX - sx) * ease}px`;
     b.style.top = `${sy + (endY - sy) * ease - Math.sin(p * Math.PI) * 70}px`;
     b.style.transform = `translate(-50%, -50%) scale(${1 - 0.45 * p}) rotate(${p * 720}deg)`;
+    trailDot(b, 1 - 0.45 * p);
     if (p < 1) requestAnimationFrame(step);
     else if (hit) onBallHit(scaleAtHit);
     else {
@@ -389,6 +424,41 @@ function throwBall(x, y, vx, vy) {
     }
   }
   requestAnimationFrame(step);
+}
+
+// 날아가는 숲볼 뒤로 반짝이 꼬리
+let trailN = 0;
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function trailDot(b, scale) {
+  if (trailN++ % 2 || reducedMotion()) return;
+  const d = document.createElement('i');
+  d.className = 'ball-trail';
+  d.style.left = b.style.left;
+  d.style.top = b.style.top;
+  d.style.setProperty('--s', scale);
+  $('enc-stage').appendChild(d);
+  d.addEventListener('animationend', () => d.remove());
+  setTimeout(() => d.remove(), 800);
+}
+
+// 잡았을 때 꽃가루 (화면 전체)
+function confetti() {
+  if (reducedMotion()) return;
+  const box = $('enc-stage');
+  const cols = ['#ff6b8b', '#ffd23f', '#4fb3ff', '#7cc46a', '#b78ae8', '#ff9a62'];
+  for (let i = 0; i < 36; i++) {
+    const c = document.createElement('i');
+    c.className = 'confetti';
+    c.style.left = `${Math.random() * 100}%`;
+    c.style.background = cols[i % cols.length];
+    c.style.setProperty('--x', `${(Math.random() - 0.5) * 120}px`);
+    c.style.setProperty('--r', `${Math.random() * 720 - 360}deg`);
+    c.style.animationDelay = `${Math.random() * 0.4}s`;
+    c.style.animationDuration = `${1.4 + Math.random() * 0.8}s`;
+    box.appendChild(c);
+    c.addEventListener('animationend', () => c.remove());
+    setTimeout(() => c.remove(), 3200);
+  }
 }
 
 async function onBallHit(ring) {
@@ -401,6 +471,8 @@ async function onBallHit(ring) {
   const shakes = success ? 3 : Math.floor(Math.random() * 3);
   setMsg(label, 'good');
   $('enc-ring').hidden = true;
+  if (s3on) s3.burst('hit');
+  shake();
   monState('sucked');
   const b = ball();
   b.classList.add('caught');
@@ -490,6 +562,8 @@ async function onNetTap(e) {
   if (hit && Math.random() < Math.min(0.95, RARITY[sp.rarity].catchRate * 1.25)) {
     stopLoop();
     monState('netted');
+    if (s3on) s3.burst('hit');
+    shake();
     await succeed('잡았다! ');
     return;
   }
@@ -522,6 +596,8 @@ function startSnack(first) {
     t += dt * speed;
     markerPos = (Math.sin(t) + 1) / 2;
     $('snack-marker').style.left = `${markerPos * 100}%`;
+    markerHist.push({ t: now, p: markerPos });
+    if (markerHist.length > 12) markerHist.shift();
   });
 }
 
@@ -541,8 +617,19 @@ function updateSnackCount() {
   $('snack-btn').textContent = `간식 주기 (🍪 ${store.state.snacks})`;
 }
 
-async function onSnack() {
+// 누른 순간 화면에 보이던 막대 위치 (폰이 버벅여도 공정하게)
+const markerHist = [];
+function markerAt(t) {
+  if (!t || !markerHist.length) return markerPos;
+  // 누른 시각 바로 전에 그려진 위치
+  let best = null;
+  for (const h of markerHist) if (h.t <= t) best = h;
+  return (best || markerHist[markerHist.length - 1]).p;
+}
+
+async function onSnack(e) {
   if (busy || mode !== 'snack') return;
+  const pos = markerAt(e?.timeStamp);
   if (store.state.snacks <= 0) {
     setMsg('간식이 없어요. 거점에 가서 받아 오세요.', 'bad');
     return;
@@ -550,10 +637,11 @@ async function onSnack() {
   store.state.snacks -= 1;
   store.save();
   updateSnackCount();
-  if (Math.abs(markerPos - zone.c) <= zone.w / 2) {
+  if (Math.abs(pos - zone.c) <= zone.w / 2 + 0.02) {
     hearts += 1;
     renderHearts();
     monState('hop');
+    if (s3on) s3.burst('love');
     if (hearts >= 3) {
       await succeed();
       return;
