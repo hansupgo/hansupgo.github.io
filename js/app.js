@@ -10,6 +10,7 @@ import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
+import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
 const $ = (id) => document.getElementById(id);
@@ -657,6 +658,7 @@ function renderSettings() {
   $('set-name').value = s.name;
   $('set-group').value = s.group;
   $('set-demo').checked = s.demo;
+  $('set-gfx').innerHTML = Object.entries(GFX_LEVELS).map(([k, v]) => `<option value="${k}" ${gfxLevel() === k ? 'selected' : ''}>${v}</option>`).join('');
   $('set-share').textContent = firebaseEnabled()
     ? (remote.ready ? '친구 공유 연결됨' : '친구 공유 연결 중...')
     : '친구 공유 꺼짐 (README 참고)';
@@ -682,6 +684,7 @@ function normalizeGroup(v) {
 }
 
 function bindSettings() {
+  $('set-gfx').addEventListener('change', (e) => { setGfxLevel(e.target.value); toast(`3D 화질: ${GFX_LEVELS[e.target.value]}`); });
   $('settings-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const name = $('set-name').value.trim().slice(0, 12);

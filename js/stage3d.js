@@ -3,7 +3,11 @@
 // - 진짜 AR: WebXR(ARCore)을 지원하면 실제 바닥을 인식해 그 위에 세움
 // three.js를 불러오지 못하면 null을 돌려주고, 게임은 2D 그림으로 동작합니다.
 
-import { buildModel } from './model3d.js';
+import { buildModel as buildRaw } from './model3d.js';
+import { stylize, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
+
+// 캐릭터 = 기본 모델 + 툰 그림체·외곽선
+function buildModel(T, sp) { return stylize(T, buildRaw(T, sp)); }
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 let THREE = null;
@@ -28,7 +32,7 @@ function webglOk() {
 
 function makeRenderer(canvasParent) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(pixelRatioFor());
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -46,6 +50,7 @@ function autoQuality(renderer) {
   let done = false;
   return (dt) => {
     if (done || dt <= 0) return;
+    if (gfxLevel() !== 'auto') { done = true; return; } // 직접 고른 화질은 그대로
     n++;
     if (n < 20) return; // 처음 몇 프레임은 불러오느라 느림
     sum += dt;
@@ -104,8 +109,24 @@ function animateIdle(model, t, extra = {}) {
   const blink = (t % 3.6) < 0.12 ? 0.12 : 1;
   for (const e of u.eyes) e.scale.y = blink;
   for (const w of u.wings) w.obj.rotation[w.axis] = (w.base ?? (w.base = w.obj.rotation[w.axis])) + w.amp * Math.sin(t * w.speed);
-  for (const tl of u.tails) tl.obj.rotation[tl.axis] = (tl.base ?? (tl.base = tl.obj.rotation[tl.axis])) + tl.amp * Math.sin(t * tl.speed);
+  const pep = extra.energy ?? 1; // 신나면 꼬리·날개가 더 크게
+  for (const tl of u.tails) tl.obj.rotation[tl.axis] = (tl.base ?? (tl.base = tl.obj.rotation[tl.axis])) + tl.amp * pep * Math.sin(t * tl.speed * (0.7 + 0.3 * pep));
   if (!extra.noLook) model.rotation.y = 0.35 * Math.sin(t * 0.55) + 0.12 * Math.sin(t * 1.3);
+  applyFace(model, t);
+}
+
+/** 통통 점프: 웅크렸다 → 늘어나며 뜀 → 착지하며 찌그러짐. { y, sy } (sy: 세로 배율) */
+function hopCurve(st, height = 0.28) {
+  if (st < 0.1) return { y: 0, sy: 1 - 0.18 * (st / 0.1) };
+  if (st < 0.5) { const p = (st - 0.1) / 0.4; return { y: Math.sin(p * Math.PI) * height, sy: 1 + 0.14 * Math.cos(p * Math.PI) }; }
+  if (st < 0.64) return { y: 0, sy: 1 - 0.16 * Math.sin(((st - 0.5) / 0.14) * Math.PI) };
+  return { y: 0, sy: 1, done: true };
+}
+
+/** 부피를 지키며 세로로 늘이고 줄이기 */
+function squash(obj, s, sy) {
+  const sx = s * (1 + (1 - sy) * 0.5);
+  obj.scale.set(sx, s * sy, sx);
 }
 
 // ---------- 잡기 화면 무대 ----------
@@ -237,7 +258,12 @@ export async function createStage(container) {
   }
 
   // ---------- 상태 애니메이션 ----------
-  function play(name) { state = { name, t0: clock }; }
+  function play(name) {
+    state = { name, t0: clock };
+    if (!model) return;
+    if (name === 'appear' || name === 'startle') flashExpression(model, 'surprised', clock);
+    if (name === 'hop' || name === 'happy') flashExpression(model, 'happy', clock);
+  }
 
   function update(dt) {
     clock += dt;
@@ -250,10 +276,16 @@ export async function createStage(container) {
     let s = 1;
     let x = 0;
     let rotY = null;
+    let sy = 1;
     switch (state.name) {
-      case 'appear': { const p = Math.min(1, st / 0.4) - 1; s = 1 + 2.70158 * p ** 3 + 1.70158 * p ** 2; if (st > 0.5) play('idle'); break; }
-      case 'hop': y = Math.max(0, Math.sin(Math.min(1, st / 0.45) * Math.PI)) * 0.3; if (st > 0.5) play('idle'); break;
-      case 'happy': y = Math.abs(Math.sin(st * 6)) * 0.25; rotY = st * 5; break;
+      case 'appear': {
+        const p = Math.min(1, st / 0.4) - 1; s = 1 + 2.70158 * p ** 3 + 1.70158 * p ** 2;
+        if (st > 0.35) sy = 1 - 0.12 * Math.sin(Math.min(1, (st - 0.35) / 0.2) * Math.PI); // 내려앉으며 말랑
+        if (st > 0.6) play('idle');
+        break;
+      }
+      case 'hop': { const h = hopCurve(st, 0.32); y = h.y; sy = h.sy; if (h.done) play('idle'); break; }
+      case 'happy': y = Math.abs(Math.sin(st * 6)) * 0.25; sy = 1 - 0.1 * Math.cos(st * 12); rotY = st * 5; break;
       case 'startle': x = Math.sin(st * 40) * 0.05 * Math.max(0, 1 - st / 0.4); if (st > 0.45) play('idle'); break;
       case 'sucked': s = Math.max(0.001, 1 - st / 0.4); rotY = st * 12; y = st * 0.5; break;
       case 'netted': s = Math.max(0.55, 1 - st); break;
@@ -264,7 +296,7 @@ export async function createStage(container) {
     if (u.swimmer) { x += -0.4 + Math.sin(t * 0.6) * 0.3; rotY = (rotY ?? 0) + (Math.cos(t * 0.6) > 0 ? 0 : Math.PI); y += 0.35; s *= 0.62; }
     if (fly) { x += fly.x; y += fly.y; rotY = (rotY ?? 0) + fly.dir; }
     model.position.set(x, y, 0);
-    model.scale.setScalar(s);
+    squash(model, s, sy);
     if (rotY !== null) model.rotation.y = rotY;
     shadow.scale.setScalar(Math.max(0.2, (1 - Math.min(y, 1) * 0.6) * s));
     shadow.visible = mode !== 'fish';
@@ -537,7 +569,7 @@ export async function createBuddyView(el, sp, {
     const k = `${r.wall}|${r.floor}`;
     if (k !== roomKey) {
       if (roomGroup) { roomRoot.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
-      roomGroup = roomMod.buildRoom(THREE, r);
+      roomGroup = stylize(THREE, roomMod.buildRoom(THREE, r), { outline: false });
       roomRoot.add(roomGroup);
       roomKey = k;
     }
@@ -547,7 +579,7 @@ export async function createBuddyView(el, sp, {
       if (have && have.id === want) continue;
       if (have) { roomRoot.remove(have.obj); disposeTree(have.obj); furn.delete(sl.id); }
       if (!want) continue;
-      const obj = roomMod.buildFurniture(THREE, want);
+      const obj = stylize(THREE, roomMod.buildFurniture(THREE, want), { width: 0.01 });
       obj.position.copy(slotPos(sl));
       if (sl.where === 'floor') obj.rotation.y = Math.atan2(-sl.x, 1.4 - sl.z) * 0.6; // 방 가운데 쪽으로 살짝
       obj.traverse(o => { o.userData.slot = sl.id; });
@@ -600,7 +632,7 @@ export async function createBuddyView(el, sp, {
   async function initGarden() {
     if (gardenMod) return;
     gardenMod = await import('./garden3d.js');
-    gardenGroup = gardenMod.buildGarden(THREE);
+    gardenGroup = stylize(THREE, gardenMod.buildGarden(THREE), { width: 0.012 });
     gardenRoot.add(gardenGroup);
     setWeatherFx();
   }
@@ -615,7 +647,7 @@ export async function createBuddyView(el, sp, {
       if (!cur && v) {
         const obj = new THREE.Group();
         obj.position.set(p.x, gardenMod.BED_TOP, p.z);
-        const plant = gardenMod.buildPlant(THREE, v.crop, v.stage);
+        const plant = stylize(THREE, gardenMod.buildPlant(THREE, v.crop, v.stage), { width: 0.008 });
         obj.add(plant);
         const drop = gardenMod.buildDrop(THREE);
         drop.position.set(0, 0.45, 0);
@@ -753,6 +785,14 @@ export async function createBuddyView(el, sp, {
     }
   };
   el.addEventListener('pointerdown', onDown);
+  // 손가락(마우스) 쪽을 바라보게
+  const look = { x: 0, t: -99 };
+  const onLook = (e) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    look.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    look.t = clock;
+  };
+  el.addEventListener('pointermove', onLook);
 
   // 짝꿍 돌아다니기 (방 가운데 빈 곳만)
   function nextTarget() {
@@ -817,16 +857,26 @@ export async function createBuddyView(el, sp, {
       }
     }
 
-    animateIdle(model, clock, { noLook: sleeping || walking });
+    const looking = !walking && !sleeping && clock - look.t < 2.5;
+    animateIdle(model, clock, { noLook: sleeping || walking || looking, energy: walking ? 1.6 : anim.name !== 'idle' ? 1.8 : 1 });
     let y = model.userData.flyer ? 0.12 + Math.sin(clock * 3) * 0.04 : 0;
-    if (walking) { y += Math.abs(Math.sin(clock * 9)) * 0.05; model.rotation.y = 0; }
+    let sy = 1;
+    model.rotation.z = 0;
+    if (walking) {
+      // 뒤뚱뒤뚱 걷기: 좌우로 기우뚱 + 발 디딜 때 살짝 눌림
+      y += Math.abs(Math.sin(clock * 9)) * 0.05;
+      sy = 1 - 0.05 * Math.cos(clock * 18);
+      model.rotation.z = Math.sin(clock * 9) * 0.08;
+      model.rotation.y = 0;
+    }
+    if (looking) model.rotation.y += (look.x * 0.75 - model.rotation.y) * 0.12; // 손가락 쪽 바라보기
     let s = SCALE[stageNow] ?? 1;
     let rotY = sleeping && !walking ? 0.25 : null;
     switch (anim.name) {
-      case 'hop': y += Math.max(0, Math.sin(Math.min(1, st / 0.45) * Math.PI)) * 0.25; if (st > 0.5) anim.name = 'idle'; break;
-      case 'eat': s *= 1 + Math.sin(st * 18) * 0.04; if (st > 1) anim.name = 'idle'; break;
-      case 'happy': y += Math.abs(Math.sin(st * 6)) * 0.22; rotY = st * 6; if (st > 1.2) anim.name = 'idle'; break;
-      case 'evolve': { const p = Math.min(1, st / 1.6); rotY = p * Math.PI * 4; y += Math.sin(p * Math.PI) * 0.5; if (st > 1.7) anim.name = 'idle'; break; }
+      case 'hop': { const h = hopCurve(st, 0.26); y += h.y; sy = h.sy; if (h.done) anim.name = 'idle'; break; }
+      case 'eat': s *= 1 + Math.sin(st * 18) * 0.04; sy = 1 - 0.05 * Math.abs(Math.sin(st * 9)); if (st > 1) anim.name = 'idle'; break;
+      case 'happy': y += Math.abs(Math.sin(st * 6)) * 0.22; sy = 1 - 0.1 * Math.cos(st * 12); rotY = st * 6; if (st > 1.2) anim.name = 'idle'; break;
+      case 'evolve': { const p = Math.min(1, st / 1.6); rotY = p * Math.PI * 4; y += Math.sin(p * Math.PI) * 0.5; sy = 1 + 0.12 * Math.sin(p * Math.PI * 3); if (st > 1.7) anim.name = 'idle'; break; }
       default:
     }
     if (sleeping) {
@@ -834,7 +884,7 @@ export async function createBuddyView(el, sp, {
       model.children[0].scale.y = 1 + Math.sin(clock * 1.2) * 0.03; // 느린 숨
     }
     model.position.y = y;
-    model.scale.setScalar(s);
+    squash(model, s, sy);
     if (rotY !== null) model.rotation.y = rotY;
     const sparkles = model.getObjectByName('sparkles');
     if (sparkles) {
@@ -943,11 +993,20 @@ export async function createBuddyView(el, sp, {
       const p = bed.getWorldPosition(new THREE.Vector3()).project(camera);
       return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
     },
-    play(name) { anim = { name, t0: clock }; },
+    play(name) {
+      anim = { name, t0: clock };
+      if (!model) return;
+      if (name === 'evolve') { flashExpression(model, 'surprised', clock); setTimeout(() => model && flashExpression(model, 'happy', clock), 900); }
+      else flashExpression(model, 'happy', clock);
+      if (guestModel && name === 'happy') flashExpression(guestModel, 'happy', clock);
+    },
+    /** 평소 표정: 'normal' | 'sleepy' | 'sad' */
+    setMood(expr) { if (model) setBaseExpression(model, expr); },
     dispose() {
       renderer.setAnimationLoop(null);
       ro.disconnect();
       el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onLook);
       roomGroup?.userData.dispose?.();
       gardenGroup?.userData.dispose?.();
       disposeTree(scene);

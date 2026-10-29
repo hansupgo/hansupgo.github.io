@@ -336,9 +336,15 @@ function onBallUp(e) {
   // 버벅일 때: 마지막 순간 속도 대신 전체 손짓의 방향으로 던짐 (위로 80px 넘게 밀었으면)
   const all = { dx: end.x - samples[0].x, dy: end.y - samples[0].y, dt: end.t - samples[0].t };
   if (vy > -0.35 && janky && !paused && all.dy < -80 && all.dt < 1200) {
-    const len = Math.hypot(all.dx, all.dy);
-    vx = (all.dx / len) * 1.5;
-    vy = (all.dy / len) * 1.5;
+    // 손짓 방향을 따라가다 몬스터 높이에서 떨어지게 (화면 크기와 상관없이)
+    const st = stage();
+    const c = monCenter();
+    const sx = last.x - st.left;
+    const sy = last.y - st.top;
+    const ty = c ? c.y : sy - 420;
+    const tx = sx + (all.dx / -all.dy) * (sy - ty);
+    vx = (tx - sx) / 280;
+    vy = Math.min(-0.36, (ty - sy) / 280);
   }
   if (vy > -0.35) {
     resetBall();

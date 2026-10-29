@@ -828,3 +828,8 @@ body.talking .tabs { display: none; }
 .encounter, .tabs, .hud, .map-btns, .nearby-wrap, .buddy-room, .act, .btn, .talk-opt, .plot-chip, .slot-chip, .dex-card, .place-tabs {
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
+
+.gfx-set { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.gfx-set label { font-weight: 700; font-size: 15px; }
+.gfx-set select { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); font: inherit; font-size: 16px; background: var(--card); color: var(--ink); }
+.gfx-set p { margin: 0; }
