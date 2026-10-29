@@ -149,6 +149,8 @@ function renderStats() {
   $('buddy-zzz').hidden = !b.sleeping;
   document.querySelector('.buddy-room').classList.toggle('sleeping', b.sleeping);
   view?.setSleeping(b.sleeping);
+  // 평소 표정: 배고프거나 기분이 나쁘면 시무룩
+  view?.setMood(b.sleeping ? 'sleepy' : b.hunger < 25 || b.mood < 25 ? 'sad' : 'normal');
   $('act-feed-label').textContent = hasFood() ? '밥 주기' : `밥 주기 (${store.state.snacks})`;
   if (placeNow === 'garden') renderGardenInfo(); else renderRoomInfo();
 }

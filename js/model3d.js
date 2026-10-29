@@ -62,9 +62,10 @@ export function buildModel(THREE, sp) {
   const eyes = [];
   const wings = [];
   const tails = [];
+  const face = { arcs: [], blush: [], mouths: [], oh: null }; // 표정용 부품
 
   // 얼굴: 눈, 볼터치, 입
-  function face(parent, b, { ey, ex, es = 0.085, mouth = 'smile', blush = true, white = false, my }) {
+  function makeFace(parent, b, { ey, ex, es = 0.085, mouth = 'smile', blush = true, white = false, my }) {
     for (const sx of [-1, 1]) {
       const g = new THREE.Group();
       if (white) {
@@ -77,13 +78,22 @@ export function buildModel(THREE, sp) {
         ball(g, '#ffffff', [-es * 0.25, -es * 0.35, es * 0.4], es * 0.13, { glow: 0.4 });
       }
       placeOn(b, g, sx * ex, ey, 0.005);
+      g.userData.noOutline = true;
       parent.add(g);
       eyes.push(g);
+      // 기쁜 눈 (^^): 평소엔 숨겨 둠
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(es * 0.62, es * 0.15, 8, 18, Math.PI), mat('#2b2b33'));
+      placeOn(b, arc, sx * ex, ey - es * 0.2, 0.008);
+      arc.visible = false;
+      arc.userData.noOutline = true;
+      parent.add(arc);
+      face.arcs.push(arc);
       if (blush) {
-        const bl = new THREE.Mesh(SPH, mat('#ff8fa3', { opacity: 0.6 }));
+        const bl = new THREE.Mesh(SPH, new THREE.MeshStandardMaterial({ color: '#ff8fa3', transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.6 }));
         bl.scale.set(es * 1.0, es * 0.55, es * 0.12);
         placeOn(b, bl, sx * (ex + es * 1.25), ey - es * 1.5, 0.004);
         parent.add(bl);
+        face.blush.push(bl);
       }
     }
     const mY = my ?? ey - es * 1.9;
@@ -91,14 +101,30 @@ export function buildModel(THREE, sp) {
       const m = new THREE.Mesh(new THREE.TorusGeometry(es * 0.55, es * 0.12, 8, 20, Math.PI), mat('#2b2b33'));
       placeOn(b, m, 0, mY + es * 0.3, 0.004);
       m.rotateZ(Math.PI);
+      m.userData.baseQ = m.quaternion.clone();
+      m.userData.noOutline = true;
       parent.add(m);
+      face.mouths.push(m);
     } else if (mouth === 'cat') {
       for (const sx of [-1, 1]) {
         const m = new THREE.Mesh(new THREE.TorusGeometry(es * 0.32, es * 0.1, 8, 16, Math.PI), mat('#2b2b33'));
         placeOn(b, m, sx * es * 0.32, mY + es * 0.2, 0.004);
         m.rotateZ(Math.PI);
+        m.userData.baseQ = m.quaternion.clone();
+        m.userData.noOutline = true;
         parent.add(m);
+        face.mouths.push(m);
       }
+    }
+    // 놀란 입 (o)
+    if (!face.oh) {
+      const oh = new THREE.Mesh(SPH, mat('#5a2b33'));
+      oh.scale.set(es * 0.42, es * 0.5, es * 0.15);
+      placeOn(b, oh, 0, mY + es * 0.1, 0.006);
+      oh.visible = false;
+      oh.userData.noOutline = true;
+      parent.add(oh);
+      face.oh = oh;
     }
   }
 
@@ -255,7 +281,7 @@ export function buildModel(THREE, sp) {
         body.add(m);
       }
     }
-    face(body, b, { ey, ex: b.rx * 0.32, es: 0.085, mouth: s.top === 'cat' ? 'cat' : 'smile' });
+    makeFace(body, b, { ey, ex: b.rx * 0.32, es: 0.085, mouth: s.top === 'cat' ? 'cat' : 'smile' });
     if (s.glasses) {
       for (const sx of [-1, 1]) {
         const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 24), mat('#5b4636'));
@@ -309,7 +335,7 @@ export function buildModel(THREE, sp) {
         const h = { cx: 0, cy: 0.28, cz: 0.4, rx: 0.2, ry: 0.17, rz: 0.15 };
         ball(body, s.belly, [0, 0.28, 0.4], [0.2, 0.17, 0.15]);
         antennae(body, s.accent, [0, 0.42, 0.42]);
-        face(body, h, { ey: 0.31, ex: 0.08, es: 0.05, white: true, mouth: 'none', blush: false });
+        makeFace(body, h, { ey: 0.31, ex: 0.08, es: 0.05, white: true, mouth: 'none', blush: false });
         break;
       }
       case 'butterfly': {
@@ -318,7 +344,7 @@ export function buildModel(THREE, sp) {
         const h = { cx: 0, cy: 0.76, cz: 0, rx: 0.13, ry: 0.13, rz: 0.12 };
         ball(body, '#ffe9c2', [0, 0.76, 0], 0.13);
         antennae(body, '#5b4636', [0, 0.86, 0], 0.13, 0.2);
-        face(body, h, { ey: 0.78, ex: 0.05, es: 0.035, mouth: 'smile' });
+        makeFace(body, h, { ey: 0.78, ex: 0.05, es: 0.035, mouth: 'smile' });
         for (const sx of [-1, 1]) {
           const pv = new THREE.Group();
           pv.position.set(0, 0.5, -0.02);
@@ -347,7 +373,7 @@ export function buildModel(THREE, sp) {
         ball(dg, s.accent, [0, 0.45, -0.02], [0.1, 0.1, 0.12]);
         const h = { cx: 0, cy: 0.55, cz: 0.1, rx: 0.17, ry: 0.13, rz: 0.12 };
         ball(dg, s.body, [0, 0.55, 0.1], [0.17, 0.13, 0.12]);
-        face(dg, h, { ey: 0.57, ex: 0.08, es: 0.055, mouth: 'smile' });
+        makeFace(dg, h, { ey: 0.57, ex: 0.08, es: 0.055, mouth: 'smile' });
         for (const sx of [-1, 1]) {
           for (const [z, len] of [[0.0, 0.42], [-0.12, 0.38]]) {
             const pv = new THREE.Group();
@@ -376,7 +402,7 @@ export function buildModel(THREE, sp) {
             tube(body, s.accent, [[sx * 0.08, 0.36, 0.46], [sx * 0.2, 0.5, 0.56], [sx * 0.16, 0.7, 0.58], [sx * 0.04, 0.78, 0.52]], 0.03);
           }
         }
-        face(body, h, { ey: 0.33, ex: 0.08, es: 0.05, white: true, mouth: 'none', blush: false });
+        makeFace(body, h, { ey: 0.33, ex: 0.08, es: 0.05, white: true, mouth: 'none', blush: false });
         break;
       }
       case 'bee': {
@@ -395,7 +421,7 @@ export function buildModel(THREE, sp) {
           disc(pv, '#ffffff', [sx * 0.18, 0.12, 0], [0.18, 0.26, 1], [0.3, 0, sx * 0.6], { opacity: 0.7 });
           wings.push({ obj: pv, axis: 'y', amp: 0.6 * sx, speed: 30 });
         }
-        face(body, b, { ey: 0.52, ex: 0.15, es: 0.075 });
+        makeFace(body, b, { ey: 0.52, ex: 0.15, es: 0.075 });
         break;
       }
       case 'cicada': {
@@ -414,7 +440,7 @@ export function buildModel(THREE, sp) {
           ball(body, s.accent, [sx * 0.29, 0.72, 0.06], 0.085, { rough: 0.2 });
           ball(body, '#ffffff', [sx * 0.3, 0.76, 0.13], 0.025, { glow: 0.4 });
         }
-        face(body, h, { ey: 0.72, ex: 0.08, es: 0.04, blush: false });
+        makeFace(body, h, { ey: 0.72, ex: 0.08, es: 0.04, blush: false });
         break;
       }
       case 'ant': {
@@ -427,7 +453,7 @@ export function buildModel(THREE, sp) {
           tube(body, s.accent, [[sx * 0.1, 0.74, 0.15], [sx * 0.2, 0.92, 0.18], [sx * 0.34, 0.96, 0.22]], 0.017);
           ball(body, s.accent, [sx * 0.34, 0.96, 0.22], 0.035);
         }
-        face(body, h, { ey: 0.54, ex: 0.1, es: 0.07 });
+        makeFace(body, h, { ey: 0.54, ex: 0.1, es: 0.07 });
         break;
       }
       default:
@@ -482,7 +508,7 @@ export function buildModel(THREE, sp) {
         nose.scale.set(isCat ? 0.03 : 0.055, isCat ? 0.025 : 0.04, 0.03);
         placeOn(h, nose, 0, 0.6, 0.045);
         body.add(nose);
-        face(body, h, { ey: 0.7, ex: 0.15, es: 0.075, mouth: isCat ? 'cat' : 'smile', my: 0.53 });
+        makeFace(body, h, { ey: 0.7, ex: 0.15, es: 0.075, mouth: isCat ? 'cat' : 'smile', my: 0.53 });
         break;
       }
       case 'sparrow':
@@ -521,7 +547,7 @@ export function buildModel(THREE, sp) {
           ? ball(body, s.accent, [0, 0.4, 0.42], [0.13, 0.05, 0.1])
           : cone(body, s.draw === 'magpie' ? '#444444' : '#f2a13b', [0, 0.42, 0.44], 0.06, 0.14, [Math.PI / 2, 0, 0]);
         beak.userData.beak = true;
-        face(body, b, { ey: 0.54, ex: 0.15, es: 0.07, white: s.draw === 'magpie', mouth: 'none' });
+        makeFace(body, b, { ey: 0.54, ex: 0.15, es: 0.07, white: s.draw === 'magpie', mouth: 'none' });
         break;
       }
       case 'rabbit': {
@@ -542,7 +568,7 @@ export function buildModel(THREE, sp) {
         nose.scale.set(0.035, 0.025, 0.03);
         placeOn(h, nose, 0, 0.58, 0.02);
         body.add(nose);
-        face(body, h, { ey: 0.66, ex: 0.13, es: 0.07, my: 0.53 });
+        makeFace(body, h, { ey: 0.66, ex: 0.13, es: 0.07, my: 0.53 });
         break;
       }
       case 'hedgehog': {
@@ -568,7 +594,7 @@ export function buildModel(THREE, sp) {
         nose.scale.set(0.045, 0.04, 0.04);
         placeOn(f, nose, 0, 0.22, 0.02);
         body.add(nose);
-        face(body, f, { ey: 0.31, ex: 0.09, es: 0.055, my: 0.16 });
+        makeFace(body, f, { ey: 0.31, ex: 0.09, es: 0.055, my: 0.16 });
         break;
       }
       case 'frog': {
@@ -584,7 +610,7 @@ export function buildModel(THREE, sp) {
           ball(g, '#ffffff', [0.015, 0.025, 0.065], 0.015, { glow: 0.4 });
           g.position.set(sx * 0.24, 0.64, 0.2);
           body.add(g);
-          eyes.push(g);
+          eyes.push(g); g.userData.noOutline = true;
         }
         const m = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.02, 8, 24, Math.PI), mat('#2b2b33'));
         placeOn(b, m, 0, 0.36, 0.005);
@@ -620,7 +646,7 @@ export function buildModel(THREE, sp) {
       }
       const h = { cx: 0, cy: 0.2, cz: 0.55, rx: 0.17, ry: 0.15, rz: 0.15 };
       ball(body, s.belly, [0, 0.2, 0.55], [0.17, 0.15, 0.15]);
-      face(body, h, { ey: 0.23, ex: 0.07, es: 0.045 });
+      makeFace(body, h, { ey: 0.23, ex: 0.07, es: 0.045 });
       return;
     }
     swimmer = true;
@@ -659,7 +685,7 @@ export function buildModel(THREE, sp) {
       ball(g, '#ffffff', [0.02, 0.025, sz * 0.025], 0.02, { glow: 0.4 });
       g.position.set(0.3, 0.06, sz * 0.18);
       fishG.add(g);
-      eyes.push(g);
+      eyes.push(g); g.userData.noOutline = true;
       ball(fishG, '#ff8fa3', [0.3, -0.06, sz * 0.19], [0.05, 0.03, 0.01], { opacity: 0.6 });
     }
     fishG.position.y = 0.4;
@@ -673,6 +699,6 @@ export function buildModel(THREE, sp) {
   else monster(sp);
 
   root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
-  root.userData = { eyes, wings, tails, flyer, swimmer, height: 1 };
+  root.userData = { eyes, wings, tails, flyer, swimmer, height: 1, face };
   return root;
 }
