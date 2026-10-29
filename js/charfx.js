@@ -51,7 +51,7 @@ function kit(THREE) {
 }
 
 function toToon(THREE, m, grad) {
-  if (!m || m.isMeshToonMaterial || m.isMeshBasicMaterial || m.isPointsMaterial) return m;
+  if (!m || m.isMeshToonMaterial || m.isMeshBasicMaterial || m.isPointsMaterial || m.isShaderMaterial) return m;
   const t = new THREE.MeshToonMaterial({
     color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, gradientMap: grad,
     emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveIntensity: m.emissiveIntensity ?? 0, emissiveMap: m.emissiveMap || null,
@@ -79,7 +79,7 @@ export function stylize(THREE, root, { outline = outlinesOn(), width = 0.014, to
     }
     if (!outline) continue;
     const mat = m.material;
-    if (Array.isArray(mat) || mat.transparent || (mat.emissiveIntensity || 0) > 0.6) continue; // 반투명·빛나는 것은 빼기
+    if (Array.isArray(mat) || mat.isShaderMaterial || mat.transparent || (mat.emissiveIntensity || 0) > 0.6) continue; // 반투명·빛나는 것은 빼기
     if (m.geometry.type === 'TubeGeometry' || m.geometry.type === 'PlaneGeometry' || m.geometry.type === 'CircleGeometry' || m.geometry.type === 'RingGeometry') continue;
     let p = m.parent;
     let skip = false;

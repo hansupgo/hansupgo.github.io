@@ -53,11 +53,11 @@ function autoQuality(renderer) {
     if (done || dt <= 0) return;
     if (gfxLevel() !== 'auto') { done = true; return; } // 직접 고른 화질은 그대로
     n++;
-    if (n < 20) return; // 처음 몇 프레임은 불러오느라 느림
+    if (n < 8) return; // 처음 몇 프레임은 불러오느라 느림
     sum += dt;
-    if (n < 110) return;
+    if (n < 70 && sum < 2) return; // 70프레임 또는 2초 지켜본 뒤 판단
     done = true;
-    if (sum / (n - 20) > 1 / 30 && renderer.getPixelRatio() > 1) {
+    if (sum / (n - 8) > 1 / 30 && renderer.getPixelRatio() > 1) {
       renderer.setPixelRatio(1);
       console.info('3D 화질을 낮춰 부드럽게 했어요');
     }
@@ -65,13 +65,15 @@ function autoQuality(renderer) {
 }
 
 function addLights(scene) {
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x7a9a6a, 1.5));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x7a9a6a, 1.5);
+  scene.add(hemi);
   const key = new THREE.DirectionalLight(0xffffff, 1.6);
   key.position.set(-1.5, 3, 2.5);
   scene.add(key);
   const rim = new THREE.DirectionalLight(0xcfe6ff, 0.6);
   rim.position.set(2, 1.5, -2);
   scene.add(rim);
+  return { hemi, key, rim };
 }
 
 function blobShadow() {
@@ -136,7 +138,9 @@ export async function createStage(container) {
   if (!webglOk() || !(await loadThree())) return null;
   const renderer = makeRenderer(container);
   const scene = new THREE.Scene();
-  addLights(scene);
+  const lights = addLights(scene);
+  let backdrop = null;      // 장소별 3D 배경 (공원·연못·단지·학교)
+  let backdropWanted = true;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 50);
   const BASE_PITCH = -0.13;
   camera.rotation.set(BASE_PITCH, 0, 0);
@@ -259,7 +263,7 @@ export async function createStage(container) {
   }
 
   // ---------- 상태 애니메이션 ----------
-  const encFx = createParticles(THREE, scene, 50);
+  const encFx = createParticles(THREE, scene, 100);
   let encSp = null;
   let encAmbT = 0;
   function play(name) {
@@ -307,6 +311,10 @@ export async function createStage(container) {
       }
     }
     encFx.update(dt);
+    if (backdrop) {
+      backdrop.visible = backdropWanted && !renderer.xr.isPresenting; // 진짜 AR 중엔 실제 바닥만
+      if (backdrop.visible) backdrop.userData.tick(dt, clock);
+    }
     if (u.flyer && !fly) y += 0.35 + Math.sin(t * 3) * 0.05;
     if (u.swimmer) { x += -0.4 + Math.sin(t * 0.6) * 0.3; rotY = (rotY ?? 0) + (Math.cos(t * 0.6) > 0 ? 0 : Math.PI); y += 0.35; s *= 0.62; }
     if (fly) { x += fly.x; y += fly.y; rotY = (rotY ?? 0) + fly.dir; }
@@ -369,6 +377,41 @@ export async function createStage(container) {
       const pc = toPx(c);
       const pt = toPx(top);
       return { x: pc.x, y: pc.y, r: Math.max(30, Math.hypot(pt.x - pc.x, pt.y - pc.y) * 0.95) };
+    },
+    /** 장소별 배경: kind 'park'|'pond'|'town'|'school', opts { tod, weather } */
+    async setBackdrop(kind, opts = {}) {
+      const mod = await import('./scene3d.js');
+      if (backdrop) { scene.remove(backdrop); backdrop.userData.dispose?.(); disposeTree(backdrop); backdrop = null; }
+      if (!kind) return;
+      backdrop = stylize(THREE, mod.buildBackdrop(THREE, kind, opts), { outline: false }); // 배경은 선 없이 (가볍게)
+      backdrop.visible = backdropWanted && !renderer.xr.isPresenting;
+      scene.add(backdrop);
+      // 밤·노을엔 캐릭터 조명도 맞춤
+      const tod = opts.tod || 'day';
+      lights.hemi.intensity = tod === 'night' ? 0.75 : tod === 'dusk' ? 1.2 : 1.5;
+      lights.key.intensity = tod === 'night' ? 0.8 : 1.6;
+      lights.key.color.set(tod === 'dusk' || tod === 'dawn' ? 0xffd2a0 : tod === 'night' ? 0xbfcfff : 0xffffff);
+    },
+    /** AR 카메라를 켜면 배경을 숨김 */
+    showBackdrop(on) {
+      backdropWanted = on;
+      if (backdrop) backdrop.visible = on && !renderer.xr.isPresenting;
+      if (!on) { lights.hemi.intensity = 1.5; lights.key.intensity = 1.6; lights.key.color.set(0xffffff); }
+    },
+    /** 순간 효과: 'hit' 맞음, 'catch' 잡음, 'flee' 도망, 'love' 하트, 'splash' 물보라 */
+    burst(kind) {
+      if (!model) return;
+      model.updateMatrixWorld();
+      const at = (y) => new THREE.Vector3(0, y, 0.2).applyMatrix4(model.matrixWorld);
+      if (kind === 'hit') encFx.spawn('star', at(0.6), { count: 9, vel: { x: 0, y: 0.9, z: 0 }, jitter: 2.2, gravity: 1.5, size: 0.16, life: 0.8 });
+      if (kind === 'catch') {
+        for (const [k, n] of [['star', 14], ['heart', 8], ['leaf', 8], ['spark', 8]]) {
+          encFx.spawn(k, at(0.5), { count: n, vel: { x: 0, y: 2.2, z: 0.3 }, jitter: 3.2, gravity: 3.2, size: 0.17, life: 1.6, drift: 0.4 });
+        }
+      }
+      if (kind === 'flee') encFx.spawn('dust', at(0.05), { count: 12, vel: { x: 0, y: 0.25, z: 0 }, jitter: 1.4, size: 0.2, grow: 1.2, life: 0.9 });
+      if (kind === 'love') encFx.spawn('heart', at(0.9), { count: 4, vel: { x: 0, y: 0.7, z: 0 }, jitter: 0.6, size: 0.15, life: 1.1 });
+      if (kind === 'splash') encFx.spawn('bubble', at(0.3), { count: 10, vel: { x: 0, y: 1.2, z: 0 }, jitter: 1.6, gravity: 2, size: 0.12, life: 1 });
     },
     enableGyro,
     disableGyro,
