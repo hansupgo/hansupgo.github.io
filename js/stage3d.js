@@ -429,9 +429,12 @@ function addAccessories(model, stage) {
   model.add(acc);
 }
 
+const SCALE_BY_STAGE = [0.72, 0.88, 1.0];
+
 export async function createBuddyView(el, sp, {
   stage = 0, onPet, onSlot, onPlot, room = null, slots = [], night = false, zzzEl = null,
   garden = null, place: startPlace = 'room', weatherKind = 'clear', tod = night ? 'night' : 'day',
+  guest = null, // 놀러 온 짝꿍 { sp, stage }
 } = {}) {
   if (!webglOk() || !(await loadThree())) return null;
   const renderer = makeRenderer(el);
@@ -627,7 +630,7 @@ export async function createBuddyView(el, sp, {
     roomRoot.visible = p === 'room';
     gardenRoot.visible = p === 'garden';
     walk = { target: null, wait: 0.3 };
-    holder.position.set(p === 'garden' ? 0.55 : HOME.x, 0, p === 'garden' ? 0.3 : HOME.z);
+    holder.position.set(p === 'garden' ? 0.55 : guest ? 0.4 : HOME.x, 0, p === 'garden' ? 0.3 : HOME.z);
     resize();
     applyNight();
   }
@@ -664,6 +667,21 @@ export async function createBuddyView(el, sp, {
     addAccessories(model, st);
   }
   setCreature(sp, stage);
+
+  // 손님 짝꿍 (친구 집에 놀러 갔을 때 내 짝꿍)
+  let guestHolder = null;
+  let guestModel = null;
+  let guestWalk = { target: null, wait: 1 };
+  if (guest?.sp) {
+    guestHolder = new THREE.Group();
+    guestHolder.add(blobShadow());
+    guestModel = buildModel(THREE, guest.sp);
+    addAccessories(guestModel, guest.stage || 0);
+    guestModel.scale.setScalar(SCALE_BY_STAGE[guest.stage || 0] ?? 1);
+    guestHolder.add(guestModel);
+    guestHolder.position.set(-0.45, 0, 0.3);
+    scene.add(guestHolder);
+  }
 
   function resize() {
     const w = el.clientWidth || 1;
@@ -723,6 +741,7 @@ export async function createBuddyView(el, sp, {
         const p = gardenMod.PLOTS[3 + Math.floor(Math.random() * 3)];
         return { x: p.x + (Math.random() - 0.5) * 0.3, z: p.z + 0.45, y: 0 };
       }
+      if (guestHolder) return { x: 0.25 + Math.random() * 1.0, z: 0.15 + Math.random() * 0.35, y: 0 }; // 손님과 나눠 섬
       return { x: (Math.random() - 0.5) * 2.4, z: 0.15 + Math.random() * 0.35, y: 0 };
     }
     if (sleeping) {
@@ -735,10 +754,11 @@ export async function createBuddyView(el, sp, {
       }
       return null;
     }
+    if (guestHolder) return { x: 0.15 + Math.random() * 0.5, z: -0.2 + Math.random() * 0.8, y: 0 }; // 주인은 오른쪽
     return { x: (Math.random() - 0.5) * 1.0, z: -0.25 + Math.random() * 0.95, y: 0 };
   }
 
-  const SCALE = [0.72, 0.88, 1.0];
+  const SCALE = SCALE_BY_STAGE;
   let last = performance.now();
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -810,6 +830,32 @@ export async function createBuddyView(el, sp, {
       zzzEl.style.right = 'auto';
     }
 
+    if (guestHolder) {
+      // 손님은 반대쪽에서 천천히 돌아다님
+      let gWalking = false;
+      if (guestWalk.target) {
+        const dx = guestWalk.target.x - guestHolder.position.x;
+        const dz = guestWalk.target.z - guestHolder.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.03) guestWalk = { target: null, wait: 2 + Math.random() * 4 };
+        else {
+          const step = Math.min(d, dt * 0.35);
+          guestHolder.position.x += (dx / d) * step;
+          guestHolder.position.z += (dz / d) * step;
+          guestHolder.rotation.y = Math.atan2(dx, dz);
+          gWalking = true;
+        }
+      } else if ((guestWalk.wait -= dt) <= 0) {
+        // 손님은 왼쪽에서 (주인과 겹치지 않게)
+        guestWalk.target = place === 'garden'
+          ? { x: -1.25 + Math.random() * 1.0, z: 0.15 + Math.random() * 0.35 }
+          : { x: -0.65 + Math.random() * 0.5, z: -0.2 + Math.random() * 0.8 };
+      }
+      animateIdle(guestModel, clock + 1.7, { noLook: gWalking });
+      guestModel.position.y = (guestModel.userData.flyer ? 0.12 : 0) + (gWalking ? Math.abs(Math.sin(clock * 9 + 1)) * 0.05 : 0);
+      if (gWalking) guestModel.rotation.y = 0;
+      else guestHolder.rotation.y *= 0.95; // 서 있을 땐 앞을 봄
+    }
     if (place === 'garden') {
       particles?.userData.tick(dt, clock);
       for (const p of plants.values()) {

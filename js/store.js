@@ -123,6 +123,7 @@ export const remote = {
   unsubs: [],
   players: [],
   feed: [],
+  mail: [],      // 나에게 온 선물·방문 쪽지·같이 걷기 초대
   listeners: new Set(),
 
   async init() {
@@ -156,6 +157,7 @@ export const remote = {
     this.unsubs = [];
     this.players = [];
     this.feed = [];
+    this.mail = [];
     if (!this.ready || !group) { this.emit(); return; }
     this.error = '';
     const { collection, onSnapshot, query, orderBy, limit } = this.fs;
@@ -169,6 +171,31 @@ export const remote = {
       query(collection(this.db, ...base, 'feed'), orderBy('at', 'desc'), limit(25)),
       (snap) => { this.feed = snap.docs.map(d => d.data()); this.emit(); },
       (e) => console.warn(e)));
+    const { where } = this.fs;
+    this.unsubs.push(onSnapshot(
+      query(collection(this.db, ...base, 'mail'), where('to', '==', this.uid)),
+      (snap) => { this.mail = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.at || 0) - (b.at || 0)); this.emit(); },
+      (e) => console.warn('우편함', e)));
+  },
+
+  /** 친구에게 우편 보내기 (선물, 텃밭 물 주기, 방문 쪽지, 같이 걷기 초대) */
+  async sendMail(state, to, data) {
+    if (!this.ready || !state.group || !to || to === this.uid) return false;
+    const { collection, addDoc } = this.fs;
+    try {
+      await addDoc(collection(this.db, 'groups', state.group, 'mail'), {
+        ...data, to, from: this.uid, fromName: state.name.slice(0, 12), at: Date.now(),
+      });
+      return true;
+    } catch (e) { console.warn('우편 보내기 실패', e); return false; }
+  },
+
+  async deleteMail(state, id) {
+    if (!this.ready || !state.group) return;
+    const { doc, deleteDoc } = this.fs;
+    this.mail = this.mail.filter(m => m.id !== id);
+    try { await deleteDoc(doc(this.db, 'groups', state.group, 'mail', id)); } catch (e) { console.warn(e); }
+    this.emit();
   },
 
   // 친구 화면에 보이는 내용만 뽑는다 (숲볼·간식 개수는 공유하지 않음)
@@ -189,6 +216,14 @@ export const remote = {
         // 업로드 횟수를 줄이려고 단계와 0.5km 단위 거리만 공유
         stage: state.buddy.growth >= 1000 ? 2 : state.buddy.growth >= 300 ? 1 : 0,
         walkedKm: Math.floor(state.buddy.walkedM / 500) / 2,
+      } : null,
+      // 친구가 놀러 올 때 보이는 방과 텃밭
+      home: state.room ? { wall: state.room.wall, floor: state.room.floor, slots: state.room.slots || {} } : null,
+      garden: state.garden?.view || null,
+      // 같이 걷기: 위치는 보내지 않고 함께 걸은 거리(50m 단위)만
+      walk: state.walkTogether?.accepted ? {
+        id: state.walkTogether.id,
+        m: Math.floor(Math.max(0, (state.buddy?.walkedM || 0) - state.walkTogether.startM) / 50) * 50,
       } : null,
     };
   },
@@ -213,13 +248,13 @@ export const remote = {
     } catch (e) { console.warn('기록 공유 실패', e); }
   },
 
-  async postFeed(state, speciesId, isNew) {
+  async postFeed(state, speciesId, isNew, extra = {}) {
     if (!this.ready || !state.group || !state.name) return;
     const { collection, addDoc } = this.fs;
     try {
       await addDoc(collection(this.db, 'groups', state.group, 'feed'), {
         uid: this.uid, name: state.name.slice(0, 12), color: state.color,
-        speciesId, isNew, at: Date.now(),
+        speciesId, isNew, at: Date.now(), ...extra,
       });
     } catch (e) { console.warn(e); }
   },

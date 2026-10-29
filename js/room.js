@@ -18,6 +18,7 @@ export const MATERIALS = {
   star: { name: '별가루', icon: '✨' },
   raindrop: { name: '빗방울', icon: '💧', limited: '비 오는 날에만' },
   snowflake: { name: '눈송이', icon: '❄️', limited: '눈 오는 날에만' },
+  ribbon: { name: '우정 리본', icon: '🎀', limited: '친구와 같이 걷기 목표를 채우면' },
 };
 // 씨앗(seed_딸기...)과 거둔 작물도 재료 주머니에 함께 담음
 for (const [id, c] of Object.entries(CROPS)) {
@@ -48,6 +49,7 @@ export const FURNITURE = [
   { id: 'pumpkinlamp', name: '호박 랜턴', icon: '🎃', where: 'floor', cozy: 5, cost: { pumpkin: 1, twig: 2 }, special: true },
   { id: 'snowman', name: '눈사람 인형', icon: '⛄', where: 'floor', cozy: 4, cost: { snowflake: 4, twig: 1 }, special: true },
   { id: 'chime', name: '빗방울 풍경', icon: '💧', where: 'wall', cozy: 4, cost: { raindrop: 3, shell: 1 }, special: true },
+  { id: 'friendframe', name: '우정 사진 액자', icon: '💞', where: 'wall', cozy: 6, cost: { ribbon: 1, twig: 2 }, special: true },
 ];
 export const furnitureById = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 
@@ -176,6 +178,17 @@ export function cozy() {
   n += new Set(ids).size >= 5 ? 3 : 0;
   if (r.wall !== 'cream') n += 2;
   if (r.floor !== 'wood') n += 2;
+  return n;
+}
+
+/** 친구 방의 아늑함 (친구 기록으로 계산) */
+export function cozyOf(r) {
+  if (!r) return 0;
+  const ids = Object.values(r.slots || {}).filter(id => furnitureById[id]);
+  let n = ids.reduce((a, id) => a + furnitureById[id].cozy, 0);
+  n += new Set(ids).size >= 5 ? 3 : 0;
+  if (r.wall && r.wall !== 'cream') n += 2;
+  if (r.floor && r.floor !== 'wood') n += 2;
   return n;
 }
 
