@@ -581,3 +581,49 @@ body.in-encounter .toast { bottom: calc(140px + var(--safe-b)); }
 .me-buddy::after { content: "💛"; position: absolute; right: -6px; top: -6px; font-size: 12px; }
 .me-buddy svg { filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); animation: bob 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .me-buddy svg, .buddy-svg svg, .evolve-art svg, .buddy-zzz span { animation: none; } .buddy-zzz span { opacity: 1; } }
+
+/* ---------- 짝꿍 방 꾸미기 ---------- */
+.edit-bar {
+  position: absolute; z-index: 3; left: 10px; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 10px;
+  justify-content: space-between; padding: 8px 8px 8px 14px; border-radius: 16px; background: rgba(255, 255, 255, .92);
+  font-family: var(--display); color: var(--forest-d); font-size: 15px; box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+}
+.edit-bar .btn { margin: 0; padding: 8px 14px; flex: none; }
+.buddy-room.editing .buddy-say { display: none; }
+.slot-chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px 0; }
+.slot-chip {
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 64px; padding: 6px 8px;
+  border: 2px dashed #2fd18a; border-radius: 12px; background: var(--card); font-size: 12px; color: var(--muted);
+}
+.slot-chip.full { border-style: solid; border-color: #ffc93c; }
+.slot-chip b { font-size: 20px; line-height: 1.1; }
+.room-card { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.room-card p { margin: 0; }
+.room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cozy { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); color: var(--forest-d); font-variant-numeric: tabular-nums; }
+.mat-strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.mat { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 999px; background: #f3f6f1; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mat.zero { opacity: .45; }
+.room-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.craft-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 14px; }
+.craft-item {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--card); text-align: left; width: 100%; font: inherit; color: inherit;
+}
+.craft-ico { font-size: 28px; text-align: center; }
+.craft-name { font-family: var(--display); font-size: 16px; }
+.craft-meta { font-size: 13px; color: var(--muted); }
+.craft-meta .short { color: #d9534f; }
+.craft-item .btn { margin: 0; padding: 8px 12px; font-size: 14px; }
+.craft-item .btn[disabled] { opacity: .45; }
+.craft-empty { margin: 0; color: var(--muted); }
+#craft-sheet .sheet-card, #slot-sheet .sheet-card { max-height: 82vh; overflow-y: auto; }
+
+/* 지도 위 재료 */
+.mat-icon { background: none; border: none; }
+.mat-spot {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 17px;
+  background: rgba(255, 255, 255, .9); border: 2px solid #b9d9a8; box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+.mat-spot.near { border-color: #2fd18a; animation: bob 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mat-spot.near { animation: none; } }

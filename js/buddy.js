@@ -5,6 +5,7 @@
 
 import { speciesById } from './monsters.js';
 import { store } from './store.js';
+import { cozy, hasBed, room } from './room.js';
 
 export const STAGES = [
   { name: '아기', need: 0, scale: 0.72 },
@@ -61,9 +62,11 @@ export function tick(now = Date.now()) {
   const h = Math.max(0, (now - (b.last || now)) / 3600000);
   if (h < 1 / 120) return; // 30초 미만은 무시
   b.hunger = Math.max(Math.min(b.hunger, FLOOR), b.hunger - DECAY.hunger * h);
-  b.mood = Math.max(Math.min(b.mood, FLOOR), b.mood - DECAY.mood * h * (b.hunger < 30 ? 1.5 : 1));
+  // 방이 아늑할수록 기분이 덜 떨어짐 (최대 절반)
+  const calm = 1 - Math.min(0.5, cozy() / 60);
+  b.mood = Math.max(Math.min(b.mood, FLOOR), b.mood - DECAY.mood * h * calm * (b.hunger < 30 ? 1.5 : 1));
   if (b.sleeping) {
-    b.energy = clamp(b.energy + SLEEP_RECOVER * h);
+    b.energy = clamp(b.energy + SLEEP_RECOVER * h * (hasBed() ? 1.6 : 1));
     if (b.energy >= 100) b.sleeping = false; // 푹 자면 스스로 일어남
   } else {
     b.energy = Math.max(Math.min(b.energy, FLOOR), b.energy - DECAY.energy * h);
@@ -133,6 +136,18 @@ export function toggleSleep() {
   return { ok: true, line: b.sleeping ? '잘 자… 쿨쿨' : pick(['잘 잤다! 좋은 아침!', '으아~ 개운해!']) };
 }
 
+/** 아늑한 방에서 하루 한 번 받는 성장 보너스 */
+export function dailyRoomBonus() {
+  const b = buddy();
+  const c = cozy();
+  if (!b || c <= 0 || b.roomDay === today()) return null;
+  b.roomDay = today();
+  const pts = Math.min(30, c);
+  const evolved = grow(pts);
+  store.save();
+  return { pts, evolved };
+}
+
 export function rename(nick) {
   buddy().nick = nick.trim().slice(0, 8);
   store.save();
@@ -167,6 +182,19 @@ export function talk(ctx = {}) {
   if (b.energy < 25) lines.push('하암… 졸려.', '나 좀 재워 줄래?');
   if (b.mood < 30) lines.push('심심해… 놀아 줘!', '오늘은 같이 산책 안 가?');
   if (lines.length) return pick(lines);
+  const placed = Object.values(room().slots);
+  if (!placed.length) {
+    if (Math.random() < 0.5) return pick(['방이 좀 휑하다… 같이 꾸밀래?', '나뭇잎 모아서 방석 만들어 줘!']);
+  } else if (Math.random() < 0.4) {
+    const say = [];
+    if (placed.includes('bed')) say.push('버섯 침대 폭신폭신해!');
+    if (placed.includes('tank')) say.push('어항 속 물고기 봤어? 귀엽지!');
+    if (placed.includes('lamp')) say.push('램프 불빛 따뜻하다~');
+    if (placed.includes('plant')) say.push('꽃 화분에 물 줬어!');
+    if (cozy() >= 24) say.push('우리 방 진짜 아늑해! 최고야!');
+    else say.push('가구 더 만들어 볼까? 재료는 산책하면서 주울 수 있어!');
+    return pick(say);
+  }
   const pool = [
     '오늘 햇빛공원 가 보고 싶어!',
     '물빛공원 연못에 물고기 보러 가자!',

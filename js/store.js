@@ -30,6 +30,11 @@ function defaultState() {
     demo: false,
     buddy: null,       // 지금 짝꿍 (buddy.js)
     buddyBook: {},     // 예전 짝꿍들의 성장 기록
+    materials: { leaf: 5, twig: 4, pebble: 2 }, // 방 꾸미기 재료 (처음 선물)
+    furniture: {},     // 만든 가구 개수
+    room: { wall: 'cream', floor: 'wood', slots: {} }, // 짝꿍 방 (room.js)
+    themes: { cream: true, wood: true },
+    gathered: {},      // 주운 재료 자리 -> timestamp
   };
 }
 
@@ -58,6 +63,9 @@ export const store = {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     for (const [k, t] of Object.entries(this.state.caughtSpawns)) {
       if (t < dayAgo) delete this.state.caughtSpawns[k];
+    }
+    for (const [k, t] of Object.entries(this.state.gathered || {})) {
+      if (t < dayAgo) delete this.state.gathered[k];
     }
   },
 

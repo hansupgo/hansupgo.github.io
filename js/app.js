@@ -8,6 +8,7 @@ import { startEncounter, initEncounterUI, encounterActive } from './catch.js';
 import { loadThree, createViewer } from './stage3d.js';
 import { hasBuddy, buddySpecies, STAGES } from './buddy.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked } from './buddy-ui.js';
+import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -24,6 +25,7 @@ let gpsWatch = null;
 let gpsOk = false;
 const spawnMarkers = new Map();
 const stopMarkers = new Map();
+const matMarkers = new Map();
 let followMe = true;
 
 // ---------- 공통 ----------
@@ -84,6 +86,15 @@ function spawnIcon(spawn, near) {
     html: `<div class="spawn ${near ? 'near' : ''} r-${sp.rarity}">${monsterSVG(sp, { size: 52 })}</div>`,
     iconSize: [52, 52],
     iconAnchor: [26, 46],
+  });
+}
+
+function matIcon(spot, near) {
+  return L.divIcon({
+    className: 'mat-icon',
+    html: `<div class="mat-spot ${near ? 'near' : ''}" title="${MATERIALS[spot.kind].name}">${MATERIALS[spot.kind].icon}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
   });
 }
 
@@ -222,7 +233,43 @@ function refreshWorld() {
   for (const stop of CONFIG.stops) {
     stopMarkers.get(stop.id).setIcon(stopIcon(stop, stopReady(stop)));
   }
+  refreshMaterials();
   renderNearby(list);
+}
+
+// 동네에 떨어진 재료
+function refreshMaterials() {
+  const keep = new Set();
+  for (const m of materialsAround(me)) {
+    keep.add(m.id);
+    const near = distanceM(me, m) <= CONFIG.catchRadius;
+    const existing = matMarkers.get(m.id);
+    if (existing) {
+      if (existing._near !== near) { existing.setIcon(matIcon(m, near)); existing._near = near; }
+      continue;
+    }
+    const mk = L.marker([m.lat, m.lng], { icon: matIcon(m, near), zIndexOffset: 300 }).addTo(map)
+      .on('click', () => tapMaterial(m));
+    mk._near = near;
+    matMarkers.set(m.id, mk);
+  }
+  for (const [id, mk] of matMarkers) {
+    if (!keep.has(id)) { map.removeLayer(mk); matMarkers.delete(id); }
+  }
+}
+
+function tapMaterial(m) {
+  if (!me) return;
+  const d = distanceM(me, m);
+  const info = MATERIALS[m.kind];
+  if (d > CONFIG.catchRadius) {
+    toast(`${info.icon} ${info.name}까지 ${fmtDist(d)} 남았어요.`);
+    return;
+  }
+  if (!gather(m)) return;
+  toast(`${gainText({ [m.kind]: m.amount })}를 주웠어요!`);
+  const mk = matMarkers.get(m.id);
+  if (mk) { map.removeLayer(mk); matMarkers.delete(m.id); }
 }
 
 function renderNearby(list) {
@@ -258,7 +305,9 @@ function openEncounter(spawn) {
   startEncounter(spawn, (result, sp) => {
     if (result.caught) {
       const s = speciesById[sp.speciesId];
-      toast(result.isNew ? `새로운 ${KINDS[s.kind].label} ${s.name} 도감 등록!` : `${s.name} +${result.gained} XP`);
+      const gift = catchGift(s.kind);
+      const giftText = gift ? ` · 선물로 ${MATERIALS[gift].icon} ${MATERIALS[gift].name}!` : '';
+      toast((result.isNew ? `새로운 ${KINDS[s.kind].label} ${s.name} 도감 등록!` : `${s.name} +${result.gained} XP`) + giftText, 3200);
       const m = spawnMarkers.get(sp.id);
       if (m) { map.removeLayer(m); spawnMarkers.delete(sp.id); }
     } else if (result.fled) {
@@ -294,16 +343,17 @@ function useStop(stop) {
   store.state.snacks += k;
   store.state.stopCooldowns[stop.id] = Date.now();
   store.state.xp += 50;
+  const mats = stopMaterials(stop.special);
   store.save();
   renderHud();
   refreshWorld();
   if (stop.special && store.state.specialDay !== todayKey()) {
     store.state.specialDay = todayKey();
     store.save();
-    toast(`★ ${stop.name} 특별 거점! 숲볼 ${n}개, 간식 ${k}개 + 특별한 몬스터가 나타났어요!`, 3500);
+    toast(`★ ${stop.name} 특별 거점! 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)} + 특별한 몬스터가 나타났어요!`, 4000);
     setTimeout(() => openEncounter(specialEncounter(store.state.id, todayKey())), 900);
   } else {
-    toast(`${stop.name}에서 숲볼 ${n}개, 간식 ${k}개를 받았어요!`);
+    toast(`${stop.name}에서 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)}를 받았어요!`, 3200);
   }
 }
 

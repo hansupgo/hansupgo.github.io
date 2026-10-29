@@ -3,10 +3,16 @@
 import { SPECIES, speciesById, monsterSVG, josa } from './monsters.js';
 import { store } from './store.js';
 import { createBuddyView } from './stage3d.js';
+import { isNight } from './spawn.js';
 import {
   STAGES, hasBuddy, buddy, buddySpecies, displayName, stageIndex, stageProgress,
-  adopt, tick, feed, play, pet, toggleSleep, rename, addWalk, talk, evolveLine,
+  adopt, tick, feed, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus,
 } from './buddy.js';
+import {
+  MATERIALS, MATERIAL_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
+  room, matCount, canAfford, craft, unlockTheme, hasTheme, owned, spare, place, clearSlot,
+  cozy, cozyLevel,
+} from './room.js';
 
 const $ = (id) => document.getElementById(id);
 const STARTERS = ['sumbbong', 'mulbangkong', 'bulssikkomi'];
@@ -17,6 +23,7 @@ let talkTimer = 0;
 let toastFn = () => {};
 let onChangeFn = () => {};
 let choosing = false;    // 짝꿍 바꾸기 중
+let editing = false;     // 방 꾸미기 중
 
 function fmtKm(m) { return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`; }
 
@@ -76,12 +83,15 @@ async function ensureView() {
   closeView();
   viewFor = key;
   const box = $('buddy-3d');
-  const v = await createBuddyView(box, sp, { stage: stageIndex(), onPet: onPet });
+  const v = await createBuddyView(box, sp, {
+    stage: stageIndex(), onPet, onSlot: openSlot, room: room(), slots: SLOTS, night: isNight(), zzzEl: $('buddy-zzz'),
+  });
   if (viewFor !== key || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
   view = v;
   $('buddy-svg').hidden = Boolean(view);
   if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
   view?.setSleeping(buddy().sleeping);
+  view?.setEditing(editing);
 }
 
 function closeView() {
@@ -115,6 +125,7 @@ function renderStats() {
   $('buddy-zzz').hidden = !b.sleeping;
   document.querySelector('.buddy-room').classList.toggle('sleeping', b.sleeping);
   view?.setSleeping(b.sleeping);
+  renderRoomInfo();
 }
 
 export async function renderBuddy(greeting) {
@@ -123,18 +134,150 @@ export async function renderBuddy(greeting) {
   $('buddy-adopt').hidden = true;
   $('buddy-home').hidden = false;
   renderStats();
+  const bonus = dailyRoomBonus();
+  if (bonus) { renderStats(); greeting = `아늑한 방에서 푹 쉬었더니 힘이 나! (성장 +${bonus.pts})`; }
   await ensureView();
   say(greeting || talk({ todayM: buddy().todayM }));
+  if (bonus?.evolved != null) showEvolve(bonus.evolved);
   talkTimer = setInterval(() => {
     if (document.body.dataset.tab !== 'buddy') return;
     renderStats();
-    say(talk({ todayM: buddy().todayM }));
+    view?.setNight(isNight());
+    if (!editing) say(talk({ todayM: buddy().todayM }));
   }, 14000);
 }
 
 export function leaveBuddy() {
   clearInterval(talkTimer);
+  setEditing(false);
   closeView();
+}
+
+// ---------- 방 꾸미기 ----------
+
+function matChips(ids = MATERIAL_IDS) {
+  return ids.map(k => `<span class="mat ${matCount(k) ? '' : 'zero'}" title="${MATERIALS[k].name}">${MATERIALS[k].icon} ${matCount(k)}</span>`).join('');
+}
+
+function renderRoomInfo() {
+  const c = cozy();
+  const lv = cozyLevel(c);
+  $('cozy-hearts').textContent = '💛'.repeat(lv) + '🤍'.repeat(5 - lv);
+  $('cozy-num').textContent = `아늑함 ${c}`;
+  $('mat-strip').innerHTML = matChips();
+  if (editing) renderSlotChips();
+}
+
+function renderSlotChips() {
+  const r = room();
+  $('slot-chips').innerHTML = SLOTS.map((sl) => {
+    const f = furnitureById[r.slots[sl.id]];
+    const label = sl.where === 'wall' ? `벽 ${sl.id.slice(1)}` : sl.where === 'rug' ? '가운데' : `바닥 ${sl.id.slice(1)}`;
+    return `<button class="slot-chip ${f ? 'full' : ''}" data-slot="${sl.id}" type="button"><b>${f ? f.icon : '+'}</b>${label}</button>`;
+  }).join('');
+  for (const b of $('slot-chips').querySelectorAll('.slot-chip')) b.addEventListener('click', () => openSlot(b.dataset.slot));
+}
+
+function setEditing(v) {
+  editing = v;
+  $('edit-bar').hidden = !v;
+  $('slot-chips').hidden = !v;
+  document.querySelector('.buddy-room')?.classList.toggle('editing', v);
+  view?.setEditing(v);
+  if (v) renderSlotChips();
+}
+
+function openSheet(id) { $(id).hidden = false; }
+function closeSheet(id) { $(id).hidden = true; }
+
+function openSlot(slotId) {
+  const sl = slotById[slotId];
+  if (!sl) return;
+  const cur = room().slots[slotId];
+  const fits = FURNITURE.filter(f => f.where === sl.where && (spare(f.id) > 0 || f.id === cur));
+  $('slot-title').textContent = `${whereName(sl.where)} 자리에 놓기`;
+  let html = fits.map(f => `<button class="craft-item" data-put="${f.id}" type="button">
+      <span class="craft-ico">${f.icon}</span>
+      <span><span class="craft-name">${f.name}</span><br><span class="craft-meta">아늑함 +${f.cozy} · 남은 것 ${spare(f.id)}개</span></span>
+      <span class="btn ${f.id === cur ? 'ghost' : 'primary'}">${f.id === cur ? '놓여 있음' : '놓기'}</span>
+    </button>`).join('');
+  if (!fits.length) {
+    html = `<p class="craft-empty">여기에 놓을 ${whereName(sl.where)} 가구가 없어. 먼저 만들어 볼까?</p>
+      <button id="slot-to-craft" class="btn primary" type="button">🔨 가구 만들기</button>`;
+  }
+  if (cur) html += `<button id="slot-clear" class="btn ghost" type="button">${furnitureById[cur].name} 치우기</button>`;
+  $('slot-items').innerHTML = html;
+  for (const b of $('slot-items').querySelectorAll('[data-put]')) {
+    b.addEventListener('click', () => {
+      const id = b.dataset.put;
+      if (id !== cur && place(slotId, id)) {
+        afterRoomChange(pick([`우와, ${furnitureById[id].name}! 마음에 들어!`, '여기 딱이다!', '방이 점점 예뻐진다!']));
+      }
+      closeSheet('slot-sheet');
+    });
+  }
+  $('slot-clear')?.addEventListener('click', () => {
+    clearSlot(slotId);
+    afterRoomChange('알았어, 치워 둘게!');
+    closeSheet('slot-sheet');
+  });
+  $('slot-to-craft')?.addEventListener('click', () => { closeSheet('slot-sheet'); openCraft(); });
+  openSheet('slot-sheet');
+}
+
+function afterRoomChange(line) {
+  view?.setRoom(room());
+  view?.play('happy');
+  renderRoomInfo();
+  say(line);
+  onChangeFn();
+}
+
+function costHtml(cost) {
+  return Object.entries(cost).map(([k, n]) => {
+    const short = matCount(k) < n;
+    return `<span class="${short ? 'short' : ''}">${MATERIALS[k].icon}${matCount(k)}/${n}</span>`;
+  }).join(' ') || '무료';
+}
+
+function openCraft() {
+  $('craft-mats').innerHTML = matChips();
+  $('craft-list').innerHTML = FURNITURE.map(f => `<div class="craft-item">
+      <span class="craft-ico">${f.icon}</span>
+      <span><span class="craft-name">${f.name}</span>${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
+        <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${costHtml(f.cost)}</span></span>
+      <button class="btn primary" data-craft="${f.id}" type="button" ${canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
+    </div>`).join('');
+  const r = room();
+  $('theme-list').innerHTML = ['wall', 'floor'].flatMap(kind => THEMES[kind].map(t => {
+    const using = r[kind] === t.id;
+    const have = hasTheme(t.id);
+    return `<div class="craft-item">
+      <span class="craft-ico">${kind === 'wall' ? '🧱' : '🟫'}</span>
+      <span><span class="craft-name">${t.name}</span><br><span class="craft-meta">${kind === 'wall' ? '벽지' : '바닥'}${have ? '' : ` · ${costHtml(t.cost)}`}</span></span>
+      <button class="btn ${using ? 'ghost' : 'primary'}" data-theme="${kind}:${t.id}" type="button" ${using || (!have && !canAfford(t.cost)) ? 'disabled' : ''}>${using ? '쓰는 중' : have ? '바꾸기' : '열기'}</button>
+    </div>`;
+  })).join('');
+  for (const b of $('craft-list').querySelectorAll('[data-craft]')) {
+    b.addEventListener('click', () => {
+      const f = furnitureById[b.dataset.craft];
+      if (!craft(f.id)) return;
+      toastFn(`${f.icon} ${f.name} 완성! '방 꾸미기'에서 놓아 봐.`);
+      say(pick([`${f.name} 만들었어? 대단해!`, '우와, 솜씨 좋다!', '얼른 방에 놓아 보자!']));
+      renderRoomInfo();
+      onChangeFn();
+      openCraft();
+    });
+  }
+  for (const b of $('theme-list').querySelectorAll('[data-theme]')) {
+    b.addEventListener('click', () => {
+      const [kind, id] = b.dataset.theme.split(':');
+      if (!unlockTheme(kind, id)) return;
+      afterRoomChange(kind === 'wall' ? '벽지 바꾸니까 새 방 같아!' : '바닥 느낌 좋다!');
+      openCraft();
+    });
+  }
+  openSheet('craft-sheet');
 }
 
 function afterAction(res, anim) {
@@ -197,5 +340,19 @@ export function initBuddyUI({ toast, onChange }) {
     onChangeFn();
     say(`좋아! 이제 내 이름은 ${josa(displayName(), '이야', '야')}!`);
   });
+  $('btn-decorate').addEventListener('click', () => {
+    setEditing(!editing);
+    if (editing) {
+      say('어디에 뭘 놓을까? 두근두근!');
+      document.querySelector('.buddy-room').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+  $('room-done').addEventListener('click', () => { setEditing(false); say(pick(['방 예쁘다! 고마워!', '여기서 살고 싶어… 아, 여기 살지!'])); });
+  $('btn-craft').addEventListener('click', openCraft);
+  for (const id of ['craft-sheet', 'slot-sheet']) {
+    $(id).addEventListener('click', (e) => {
+      if (e.target.id === id || e.target.closest('.sheet-close')) closeSheet(id);
+    });
+  }
   $('evolve-ok').addEventListener('click', () => { $('evolve').hidden = true; renderStats(); onChangeFn(); });
 }
