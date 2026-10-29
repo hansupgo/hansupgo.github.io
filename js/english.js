@@ -118,6 +118,7 @@ function fill(s, name) {
 
 let ctx = null; // { sp, name, stage, onDone, onClose }
 let scene = null;
+let sceneToken = 0; // 장면이 바뀌면 늘어남 (기다리던 옛 대화가 새 장면을 건드리지 않게)
 let turnIdx = 0;
 let busy = false;
 let tries = 0;
@@ -189,40 +190,44 @@ function renderOptions(turn) {
 }
 
 async function showTurn() {
+  const my = sceneToken;
   const turn = scene.turns[turnIdx];
   tries = 0;
   setAnswering(false);
   $('talk-options').innerHTML = '';
   await buddySays(turn.say);
-  if (!scene) return;
+  if (my !== sceneToken) return;
   renderOptions(turn);
   setAnswering(true);
   $('talk-step').textContent = `${turnIdx + 1} / ${scene.turns.length}`;
 }
 
 async function answer(option, typed = '') {
+  const my = sceneToken;
   setAnswering(false);
   const said = fill(option.en, ctx.name);
   const close = typed && similarity(norm(typed), norm(said)) >= 0.8;
   meSays(typed || said, typed ? '' : fill(option.ko, ctx.name), typed && !close ? said : '');
   await speak(typed && close ? typed : said, { pitch: 1.0 });
-  if (!scene) return;
+  if (my !== sceneToken) return;
   if (typed) await buddySays(pick(LINES.good), 'small');
-  if (!scene) return;
+  if (my !== sceneToken) return;
   await buddySays(option.reply);
-  if (!scene) return;
+  if (my !== sceneToken) return;
   turnIdx++;
   if (turnIdx < scene.turns.length) showTurn();
   else finish();
 }
 
 async function typedAnswer(text) {
+  const my = sceneToken;
   const turn = scene?.turns[turnIdx];
   if (!turn || busy) return;
   if (/[ㄱ-ㆎ가-힣]/.test(text)) {
     meSays(text);
     setAnswering(false);
     await buddySays(['Try saying it in English! You can do it!', '영어로 말해 볼래? 할 수 있어!']);
+    if (my !== sceneToken) return;
     setAnswering(true);
     return;
   }
@@ -232,8 +237,9 @@ async function typedAnswer(text) {
   meSays(text);
   setAnswering(false);
   await buddySays(pick(LINES.again));
-  if (!scene) return;
+  if (my !== sceneToken) return;
   if (tries >= 2) await buddySays(['You can pick one of these!', '아래에서 골라도 돼!']);
+  if (my !== sceneToken) return;
   setAnswering(true);
   $('talk-options').classList.add('nudge');
   setTimeout(() => $('talk-options').classList.remove('nudge'), 700);
@@ -247,9 +253,11 @@ async function finish() {
   learnedNow = scene.learn.filter(([en]) => !e.phrases[en]);
   for (const [en, ko] of scene.learn) e.phrases[en] = { ko, scene: scene.id, at: e.phrases[en]?.at || Date.now() };
   store.save();
-  await buddySays(pick(LINES.bye));
-  if (!scene) return;
+  // 보상은 인사를 기다리기 전에 줌 (인사 중에 나가도 받도록)
   const reward = ctx.onDone?.(e.today) || {};
+  const my = sceneToken;
+  await buddySays(pick(LINES.bye));
+  if (my !== sceneToken) { if (reward.evolved != null) ctx.onEvolve?.(reward.evolved); return; }
   const box = document.createElement('div');
   box.className = 'talk-done';
   box.innerHTML = `<h3>🎉 대화 완료!</h3>
@@ -267,6 +275,7 @@ async function finish() {
 }
 
 function startScene(id) {
+  sceneToken++;
   scene = sceneById[id];
   turnIdx = 0;
   $('talk-menu').hidden = true;
@@ -290,6 +299,7 @@ function recommended() {
 
 function showMenu() {
   stopSpeak();
+  sceneToken++;
   scene = null;
   const e = eng();
   $('talk-chat').hidden = true;
@@ -317,6 +327,7 @@ function showMenu() {
 
 function showBook() {
   stopSpeak();
+  sceneToken++;
   scene = null;
   const e = eng();
   $('talk-chat').hidden = true;
@@ -355,6 +366,7 @@ export function openTalk(options) {
 export function closeTalk() {
   stopSpeak();
   stopMic();
+  sceneToken++;
   scene = null;
   $('talk').hidden = true;
   document.body.classList.remove('talking');

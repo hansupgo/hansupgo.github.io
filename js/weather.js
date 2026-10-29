@@ -60,8 +60,10 @@ export async function refreshWeather(force = false) {
     const t = setTimeout(() => ctl.abort(), 8000);
     const res = await fetch(url, { signal: ctl.signal });
     clearTimeout(t);
+    if (!res.ok) throw new Error(`weather ${res.status}`);
     const j = await res.json();
-    current = { kind: fromCode(j.current?.weather_code), temp: Math.round(j.current?.temperature_2m), at: Date.now(), real: true };
+    const temp = Number(j.current?.temperature_2m);
+    current = { kind: fromCode(j.current?.weather_code), temp: Number.isFinite(temp) ? Math.round(temp) : null, at: Date.now(), real: true };
     try { localStorage.setItem(KEY, JSON.stringify(current)); } catch { /* 무시 */ }
   } catch {
     current = { ...current, at: Date.now() };

@@ -63,8 +63,16 @@ function setArPreferred(on) {
 
 async function startCamera() {
   if (!navigator.mediaDevices?.getUserMedia || s3?.inXR) return false;
+  if (stream) return true;
+  const want = cur;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    const got = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    // 기다리는 사이 잡기 화면이 닫혔거나, 버튼을 두 번 눌러 이미 켜졌으면 새 카메라는 끔
+    if (cur !== want || !cur || $('encounter').hidden || stream) {
+      got.getTracks().forEach(t => t.stop());
+      return Boolean(stream);
+    }
+    stream = got;
     const v = $('cam');
     v.srcObject = stream;
     await v.play().catch(() => {});

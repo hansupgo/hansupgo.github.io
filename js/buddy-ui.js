@@ -101,12 +101,16 @@ async function ensureView() {
   viewFor = key;
   const token = ++viewToken;
   const box = $('buddy-3d');
-  const v = await createBuddyView(box, sp, {
+  let v = null;
+  try {
+    v = await createBuddyView(box, sp, {
     stage: stageIndex(), onPet, onSlot: openSlot, onPlot: openPlot, room: room(), slots: SLOTS, zzzEl: $('buddy-zzz'),
     garden: gardenView(), place: placeNow, weatherKind: weather().kind, tod: timeOfDay(),
-  });
+    });
+  } catch (e) { console.warn('3D 짝꿍 화면을 못 만들었어요', e); v = null; }
   if (token !== viewToken || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
   view = v;
+  if (view && placeNow !== 'room') await view.setPlace(placeNow, gardenView()); // 불러오는 사이 텃밭으로 바꿨으면
   $('buddy-svg').hidden = Boolean(view);
   if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
   view?.setSleeping(buddy().sleeping);
@@ -162,6 +166,7 @@ export async function renderBuddy(greeting) {
   await ensureView();
   say(greeting || talk({ todayM: buddy().todayM }));
   if (bonus?.evolved != null) showEvolve(bonus.evolved);
+  clearInterval(talkTimer); // 겹쳐 불려도 하나만
   talkTimer = setInterval(() => {
     if (document.body.dataset.tab !== 'buddy') return;
     tickGarden();

@@ -3,7 +3,7 @@
 // - 배부름·기분·기운은 실제 시간에 따라 천천히 줄어요 (0까지 떨어져도 벌칙은 없고 시무룩해질 뿐).
 // - 함께 걸은 거리와 돌봄으로 성장 점수가 쌓이고, 아기 → 어린이 → 어른으로 자라요.
 
-import { speciesById } from './monsters.js';
+import { speciesById, josa } from './monsters.js';
 import { store } from './store.js';
 import { cozy, hasBed, room } from './room.js';
 import { FOODS, CROPS } from './garden.js';
@@ -109,7 +109,7 @@ export function feedCrop(crop) {
   const b = buddy();
   const f = FOODS[crop];
   const have = store.state.materials?.[crop] || 0;
-  if (!f || have <= 0) return { ok: false, line: `${CROPS[crop]?.name || '그거'}가 없네…` };
+  if (!f || have <= 0) return { ok: false, line: CROPS[crop] ? `${josa(CROPS[crop].name, '이', '가')} 없네…` : '그게 없네…' };
   if (b.sleeping) return { ok: false, line: '쿨쿨… (자는 중이야)' };
   if (b.hunger >= 95) return { ok: false, line: '배불러~ 이따가 줘!' };
   store.state.materials[crop] = have - 1;

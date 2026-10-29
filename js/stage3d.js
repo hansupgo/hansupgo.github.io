@@ -250,7 +250,7 @@ export async function createStage(container) {
     shadow.visible = mode !== 'fish';
   }
 
-  renderer.setAnimationLoop((now, frame) => {
+  const loop = (now, frame) => {
     const tnow = performance.now();
     const dt = Math.min(0.05, (tnow - last) / 1000);
     last = tnow;
@@ -258,7 +258,8 @@ export async function createStage(container) {
     else if (gyro.on) camera.quaternion.slerp(gyro.target, 0.25);
     update(dt);
     renderer.render(scene, camera);
-  });
+  };
+  renderer.setAnimationLoop(loop);
 
   return {
     setCreature(sp, m) {
@@ -269,9 +270,12 @@ export async function createStage(container) {
       model = buildModel(THREE, sp);
       anchor.add(model);
       play('appear');
+      last = performance.now();
+      renderer.setAnimationLoop(loop);
     },
     clear() {
       if (model) { anchor.remove(model); disposeTree(model); model = null; }
+      if (!renderer.xr.isPresenting) renderer.setAnimationLoop(null); // 안 보일 땐 그리지 않음 (배터리)
     },
     play,
     // 곤충 비행: phase에 따라 좌우·위아래로 날아다님
@@ -525,6 +529,10 @@ export async function createBuddyView(el, sp, {
       roomRoot.add(obj);
       furn.set(sl.id, { id: want, obj, born: clock });
     }
+    if (holder.position.y > 0 && ![...furn.values()].some(f => f.id === 'bed')) {
+      holder.position.set(HOME.x, 0, HOME.z);
+      walk = { target: null, wait: sleeping ? 1e9 : 1 };
+    }
     applyNight();
   }
 
@@ -624,15 +632,24 @@ export async function createBuddyView(el, sp, {
     applyNight();
   }
 
-  if (room) {
-    roomMod = await import('./furniture3d.js');
-    slotsDef = slots;
-    buildMarkers();
-    setRoom(room);
-  }
-  if (garden) {
-    await initGarden();
-    setGarden(garden);
+  try {
+    if (room) {
+      roomMod = await import('./furniture3d.js');
+      slotsDef = slots;
+      buildMarkers();
+      setRoom(room);
+    }
+    if (garden) {
+      await initGarden();
+      setGarden(garden);
+    }
+  } catch (e) {
+    console.warn('방/텃밭 3D를 불러오지 못했어요', e);
+    disposeTree(scene);
+    renderer.dispose();
+    renderer.forceContextLoss?.();
+    renderer.domElement.remove();
+    return null;
   }
   setPlace(place);
 

@@ -157,10 +157,12 @@ export const remote = {
     this.players = [];
     this.feed = [];
     if (!this.ready || !group) { this.emit(); return; }
+    this.error = '';
     const { collection, onSnapshot, query, orderBy, limit } = this.fs;
     const base = ['groups', group];
     this.unsubs.push(onSnapshot(collection(this.db, ...base, 'players'), (snap) => {
       this.players = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      this.error = '';
       this.emit();
     }, (e) => { this.error = '친구 기록을 불러오지 못했습니다.'; console.warn(e); this.emit(); }));
     this.unsubs.push(onSnapshot(
