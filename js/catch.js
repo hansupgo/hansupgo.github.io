@@ -233,6 +233,8 @@ async function startRealAR() {
 function endEncounter(result) {
   stopLoop();
   stopCamera();
+  // 끝날 때 남은 꽃가루·꼬리 치우기 (숨긴 화면에선 애니메이션이 끝나지 않음)
+  document.querySelectorAll('#enc-stage .confetti, #enc-stage .ball-trail').forEach(n => n.remove());
   if (s3?.inXR) s3.endXR();
   s3?.clear();
   fishHold = false;
@@ -358,7 +360,7 @@ function onBallUp(e) {
   const end = still ? tail : up;
   // 3D 때문에 폰이 버벅이면 손가락 움직임이 띄엄띄엄 들어옴 → 멈춘 걸로 잘못 보지 않게
   const gaps = samples.slice(1).map((s, i) => s.t - samples[i].t);
-  const janky = gaps.some(g => g > 60) || up.t - tail.t > 60;
+  const janky = gaps.some(g => g > 60); // 손가락을 잠깐 멈춘 건 버벅임이 아님
   const paused = still && up.t - tail.t > (janky ? 450 : 150);
   const first = [...samples].reverse().find(s => end.t - s.t >= 40) || samples[0];
   const dt = Math.max(16, end.t - first.t);
@@ -426,8 +428,9 @@ function throwBall(x, y, vx, vy) {
 
 // 날아가는 숲볼 뒤로 반짝이 꼬리
 let trailN = 0;
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 function trailDot(b, scale) {
-  if (trailN++ % 2) return;
+  if (trailN++ % 2 || reducedMotion()) return;
   const d = document.createElement('i');
   d.className = 'ball-trail';
   d.style.left = b.style.left;
@@ -435,10 +438,12 @@ function trailDot(b, scale) {
   d.style.setProperty('--s', scale);
   $('enc-stage').appendChild(d);
   d.addEventListener('animationend', () => d.remove());
+  setTimeout(() => d.remove(), 800);
 }
 
 // 잡았을 때 꽃가루 (화면 전체)
 function confetti() {
+  if (reducedMotion()) return;
   const box = $('enc-stage');
   const cols = ['#ff6b8b', '#ffd23f', '#4fb3ff', '#7cc46a', '#b78ae8', '#ff9a62'];
   for (let i = 0; i < 36; i++) {
@@ -452,6 +457,7 @@ function confetti() {
     c.style.animationDuration = `${1.4 + Math.random() * 0.8}s`;
     box.appendChild(c);
     c.addEventListener('animationend', () => c.remove());
+    setTimeout(() => c.remove(), 3200);
   }
 }
 
@@ -590,6 +596,8 @@ function startSnack(first) {
     t += dt * speed;
     markerPos = (Math.sin(t) + 1) / 2;
     $('snack-marker').style.left = `${markerPos * 100}%`;
+    markerHist.push({ t: now, p: markerPos });
+    if (markerHist.length > 12) markerHist.shift();
   });
 }
 
@@ -609,8 +617,19 @@ function updateSnackCount() {
   $('snack-btn').textContent = `간식 주기 (🍪 ${store.state.snacks})`;
 }
 
-async function onSnack() {
+// 누른 순간 화면에 보이던 막대 위치 (폰이 버벅여도 공정하게)
+const markerHist = [];
+function markerAt(t) {
+  if (!t || !markerHist.length) return markerPos;
+  // 누른 시각 바로 전에 그려진 위치
+  let best = null;
+  for (const h of markerHist) if (h.t <= t) best = h;
+  return (best || markerHist[markerHist.length - 1]).p;
+}
+
+async function onSnack(e) {
   if (busy || mode !== 'snack') return;
+  const pos = markerAt(e?.timeStamp);
   if (store.state.snacks <= 0) {
     setMsg('간식이 없어요. 거점에 가서 받아 오세요.', 'bad');
     return;
@@ -618,7 +637,7 @@ async function onSnack() {
   store.state.snacks -= 1;
   store.save();
   updateSnackCount();
-  if (Math.abs(markerPos - zone.c) <= zone.w / 2) {
+  if (Math.abs(pos - zone.c) <= zone.w / 2 + 0.02) {
     hearts += 1;
     renderHearts();
     monState('hop');

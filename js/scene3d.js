@@ -148,18 +148,18 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
 
   if (kind === 'pond') {
     // 연못: 반짝이는 물 + 퍼지는 물결 + 연잎 + 부들
-    const water = k.add(new THREE.CircleGeometry(3.2, 40), k.mat(night ? 0x2c4f7a : 0x5ec8e8, { r: 0.15, op: 0.92 }), [0.6, GROUND_Y + 0.004, -6.2]);
+    const water = k.add(new THREE.CircleGeometry(3.2, 40), k.mat(night ? 0x2c4f7a : 0x5ec8e8, { r: 0.15, op: 0.92 }), [0.6, GROUND_Y + 0.004, -7.4]);
     water.rotation.x = -Math.PI / 2;
     water.scale.set(1.5, 1, 1);
     const ripples = [];
     for (let i = 0; i < 3; i++) {
-      const rp = k.add(new THREE.RingGeometry(0.2, 0.24, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }), [0.2 + i * 0.9, GROUND_Y + 0.01, -5.6 - i * 0.6]);
+      const rp = k.add(new THREE.RingGeometry(0.2, 0.24, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }), [0.2 + i * 0.9, GROUND_Y + 0.01, -6.8 - i * 0.6]);
       rp.rotation.x = -Math.PI / 2;
       ripples.push({ rp, off: i * 0.9 });
     }
     ticks.push((dt, t) => ripples.forEach(({ rp, off }) => { const p = ((t + off) % 2.7) / 2.7; rp.scale.setScalar(1 + p * 4); rp.material.opacity = 0.6 * (1 - p); }));
     for (let i = 0; i < 6; i++) {
-      const lp = k.add(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 20), 0x4f9a3a, [-2 + R() * 5, GROUND_Y + 0.012, -5 - R() * 2.6]);
+      const lp = k.add(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 20), 0x4f9a3a, [-2 + R() * 5, GROUND_Y + 0.012, -6.2 - R() * 2.6]);
       if (i % 2 === 0) k.sph(0.07, 0xff9ac0, [lp.position.x, GROUND_Y + 0.08, lp.position.z], [1, 0.8, 1]);
     }
     for (let i = 0; i < 7; i++) {

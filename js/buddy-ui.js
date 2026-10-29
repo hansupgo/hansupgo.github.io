@@ -115,6 +115,8 @@ async function ensureView() {
   if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
   view?.setSleeping(buddy().sleeping);
   view?.setEditing(editing);
+  const bb = buddy();
+  view?.setMood(bb.sleeping ? 'sleepy' : bb.hunger < 25 || bb.mood < 25 ? 'sad' : 'normal');
 }
 
 function closeView() {

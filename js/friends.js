@@ -328,23 +328,28 @@ function visitSay(text) {
   el.classList.add('pop');
 }
 
+let visitToken = 0;
 async function buildVisitView() {
   visitView?.dispose();
   visitView = null;
+  const token = ++visitToken;
   const p = visiting;
   const hostSp = speciesById[p.buddy?.speciesId] || buddySpecies() || speciesById.sumbbong;
   const hostStage = num(p.buddy?.stage, 0, 2);
   const mine = hasBuddy() && speciesById[p.buddy?.speciesId] ? { sp: buddySpecies(), stage: stageIndex() } : null;
   const home = p.home && typeof p.home === 'object' ? { wall: String(p.home.wall || 'cream'), floor: String(p.home.floor || 'wood'), slots: p.home.slots || {} } : { wall: 'cream', floor: 'wood', slots: {} };
+  let v = null;
   try {
-    visitView = await createBuddyView($('visit-3d'), hostSp, {
+    v = await createBuddyView($('visit-3d'), hostSp, {
       stage: hostStage, room: home, slots: SLOTS, garden: parseFriendGarden(p.garden), place: visitPlace,
       weatherKind: weather().kind, tod: timeOfDay(), guest: mine,
       onPet: () => { visitView?.play('hop'); visitSay(pick(['헤헤, 반가워!', 'Nice to meet you! (만나서 반가워!)', '우리 집 어때?'])); },
       onPlot: waterFriendPlot,
     });
-  } catch (e) { console.warn(e); visitView = null; }
-  if (!visiting) { visitView?.dispose(); visitView = null; return; }
+  } catch (e) { console.warn(e); v = null; }
+  // 불러오는 사이 닫았거나 다른 친구 집을 열었으면 이 화면은 버림
+  if (!visiting || token !== visitToken) { v?.dispose(); return; }
+  visitView = v;
   $('visit-svg').hidden = Boolean(visitView);
   if (!visitView) $('visit-svg').innerHTML = monsterSVG(hostSp, { size: 150 }) + (mine ? monsterSVG(mine.sp, { size: 110 }) : '');
 }
@@ -424,6 +429,7 @@ export async function openVisit(p) {
 
 export function closeVisit() {
   visiting = null;
+  visitToken++;
   visitView?.dispose();
   visitView = null;
   $('visit').hidden = true;

@@ -141,6 +141,15 @@ export async function createStage(container) {
   const lights = addLights(scene);
   let backdrop = null;      // 장소별 3D 배경 (공원·연못·단지·학교)
   let backdropWanted = true;
+  let backdropSeq = 0;
+  let todLight = 'day';
+  // 배경이 보일 땐 시간대 조명, 카메라(AR)일 땐 보통 조명
+  function applyLights() {
+    const tod = backdropWanted && backdrop ? todLight : 'day';
+    lights.hemi.intensity = tod === 'night' ? 0.75 : tod === 'dusk' ? 1.2 : 1.5;
+    lights.key.intensity = tod === 'night' ? 0.8 : 1.6;
+    lights.key.color.set(tod === 'dusk' || tod === 'dawn' ? 0xffd2a0 : tod === 'night' ? 0xbfcfff : 0xffffff);
+  }
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 50);
   const BASE_PITCH = -0.13;
   camera.rotation.set(BASE_PITCH, 0, 0);
@@ -347,9 +356,11 @@ export async function createStage(container) {
       resize();
       model = buildModel(THREE, sp);
       anchor.add(model);
-      play('appear');
-      last = performance.now();
-      renderer.setAnimationLoop(loop);
+      if (model) {
+        play('appear');
+        last = performance.now();
+        renderer.setAnimationLoop(loop);
+      } else renderer.setAnimationLoop(null); // 잡기 화면을 이미 닫았으면 그리기 멈춤
     },
     clear() {
       if (model) { anchor.remove(model); disposeTree(model); model = null; }
@@ -380,23 +391,25 @@ export async function createStage(container) {
     },
     /** 장소별 배경: kind 'park'|'pond'|'town'|'school', opts { tod, weather } */
     async setBackdrop(kind, opts = {}) {
-      const mod = await import('./scene3d.js');
+      const my = ++backdropSeq;
+      const mod = kind ? await import('./scene3d.js') : null;
+      if (my !== backdropSeq) return; // 불러오는 사이 다른 배경을 요청함
       if (backdrop) { scene.remove(backdrop); backdrop.userData.dispose?.(); disposeTree(backdrop); backdrop = null; }
+      todLight = 'day';
+      applyLights();
       if (!kind) return;
       backdrop = stylize(THREE, mod.buildBackdrop(THREE, kind, opts), { outline: false }); // 배경은 선 없이 (가볍게)
       backdrop.visible = backdropWanted && !renderer.xr.isPresenting;
       scene.add(backdrop);
       // 밤·노을엔 캐릭터 조명도 맞춤
-      const tod = opts.tod || 'day';
-      lights.hemi.intensity = tod === 'night' ? 0.75 : tod === 'dusk' ? 1.2 : 1.5;
-      lights.key.intensity = tod === 'night' ? 0.8 : 1.6;
-      lights.key.color.set(tod === 'dusk' || tod === 'dawn' ? 0xffd2a0 : tod === 'night' ? 0xbfcfff : 0xffffff);
+      todLight = opts.tod || 'day';
+      applyLights();
     },
     /** AR 카메라를 켜면 배경을 숨김 */
     showBackdrop(on) {
       backdropWanted = on;
       if (backdrop) backdrop.visible = on && !renderer.xr.isPresenting;
-      if (!on) { lights.hemi.intensity = 1.5; lights.key.intensity = 1.6; lights.key.color.set(0xffffff); }
+      applyLights();
     },
     /** 순간 효과: 'hit' 맞음, 'catch' 잡음, 'flee' 도망, 'love' 하트, 'splash' 물보라 */
     burst(kind) {

@@ -133,7 +133,7 @@ export function applyFace(model, t) {
   if (u.exprNow !== expr) {
     u.exprNow = expr;
     if (f) {
-      const happy = expr === 'happy';
+      const happy = expr === 'happy' && f.arcs.length > 0; // ^^ 눈이 없는 모델은 원래 눈 그대로
       for (const a of f.arcs) a.visible = happy;
       for (const e of u.eyes) e.visible = !happy;
       if (f.oh) f.oh.visible = expr === 'surprised';
