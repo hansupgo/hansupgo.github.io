@@ -6,6 +6,8 @@
 import { CONFIG } from './config.js';
 import { store } from './store.js';
 import { hashString, mulberry32, distanceM, currentSlot, slotEndsAt, zoneAt, isNight, spawnsAround } from './spawn.js';
+import { weather } from './weather.js';
+import { CROPS } from './garden.js';
 
 export const MATERIALS = {
   leaf: { name: '나뭇잎', icon: '🍃' },
@@ -14,7 +16,15 @@ export const MATERIALS = {
   petal: { name: '꽃잎', icon: '🌸' },
   shell: { name: '조개껍데기', icon: '🐚' },
   star: { name: '별가루', icon: '✨' },
+  raindrop: { name: '빗방울', icon: '💧', limited: '비 오는 날에만' },
+  snowflake: { name: '눈송이', icon: '❄️', limited: '눈 오는 날에만' },
 };
+// 씨앗(seed_딸기...)과 거둔 작물도 재료 주머니에 함께 담음
+for (const [id, c] of Object.entries(CROPS)) {
+  MATERIALS[`seed_${id}`] = { name: `${c.name} 씨앗`, icon: c.icon, seed: true, limited: c.from };
+  MATERIALS[id] = { name: c.name, icon: c.icon, crop: true };
+}
+export const BASIC_IDS = ['leaf', 'twig', 'pebble', 'petal', 'shell', 'star'];
 export const MATERIAL_IDS = Object.keys(MATERIALS);
 
 // where: floor(바닥) / rug(가운데 깔개) / wall(벽)
@@ -32,6 +42,12 @@ export const FURNITURE = [
   { id: 'window', name: '동그란 창문', icon: '🪟', where: 'wall', cozy: 3, cost: { twig: 3, pebble: 1 } },
   { id: 'garland', name: '별빛 꼬마전구', icon: '🌟', where: 'wall', cozy: 4, cost: { star: 2, leaf: 2 } },
   { id: 'mobile', name: '조개 모빌', icon: '🐚', where: 'wall', cozy: 4, cost: { shell: 3, twig: 1 } },
+  // 텃밭 작물·날씨 한정 재료로 만드는 특별 가구
+  { id: 'sunpot', name: '해바라기 화분', icon: '🌻', where: 'floor', cozy: 4, cost: { sunflower: 2, pebble: 2 }, special: true },
+  { id: 'lotuslamp', name: '연꽃 등불', icon: '🪷', where: 'floor', cozy: 5, cost: { lotus: 2, star: 1 }, special: true },
+  { id: 'pumpkinlamp', name: '호박 랜턴', icon: '🎃', where: 'floor', cozy: 5, cost: { pumpkin: 1, twig: 2 }, special: true },
+  { id: 'snowman', name: '눈사람 인형', icon: '⛄', where: 'floor', cozy: 4, cost: { snowflake: 4, twig: 1 }, special: true },
+  { id: 'chime', name: '빗방울 풍경', icon: '💧', where: 'wall', cozy: 4, cost: { raindrop: 3, shell: 1 }, special: true },
 ];
 export const furnitureById = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 
@@ -169,15 +185,27 @@ export function cozyLevel(n = cozy()) { return Math.min(5, Math.floor(n / 8)); }
 // ---------- 동네에서 재료 줍기 ----------
 // 몬스터처럼 "시간 + 위치 칸"으로 정해서 친구들과 같은 자리에 보입니다.
 
-function matWeights(zone, night) {
-  return [
+// 그 장소에서만 나는 씨앗
+const ZONE_SEEDS = { sannae: 'seed_strawberry', haetbit: 'seed_sunflower', pond: 'seed_lotus' };
+
+function zoneIdAt(pos) {
+  return (CONFIG.zones || []).find(z => distanceM(pos, z) <= z.radius)?.id || null;
+}
+
+function matWeights(zone, night, wx, zoneId) {
+  const wet = wx === 'rain' || wx === 'storm';
+  const list = [
     ['leaf', zone === 'park' ? 4 : 3],
     ['twig', zone === 'park' ? 3 : 2.5],
     ['pebble', zone === 'water' ? 3 : 2.5],
-    ['petal', night ? 0.3 : zone === 'park' ? 3 : 1],
+    ['petal', night || wx === 'snow' ? 0.3 : zone === 'park' ? 3 : 1],
     ['shell', zone === 'water' ? 4 : 0],
     ['star', night ? 1.5 : 0.15],
+    ['raindrop', wet ? 3.5 : 0],
+    ['snowflake', wx === 'snow' ? 3.5 : 0],
   ];
+  if (ZONE_SEEDS[zoneId]) list.push([ZONE_SEEDS[zoneId], 2.2]);
+  return list;
 }
 
 function pickW(list, r) {
@@ -193,8 +221,8 @@ export function materialForCell(cx, cy, slot, date) {
   const lat = (cy + 0.15 + rnd() * 0.7) * CONFIG.cellLat;
   const lng = (cx + 0.15 + rnd() * 0.7) * CONFIG.cellLng;
   const zone = zoneAt({ lat, lng });
-  const kind = pickW(matWeights(zone, isNight(date)), rnd());
-  const amount = kind === 'star' ? 1 : 1 + Math.floor(rnd() * 3);
+  const kind = pickW(matWeights(zone, isNight(date), weather().kind, zoneIdAt({ lat, lng })), rnd());
+  const amount = kind === 'star' || MATERIALS[kind].seed ? 1 : 1 + Math.floor(rnd() * 3);
   return { id: `m${slot}:${cx}:${cy}`, kind, amount, lat, lng, expiresAt: slotEndsAt(slot) };
 }
 
@@ -233,7 +261,13 @@ export function stopMaterials(special) {
     const k = pool[Math.floor(rnd() * pool.length)];
     gains[k] = (gains[k] || 0) + 1;
   }
-  if (special) gains.star = (gains.star || 0) + 1;
+  if (special) {
+    gains.star = (gains.star || 0) + 1;
+    gains.seed_lettuce = 2; // 남곡초 학교 텃밭 상추
+  } else {
+    if (rnd() < 0.5) gains.seed_tomato = 1;
+    if (isNight() && rnd() < 0.35) gains.seed_pumpkin = 1; // 밤에만
+  }
   addMaterials(gains);
   return gains;
 }

@@ -738,3 +738,45 @@ body.talking .tabs { display: none; }
   box-shadow: 0 3px 8px rgba(79, 110, 247, .35);
 }
 .buddy-room.editing .room-talk { display: none; }
+
+/* ---------- 텃밭 · 날씨 ---------- */
+.place-tabs { position: absolute; z-index: 2; left: 10px; bottom: 10px; display: flex; background: rgba(255,255,255,.9); border-radius: 999px; padding: 3px; box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+.place-tabs button { border: none; background: none; border-radius: 999px; padding: 6px 11px; font-family: var(--display); font-size: 15px; color: var(--forest-d); }
+.place-tabs button[aria-pressed="true"] { background: var(--forest); color: #fff; }
+.buddy-room.editing .place-tabs { display: none; }
+.plot-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.plot-chip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border-radius: 12px; border: 2px solid #c9b08a; background: #fbf4e8; font: inherit; color: var(--ink); }
+.plot-chip b { font-size: 24px; line-height: 1.1; }
+.plot-chip small { font-size: 12px; color: var(--muted); text-align: center; }
+.plot-chip.thirsty { border-color: #4fb3ff; background: #eef7ff; }
+.plot-chip.ready { border-color: #ffc93c; background: #fff7d6; animation: bob 1.4s ease-in-out infinite; }
+.plot-chip.empty { border-style: dashed; }
+.craft-item.special { border-color: #ffc93c; }
+.craft-tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #fff0c2; color: #8a6200; margin-left: 4px; vertical-align: middle; }
+.seed-hint { margin: 0; font-size: 14px; line-height: 1.7; }
+.mat-spot.seed { border-color: #6fcf6a; position: relative; }
+.mat-spot.seed::after { content: "🌱"; position: absolute; right: -7px; bottom: -6px; font-size: 12px; }
+.mat-spot.limited { border-color: #4fb3ff; }
+#hud-time { border: none; font: inherit; color: inherit; cursor: pointer; }
+
+/* 지도 위 날씨와 시간대 */
+.wx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 400; }
+.wx-layer.rain, .wx-layer.storm {
+  background-image: repeating-linear-gradient(105deg, rgba(160, 200, 255, .0) 0 14px, rgba(160, 200, 255, .55) 14px 15px, rgba(160,200,255,0) 15px 34px);
+  background-size: 120px 120px; animation: rainfall .5s linear infinite;
+}
+.wx-layer.snow {
+  background-image: radial-gradient(circle, rgba(255,255,255,.95) 0 2px, transparent 2.5px), radial-gradient(circle, rgba(255,255,255,.8) 0 1.5px, transparent 2px);
+  background-size: 60px 60px, 37px 37px; animation: snowfall 6s linear infinite;
+}
+.wx-layer.fog { background: rgba(235, 240, 245, .35); }
+@keyframes rainfall { to { background-position: -30px 120px; } }
+@keyframes snowfall { to { background-position: 30px 360px, -20px 222px; } }
+.panel-map.tod-night .leaflet-tile-pane { filter: brightness(.55) saturate(.7) hue-rotate(200deg) contrast(1.05); }
+.panel-map.tod-dusk .leaflet-tile-pane { filter: sepia(.35) saturate(1.3) brightness(.92) hue-rotate(-12deg); }
+.panel-map.tod-dawn .leaflet-tile-pane { filter: sepia(.2) brightness(.97); }
+.panel-map.wx-gloomy .leaflet-tile-pane { filter: saturate(.75) brightness(.9); }
+.panel-map.tod-night.wx-gloomy .leaflet-tile-pane { filter: brightness(.5) saturate(.6) hue-rotate(200deg); }
+@media (prefers-reduced-motion: reduce) { .wx-layer { animation: none !important; } .plot-chip.ready { animation: none; } }
+
+.toast { white-space: pre-line; }

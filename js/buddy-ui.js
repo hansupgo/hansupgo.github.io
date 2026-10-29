@@ -3,14 +3,18 @@
 import { SPECIES, speciesById, monsterSVG, josa } from './monsters.js';
 import { store } from './store.js';
 import { createBuddyView } from './stage3d.js';
-import { isNight } from './spawn.js';
+import { weather, weatherInfo, timeOfDay } from './weather.js';
+import {
+  CROPS, CROP_IDS, PLOT_IDS, STAGE_NAMES, FOODS, seeds, crops, plot, tickGarden, stageOf, isReady, isThirsty,
+  timeLeft, fmtLeft, plant, water, harvest, gardenView, hasFood,
+} from './garden.js';
 import {
   STAGES, hasBuddy, buddy, buddySpecies, displayName, stageIndex, stageProgress,
-  adopt, tick, feed, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus, englishReward,
+  adopt, tick, feed, feedCrop, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus, englishReward,
 } from './buddy.js';
 import { openTalk, initTalkUI } from './english.js';
 import {
-  MATERIALS, MATERIAL_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
+  MATERIALS, MATERIAL_IDS, BASIC_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
   room, matCount, canAfford, craft, unlockTheme, hasTheme, owned, spare, place, clearSlot,
   cozy, cozyLevel,
 } from './room.js';
@@ -27,6 +31,7 @@ let choosing = false;    // 짝꿍 바꾸기 중
 let editing = false;     // 방 꾸미기 중
 let viewToken = 0;       // 3D 화면을 여러 번 동시에 만들지 않도록
 let pendingGreeting = '';
+let placeNow = 'room';   // 'room' | 'garden'
 
 function fmtKm(m) { return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`; }
 
@@ -96,11 +101,16 @@ async function ensureView() {
   viewFor = key;
   const token = ++viewToken;
   const box = $('buddy-3d');
-  const v = await createBuddyView(box, sp, {
-    stage: stageIndex(), onPet, onSlot: openSlot, room: room(), slots: SLOTS, night: isNight(), zzzEl: $('buddy-zzz'),
-  });
+  let v = null;
+  try {
+    v = await createBuddyView(box, sp, {
+    stage: stageIndex(), onPet, onSlot: openSlot, onPlot: openPlot, room: room(), slots: SLOTS, zzzEl: $('buddy-zzz'),
+    garden: gardenView(), place: placeNow, weatherKind: weather().kind, tod: timeOfDay(),
+    });
+  } catch (e) { console.warn('3D 짝꿍 화면을 못 만들었어요', e); v = null; }
   if (token !== viewToken || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
   view = v;
+  if (view && placeNow !== 'room') await view.setPlace(placeNow, gardenView()); // 불러오는 사이 텃밭으로 바꿨으면
   $('buddy-svg').hidden = Boolean(view);
   if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
   view?.setSleeping(buddy().sleeping);
@@ -139,7 +149,8 @@ function renderStats() {
   $('buddy-zzz').hidden = !b.sleeping;
   document.querySelector('.buddy-room').classList.toggle('sleeping', b.sleeping);
   view?.setSleeping(b.sleeping);
-  renderRoomInfo();
+  $('act-feed-label').textContent = hasFood() ? '밥 주기' : `밥 주기 (${store.state.snacks})`;
+  if (placeNow === 'garden') renderGardenInfo(); else renderRoomInfo();
 }
 
 export async function renderBuddy(greeting) {
@@ -155,10 +166,13 @@ export async function renderBuddy(greeting) {
   await ensureView();
   say(greeting || talk({ todayM: buddy().todayM }));
   if (bonus?.evolved != null) showEvolve(bonus.evolved);
+  clearInterval(talkTimer); // 겹쳐 불려도 하나만
   talkTimer = setInterval(() => {
     if (document.body.dataset.tab !== 'buddy') return;
+    tickGarden();
     renderStats();
-    view?.setNight(isNight());
+    view?.setWeather(weather().kind, timeOfDay());
+    view?.setGarden(gardenView());
     if (!editing) say(Math.random() < 0.3 && englishLine() || talk({ todayM: buddy().todayM }));
   }, 14000);
 }
@@ -173,6 +187,7 @@ function englishLine() {
 
 function startTalk() {
   if (!hasBuddy()) return;
+  viewFor = ''; // 돌아오면 같은 장소로 다시 그림
   setEditing(false);
   clearInterval(talkTimer);
   closeView(); // 대화하는 동안 3D 방은 쉼
@@ -195,8 +210,143 @@ export function leaveBuddy() {
 
 // ---------- 방 꾸미기 ----------
 
-function matChips(ids = MATERIAL_IDS) {
+function defaultChips() {
+  // 기본 재료 + 날씨 재료·작물은 가진 것만
+  return [...BASIC_IDS, ...MATERIAL_IDS.filter(k => !BASIC_IDS.includes(k) && !MATERIALS[k].seed && matCount(k) > 0)];
+}
+
+function matChips(ids = defaultChips()) {
   return ids.map(k => `<span class="mat ${matCount(k) ? '' : 'zero'}" title="${MATERIALS[k].name}">${MATERIALS[k].icon} ${matCount(k)}</span>`).join('');
+}
+
+// ---------- 텃밭 ----------
+
+function plotLabel(id) { return `밭 ${id.slice(1)}`; }
+
+function renderGardenInfo() {
+  tickGarden();
+  const w = weather();
+  const info = weatherInfo();
+  const tod = timeOfDay();
+  $('garden-wx').textContent = `${tod === 'night' ? info.night : info.icon} ${info.name}${w.temp != null ? ` ${w.temp}°` : ''}`;
+  $('garden-tip').textContent = ['rain', 'storm'].includes(w.kind)
+    ? '비가 와서 밭이 저절로 물을 먹고 있어!'
+    : w.kind === 'clear' && tod === 'day' ? '맑은 낮이라 평소보다 빨리 자라! 💧가 뜬 밭에는 물을 줘.' : '💧가 뜬 밭에 물을 주면 자라. 물 먹은 동안만 자라.';
+  $('plot-chips').innerHTML = PLOT_IDS.map(id => {
+    const p = plot(id);
+    if (!p) return `<button class="plot-chip empty" data-plot="${id}" type="button"><b>＋</b><small>${plotLabel(id)} · 비었어</small></button>`;
+    const c = CROPS[p.crop];
+    const st = stageOf(p);
+    const ready = isReady(p);
+    const thirsty = isThirsty(p);
+    const sub = ready ? '수확해!' : thirsty ? '💧 물 줘!' : `${STAGE_NAMES[st]} · ${fmtLeft(timeLeft(p))}`;
+    return `<button class="plot-chip ${ready ? 'ready' : thirsty ? 'thirsty' : ''}" data-plot="${id}" type="button"><b>${st >= 2 || ready ? c.icon : st === 1 ? '🌱' : '🟤'}</b><small>${c.name}<br>${sub}</small></button>`;
+  }).join('');
+  for (const b of $('plot-chips').querySelectorAll('[data-plot]')) b.addEventListener('click', () => openPlot(b.dataset.plot));
+  const seedIds = CROP_IDS.filter(k => seeds(k) > 0);
+  $('seed-strip').innerHTML = seedIds.length
+    ? seedIds.map(k => `<span class="mat" title="${CROPS[k].name} 씨앗">${CROPS[k].icon}🌱 ${seeds(k)}</span>`).join('')
+    : '<span class="muted small">아직 씨앗이 없어. 공원이나 거점에서 찾아봐!</span>';
+  const cropIds = CROP_IDS.filter(k => crops(k) > 0);
+  $('crop-strip').innerHTML = cropIds.length
+    ? cropIds.map(k => `<span class="mat" title="${CROPS[k].name}">${CROPS[k].icon} ${crops(k)}</span>`).join('')
+    : '<span class="muted small">다 자라면 거둘 수 있어.</span>';
+}
+
+function seedHint() {
+  return `<p class="seed-hint">${CROP_IDS.map(k => `${CROPS[k].icon} <b>${CROPS[k].name}</b>: ${CROPS[k].from}`).join('<br>')}</p>`;
+}
+
+function openPlot(id) {
+  if (!PLOT_IDS.includes(id)) return;
+  tickGarden();
+  const p = plot(id);
+  let html = '';
+  if (!p) {
+    $('slot-title').textContent = `${plotLabel(id)}: 무엇을 심을까?`;
+    const have = CROP_IDS.filter(k => seeds(k) > 0);
+    html = have.map(k => `<button class="craft-item" data-plant="${k}" type="button">
+        <span class="craft-ico">${CROPS[k].icon}</span>
+        <span><span class="craft-name">${CROPS[k].name} 씨앗</span><br><span class="craft-meta">${seeds(k)}개 · 다 자라는 데 ${fmtLeft(CROPS[k].hours * 3600e3)} (물 먹은 시간)</span></span>
+        <span class="btn primary">심기</span></button>`).join('')
+      + (have.length ? `<details class="seed-more"><summary>다른 씨앗은 어디서 찾아?</summary>${seedHint()}</details>` : '')
+      || `<p class="craft-empty">씨앗이 없어. 이런 곳에서 찾을 수 있어:</p>${seedHint()}`;
+  } else {
+    const c = CROPS[p.crop];
+    const st = stageOf(p);
+    $('slot-title').textContent = `${plotLabel(id)}: ${c.icon} ${c.name} (${STAGE_NAMES[st]})`;
+    if (isReady(p)) {
+      html = `<p class="craft-empty">다 자랐어! 거둬 볼까?</p><button id="plot-harvest" class="btn primary" type="button">🧺 거두기</button>`;
+    } else {
+      const thirsty = isThirsty(p);
+      html = `<p class="craft-empty">${thirsty ? '목말라 보여. 물을 주면 다시 자라.' : `촉촉해! 지금 자라는 중이야. 다 자라기까지 약 ${fmtLeft(timeLeft(p))}`}</p>
+        <button id="plot-water" class="btn primary" type="button" ${thirsty ? '' : 'disabled'}>💧 물 주기</button>`;
+    }
+  }
+  $('slot-items').innerHTML = html;
+  for (const b of $('slot-items').querySelectorAll('[data-plant]')) {
+    b.addEventListener('click', () => {
+      const k = b.dataset.plant;
+      if (plant(id, k)) afterGarden(pick([`${CROPS[k].name} 씨앗 심었다! 무럭무럭 자라라~`, '흙 냄새 좋다!', 'Plant it! (심자!) 잘 자랄 거야!']));
+      closeSheet('slot-sheet');
+    });
+  }
+  $('plot-water')?.addEventListener('click', () => {
+    if (water(id)) afterGarden(pick(['물 줬다! 쑥쑥 자라라~', '찰랑찰랑! 시원하겠다!', 'Water, water! (물이다, 물!)']));
+    closeSheet('slot-sheet');
+  });
+  $('plot-harvest')?.addEventListener('click', () => {
+    const crop = plot(id)?.crop;
+    const n = harvest(id);
+    if (n) {
+      const c = CROPS[crop];
+      toastFn(`${c.icon} ${c.name} ${n}개를 거뒀어요!`);
+      afterGarden(FOODS[crop] ? `${c.name} ${n}개! 맛있겠다~ 나 하나만 줄래?` : `${c.name} ${n}개! 이걸로 예쁜 가구 만들자!`);
+    }
+    closeSheet('slot-sheet');
+  });
+  openSheet('slot-sheet');
+}
+
+function afterGarden(line) {
+  view?.setGarden(gardenView());
+  view?.play('happy');
+  renderGardenInfo();
+  say(line);
+  onChangeFn();
+}
+
+async function setPlace(p) {
+  if (p === placeNow) return;
+  placeNow = p;
+  setEditing(false);
+  $('place-room').setAttribute('aria-pressed', String(p === 'room'));
+  $('place-garden').setAttribute('aria-pressed', String(p === 'garden'));
+  $('room-card').hidden = p !== 'room';
+  $('garden-card').hidden = p !== 'garden';
+  document.querySelector('.buddy-room').classList.toggle('outdoor', p === 'garden');
+  tickGarden();
+  await view?.setPlace(p, gardenView());
+  if (p === 'garden') { renderGardenInfo(); say(pick(['텃밭이다! 뭐가 자랐나 볼까?', '흙 냄새 좋다~', "Let's check the garden! (텃밭 보러 가자!)"])); }
+  else { renderRoomInfo(); say(pick(['집이 최고야!', '우리 방 아늑하다~'])); }
+}
+
+// 밥: 텃밭에서 거둔 게 있으면 고르기
+function openFood() {
+  if (!hasFood()) { afterAction(feed(), 'eat'); return; }
+  $('slot-title').textContent = '뭐 줄까?';
+  const items = [{ k: 'snack', icon: '🍪', name: '간식', n: store.state.snacks, meta: '배부름 +35' },
+    ...Object.keys(FOODS).filter(k => crops(k) > 0).map(k => ({ k, icon: CROPS[k].icon, name: CROPS[k].name, n: crops(k), meta: `배부름 +${FOODS[k].h} · 기분 +${FOODS[k].m} · 성장 +8` }))];
+  $('slot-items').innerHTML = items.map(i => `<button class="craft-item" data-food="${i.k}" type="button" ${i.n ? '' : 'disabled'}>
+      <span class="craft-ico">${i.icon}</span><span><span class="craft-name">${i.name}</span> <small class="craft-meta">${i.n}개</small><br><span class="craft-meta">${i.meta}</span></span>
+      <span class="btn primary">주기</span></button>`).join('');
+  for (const b of $('slot-items').querySelectorAll('[data-food]')) {
+    b.addEventListener('click', () => {
+      closeSheet('slot-sheet');
+      afterAction(b.dataset.food === 'snack' ? feed() : feedCrop(b.dataset.food), 'eat');
+    });
+  }
+  openSheet('slot-sheet');
 }
 
 function renderRoomInfo() {
@@ -282,9 +432,9 @@ function costHtml(cost) {
 
 function openCraft() {
   $('craft-mats').innerHTML = matChips();
-  $('craft-list').innerHTML = FURNITURE.map(f => `<div class="craft-item">
+  $('craft-list').innerHTML = FURNITURE.map(f => `<div class="craft-item ${f.special ? 'special' : ''}">
       <span class="craft-ico">${f.icon}</span>
-      <span><span class="craft-name">${f.name}</span>${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
+      <span><span class="craft-name">${f.name}</span>${f.special ? '<span class="craft-tag">특별</span>' : ''}${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
         <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${costHtml(f.cost)}</span></span>
       <button class="btn primary" data-craft="${f.id}" type="button" ${canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
     </div>`).join('');
@@ -362,7 +512,9 @@ function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 export function initBuddyUI({ toast, onChange }) {
   toastFn = toast;
   onChangeFn = onChange || (() => {});
-  $('act-feed').addEventListener('click', () => afterAction(feed(), 'eat'));
+  $('act-feed').addEventListener('click', openFood);
+  $('place-room').addEventListener('click', () => setPlace('room'));
+  $('place-garden').addEventListener('click', () => setPlace('garden'));
   $('act-play').addEventListener('click', () => afterAction(play(), 'happy'));
   $('act-sleep').addEventListener('click', () => afterAction(toggleSleep(), null));
   $('buddy-svg').addEventListener('click', onPet);
@@ -381,6 +533,7 @@ export function initBuddyUI({ toast, onChange }) {
     say(`좋아! 이제 내 이름은 ${josa(displayName(), '이야', '야')}!`);
   });
   $('btn-decorate').addEventListener('click', () => {
+    if (placeNow !== 'room') setPlace('room');
     setEditing(!editing);
     if (editing) {
       say('어디에 뭘 놓을까? 두근두근!');
@@ -389,6 +542,7 @@ export function initBuddyUI({ toast, onChange }) {
   });
   $('room-done').addEventListener('click', () => { setEditing(false); say(pick(['방 예쁘다! 고마워!', '여기서 살고 싶어… 아, 여기 살지!'])); });
   $('btn-craft').addEventListener('click', openCraft);
+  $('btn-craft2').addEventListener('click', openCraft);
   $('btn-talk').addEventListener('click', startTalk);
   $('room-talk').addEventListener('click', startTalk);
   initTalkUI();

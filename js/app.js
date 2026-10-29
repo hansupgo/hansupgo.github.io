@@ -9,6 +9,7 @@ import { loadThree, createViewer } from './stage3d.js';
 import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
+import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -37,6 +38,10 @@ function toast(text, ms = 2600) {
   toast.timer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
+// 친구 서버에서 온 숫자·색은 믿지 않고 정리해서 씀
+const num = (v) => (Number.isFinite(Number(v)) ? Math.max(0, Math.floor(Number(v) * 10) / 10) : 0);
+const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c)) ? c : '#888');
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -64,9 +69,12 @@ function renderHud() {
   $('hud-balls').textContent = s.balls;
   $('hud-dex').textContent = `${store.speciesCount()}/${SPECIES.length}`;
   $('hud-snacks').textContent = s.snacks;
-  $('hud-time').textContent = isNight() ? '🌙' : '☀';
-  $('hud-time').title = isNight() ? '밤: 밤에만 나오는 친구들이 있어요' : '낮';
+  const w = weather();
+  const info = weatherInfo();
+  $('hud-time').textContent = `${isNight() ? info.night : info.icon}${w.temp != null ? ` ${w.temp}°` : ''}`;
+  $('hud-time').title = `${isNight() ? '밤' : '낮'} · ${info.name}`;
   $('hud-time').className = 'chip ' + (isNight() ? 'night' : 'day');
+  applyMapMood();
 }
 
 // ---------- 지도 ----------
@@ -89,10 +97,27 @@ function spawnIcon(spawn, near) {
   });
 }
 
+// 지도 색(아침·낮·노을·밤)과 비·눈 효과
+function applyMapMood() {
+  const panel = $('panel-map');
+  const tod = timeOfDay();
+  const kind = weather().kind;
+  for (const t of ['dawn', 'day', 'dusk', 'night']) panel.classList.toggle(`tod-${t}`, t === tod);
+  panel.classList.toggle('wx-gloomy', ['rain', 'storm', 'snow', 'cloudy', 'fog'].includes(kind));
+  $('wx-layer').className = `wx-layer ${kind}`;
+}
+
+function showWeatherTip() {
+  const w = weather();
+  const info = weatherInfo();
+  const tod = { dawn: '이른 아침', day: '낮', dusk: '노을 지는 저녁', night: '밤' }[timeOfDay()];
+  toast(`${info.icon} 지금 한숲시티: ${info.name}${w.temp != null ? ` ${w.temp}°C` : ''} · ${tod}\n${info.tip}${isNight() ? ' 밤에는 밤에만 나오는 친구들과 ✨별가루가 있어요.' : ''}`, 5200);
+}
+
 function matIcon(spot, near) {
   return L.divIcon({
     className: 'mat-icon',
-    html: `<div class="mat-spot ${near ? 'near' : ''}" title="${MATERIALS[spot.kind].name}">${MATERIALS[spot.kind].icon}</div>`,
+    html: `<div class="mat-spot ${near ? 'near' : ''} ${MATERIALS[spot.kind].seed ? 'seed' : MATERIALS[spot.kind].limited ? 'limited' : ''}" title="${MATERIALS[spot.kind].name}">${MATERIALS[spot.kind].icon}</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -183,7 +208,12 @@ function countWalk(lat, lng, acc) {
   // 가만히 있어도 GPS는 몇 m씩 흔들리니, 정확도의 절반(최소 8m) 넘게 움직였을 때만 셈
   if (d < Math.max(8, acc / 2)) return;
   walkPrev = { lat, lng };
-  if (d <= 80) buddyWalked(d);
+  if (d > 80) return;
+  if (store.state.demo) {
+    if (!countWalk.told && hasBuddy()) { countWalk.told = true; toast('연습 모드에서는 짝꿍 산책 거리가 쌓이지 않아요. 진짜로 걸어야 자라요!', 3500); }
+    return;
+  }
+  buddyWalked(d);
 }
 
 function updateBuddyMarker() {
@@ -232,7 +262,9 @@ function refreshWorld() {
     if (!keep.has(id)) { map.removeLayer(m); spawnMarkers.delete(id); }
   }
   for (const stop of CONFIG.stops) {
-    stopMarkers.get(stop.id).setIcon(stopIcon(stop, stopReady(stop)));
+    const m = stopMarkers.get(stop.id);
+    const ready = stopReady(stop);
+    if (m._ready !== ready) { m.setIcon(stopIcon(stop, ready)); m._ready = ready; }
   }
   refreshMaterials();
   renderNearby(list);
@@ -352,7 +384,7 @@ function useStop(stop) {
     store.state.specialDay = todayKey();
     store.save();
     toast(`★ ${stop.name} 특별 거점! 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)} + 특별한 몬스터가 나타났어요!`, 4000);
-    setTimeout(() => openEncounter(specialEncounter(store.state.id, todayKey())), 900);
+    setTimeout(() => { if (!encounterActive()) openEncounter(specialEncounter(store.state.id, todayKey())); }, 900);
   } else {
     toast(`${stop.name}에서 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)}를 받았어요!`, 3200);
   }
@@ -447,7 +479,7 @@ let dexFilter = 'all';
 function dexGrid(caughtMap, onClick, filter = 'all') {
   return SPECIES.filter(sp => filter === 'all' || sp.kind === filter).map(sp => {
     const c = caughtMap[sp.id];
-    const count = typeof c === 'number' ? c : c?.count;
+    const count = num(typeof c === 'number' ? c : c?.count);
     return `<button class="dex-card ${count ? 'got' : ''}" data-id="${sp.id}" type="button" ${onClick ? '' : 'tabindex="-1"'}>
       <span class="dex-no">No.${String(sp.no).padStart(3, '0')}</span>
       ${monsterSVG(sp, { size: 84, silhouette: !count })}
@@ -556,12 +588,12 @@ function renderFamily() {
     box.innerHTML = `<div class="notice warn"><p>${esc(remote.error)}</p></div>`;
     return;
   }
-  const players = [...remote.players].sort((a, b) => (b.species - a.species) || (b.xp - a.xp));
+  const players = [...remote.players].sort((a, b) => (num(b.species) - num(a.species)) || (num(b.xp) - num(a.xp)));
   const feed = remote.feed.map(f => {
     const sp = speciesById[f.speciesId];
     if (!sp) return '';
     const when = new Date(f.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `<li><span class="mini-av" style="background:${esc(f.color || '#888')}">${esc((f.name || '?').slice(0, 1))}</span>
+    return `<li><span class="mini-av" style="background:${safeColor(f.color)}">${esc((f.name || '?').slice(0, 1))}</span>
       <span><b>${esc(f.name)}</b>님이 ${sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를')} ${KINDS[sp.kind].feed}${f.isNew ? ' <em>NEW</em>' : ''}</span><time>${when}</time></li>`;
   }).join('');
   box.innerHTML = `<p class="group-code">친구 코드 <b>${esc(s.group)}</b> · ${players.length}명 참여 중</p>
@@ -575,16 +607,17 @@ function buddyBadge(b) {
   const sp = b && speciesById[b.speciesId];
   if (!sp) return '';
   const stage = STAGES[b.stage]?.name || STAGES[0].name;
-  return `<br><span class="rank-buddy">${monsterSVG(sp, { size: 26 })}${esc(b.nick || sp.name)} · ${stage}${b.walkedKm ? ` · ${b.walkedKm}km` : ''}</span>`;
+  const km = num(b.walkedKm);
+  return `<br><span class="rank-buddy">${monsterSVG(sp, { size: 26 })}${esc(b.nick || sp.name)} · ${stage}${km ? ` · ${km}km` : ''}</span>`;
 }
 
 function familyList(players, myUid) {
   return `<ol class="rank">${players.map((p, i) => `
     <li><button class="rank-row" data-uid="${esc(p.uid)}" type="button">
       <span class="rank-no">${i + 1}</span>
-      <span class="mini-av" style="background:${esc(p.color || '#888')}">${esc((p.name || '?').slice(0, 1))}</span>
+      <span class="mini-av" style="background:${safeColor(p.color)}">${esc((p.name || '?').slice(0, 1))}</span>
       <span class="rank-name">${esc(p.name || '이름 없음')}${p.uid === myUid ? ' <small>(나)</small>' : ''}${buddyBadge(p.buddy)}</span>
-      <span class="rank-stat"><b>${p.species || 0}</b>/${SPECIES.length}종 · Lv.${p.level || 1}${p.eng ? ` · 📘${p.eng}` : ''}</span>
+      <span class="rank-stat"><b>${num(p.species)}</b>/${SPECIES.length}종 · Lv.${num(p.level) || 1}${num(p.eng) ? ` · 📘${num(p.eng)}` : ''}</span>
     </button></li>`).join('')}</ol>`;
 }
 
@@ -596,7 +629,7 @@ function bindFamily(players) {
       closeViewer();
       const bsp = p.buddy && speciesById[p.buddy.speciesId];
       const buddyHtml = bsp ? `<div class="friend-buddy">${monsterSVG(bsp, { size: 72 })}
-          <div><b>${esc(p.buddy.nick || bsp.name)}</b><br><span class="muted">${STAGES[p.buddy.stage]?.name || STAGES[0].name} ${bsp.name}${p.buddy.walkedKm ? ` · 함께 ${p.buddy.walkedKm}km 걸음` : ''}</span></div></div>` : '';
+          <div><b>${esc(p.buddy.nick || bsp.name)}</b><br><span class="muted">${STAGES[p.buddy.stage]?.name || STAGES[0].name} ${bsp.name}${num(p.buddy.walkedKm) ? ` · 함께 ${num(p.buddy.walkedKm)}km 걸음` : ''}</span></div></div>` : '';
       $('sp-body').innerHTML = `<h3>${esc(p.name || '이름 없음')}의 도감</h3>
         ${buddyHtml}
         <p class="muted">${Object.keys(p.caught || {}).length}/${SPECIES.length}종 발견</p>
@@ -732,6 +765,22 @@ async function main() {
   store.onChange(renderHud);
   remote.onChange(() => { if (document.body.dataset.tab === 'family') renderFamily(); });
   setInterval(() => { renderHud(); refreshWorld(); }, 15000);
+  $('hud-time').addEventListener('click', showWeatherTip);
+  // 날씨가 바뀌면 나오는 친구와 재료도 바뀜
+  let lastKind = weather().kind;
+  onWeather((w) => {
+    renderHud();
+    if (w.kind !== lastKind) {
+      lastKind = w.kind;
+      for (const m of spawnMarkers.values()) map.removeLayer(m);
+      spawnMarkers.clear();
+      for (const m of matMarkers.values()) map.removeLayer(m);
+      matMarkers.clear();
+      refreshWorld();
+    }
+  });
+  refreshWeather();
+  setInterval(() => refreshWeather(), 20 * 60000);
 
   showTab('map');
   // 3D 엔진은 미리 받아 둠 (잡기 화면을 빨리 열기 위해)

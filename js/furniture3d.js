@@ -232,6 +232,91 @@ export function buildFurniture(THREE, id) {
       ticks.push((t) => shells.forEach((h, i) => { h.rotation.z = Math.sin(t * 1.4 + i) * 0.12; h.rotation.y = t * 0.6 + i; }));
       break;
     }
+    case 'sunpot': {
+      cyl(0.15, 0.11, 0.24, 0xd9774a, [0, 0.12, 0]);
+      cyl(0.16, 0.16, 0.035, 0xe8875a, [0, 0.24, 0]);
+      cyl(0.014, 0.018, 0.7, 0x5fb34a, [0, 0.6, 0]);
+      for (const sx of [-1, 1]) { const l = sph(0.07, 0x5fb34a, [sx * 0.08, 0.5, 0], [1, 0.3, 0.55]); l.rotation.z = -sx * 0.4; }
+      const head = new THREE.Group();
+      head.position.set(0, 0.97, 0.04);
+      head.rotation.x = -0.2;
+      g.add(head);
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2;
+        const p = sph(0.06, 0xffc93c, [Math.cos(a) * 0.12, Math.sin(a) * 0.12, 0], [0.5, 1, 0.2], {}, head);
+        p.rotation.z = a - Math.PI / 2;
+      }
+      sph(0.09, 0x7a4a24, [0, 0, 0.01], [1, 1, 0.35], {}, head);
+      ticks.push((t) => { head.rotation.z = Math.sin(t * 0.9) * 0.08; });
+      break;
+    }
+    case 'lotuslamp': {
+      cyl(0.2, 0.22, 0.06, 0x6aa9d8, [0, 0.03, 0], { opacity: 0.9 });
+      const petals = [];
+      for (let ring = 0; ring < 2; ring++) {
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + ring * 0.4;
+          const r = ring ? 0.07 : 0.12;
+          const p = sph(0.08 - ring * 0.02, ring ? 0xffc2d8 : 0xff9ac0, [Math.cos(a) * r, 0.13 + ring * 0.05, Math.sin(a) * r], [0.45, 1, 0.25], { glow: 0.25 });
+          p.rotation.set(Math.sin(a) * 0.6, -a, Math.cos(a) * 0.6);
+          petals.push(p.material);
+        }
+      }
+      const core = sph(0.05, 0xfff0a0, [0, 0.2, 0], [1, 1, 1], { glow: 1.1 });
+      const light = new THREE.PointLight(0xffc0d8, 0.8, 2, 1.5);
+      light.position.set(0, 0.3, 0.05);
+      g.add(light);
+      g.userData.light = light;
+      g.userData.glow = [core.material];
+      break;
+    }
+    case 'pumpkinlamp': {
+      const glowM = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const m = sph(0.13, 0xf28a2e, [Math.cos(a) * 0.08, 0.15, Math.sin(a) * 0.08], [0.7, 0.95, 0.7], { rough: 0.5 });
+        glowM.push(m.material);
+      }
+      cyl(0.02, 0.025, 0.09, 0x5a7a2a, [0, 0.31, 0]);
+      // 웃는 얼굴 (빛나는 눈과 입)
+      for (const x of [-0.06, 0.06]) { const e = mesh(new THREE.ConeGeometry(0.03, 0.05, 3), 0xffe066, [x, 0.2, 0.2], { glow: 1.4 }); e.rotation.x = Math.PI / 2; }
+      const mouth = box(0.13, 0.025, 0.02, 0xffe066, [0, 0.12, 0.205], { glow: 1.4 });
+      const light = new THREE.PointLight(0xffa64a, 0.8, 2, 1.5);
+      light.position.set(0, 0.18, 0.3);
+      g.add(light);
+      g.userData.light = light;
+      g.userData.glow = [mouth.material];
+      break;
+    }
+    case 'chime': {
+      cyl(0.012, 0.012, 0.42, WOOD_D, [0, 0.14, 0.12]).rotation.z = Math.PI / 2;
+      const drops = [];
+      [-0.15, -0.05, 0.05, 0.15].forEach((x, i) => {
+        const hang = new THREE.Group();
+        hang.position.set(x, 0.14, 0.12);
+        g.add(hang);
+        const len = 0.1 + (i % 2) * 0.07;
+        cyl(0.003, 0.003, len, 0xdddddd, [0, -len / 2, 0], {}, hang);
+        const d = sph(0.035, 0x8fd0ff, [0, -len - 0.03, 0], [1, 1.3, 1], { opacity: 0.85, glow: 0.3, rough: 0.1 }, hang);
+        mesh(new THREE.ConeGeometry(0.03, 0.05, 12), 0x8fd0ff, [0, -len + 0.01, 0], { opacity: 0.85, rough: 0.1 }, hang);
+        drops.push(hang);
+        void d;
+      });
+      ticks.push((t) => drops.forEach((h, i) => { h.rotation.z = Math.sin(t * 2.2 + i * 1.3) * 0.15; }));
+      break;
+    }
+    case 'snowman': {
+      sph(0.17, 0xffffff, [0, 0.16, 0], [1, 0.95, 1], { rough: 0.9 });
+      sph(0.12, 0xffffff, [0, 0.4, 0], [1, 1, 1], { rough: 0.9 });
+      for (const x of [-0.04, 0.04]) sph(0.014, 0x222222, [x, 0.43, 0.11]);
+      const nose = mesh(new THREE.ConeGeometry(0.018, 0.08, 10), 0xff8a3d, [0, 0.4, 0.15]);
+      nose.rotation.x = Math.PI / 2;
+      mesh(new THREE.TorusGeometry(0.1, 0.025, 8, 24), 0xe8534a, [0, 0.31, 0]).rotation.x = Math.PI / 2;
+      cyl(0.09, 0.09, 0.015, 0x333344, [0, 0.51, 0]);
+      cyl(0.06, 0.06, 0.1, 0x333344, [0, 0.57, 0]);
+      for (const sx of [-1, 1]) { const arm = cyl(0.008, 0.008, 0.18, WOOD_D, [sx * 0.2, 0.42, 0]); arm.rotation.z = sx * 1.0; }
+      break;
+    }
     default:
       box(0.3, 0.3, 0.3, 0xcccccc, [0, 0.15, 0]);
   }
