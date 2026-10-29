@@ -37,7 +37,7 @@ export const CONFIG = {
   // 출현 규칙
   spawnSlotMinutes: 15, // 몬스터가 바뀌는 주기
   spawnChance: 0.3,     // 한 칸(약 80m)에 몬스터가 나올 확률
-  materialChance: 0.45, // 한 칸에 재료(나뭇잎, 조약돌...)가 떨어져 있을 확률
+  materialChance: 0.3,  // 한 칸에 재료(나뭇잎, 조약돌...)가 떨어져 있을 확률
   cellLat: 0.0007,
   cellLng: 0.0009,
   nightStart: 19,       // 밤 몬스터가 나오는 시간
