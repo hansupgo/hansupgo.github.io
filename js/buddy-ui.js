@@ -6,8 +6,9 @@ import { createBuddyView } from './stage3d.js';
 import { isNight } from './spawn.js';
 import {
   STAGES, hasBuddy, buddy, buddySpecies, displayName, stageIndex, stageProgress,
-  adopt, tick, feed, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus,
+  adopt, tick, feed, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus, englishReward,
 } from './buddy.js';
+import { openTalk, initTalkUI } from './english.js';
 import {
   MATERIALS, MATERIAL_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
   room, matCount, canAfford, craft, unlockTheme, hasTheme, owned, spare, place, clearSlot,
@@ -158,8 +159,32 @@ export async function renderBuddy(greeting) {
     if (document.body.dataset.tab !== 'buddy') return;
     renderStats();
     view?.setNight(isNight());
-    if (!editing) say(talk({ todayM: buddy().todayM }));
+    if (!editing) say(Math.random() < 0.3 && englishLine() || talk({ todayM: buddy().todayM }));
   }, 14000);
+}
+
+// 영어 대화에서 배운 표현을 가끔 혼잣말로
+function englishLine() {
+  const ps = Object.entries(store.state.english?.phrases || {});
+  if (!ps.length) return '';
+  const [en, v] = ps[Math.floor(Math.random() * ps.length)];
+  return `${en} (${v.ko})`;
+}
+
+function startTalk() {
+  if (!hasBuddy()) return;
+  setEditing(false);
+  clearInterval(talkTimer);
+  closeView(); // 대화하는 동안 3D 방은 쉼
+  openTalk({
+    sp: buddySpecies(),
+    name: store.state.name,
+    stage: stageIndex(),
+    toast: toastFn,
+    onDone: (n) => { const r = englishReward(n); onChangeFn(); return r; },
+    onEvolve: showEvolve,
+    onClose: () => { if (document.body.dataset.tab === 'buddy') renderBuddy(pick(['Thanks for talking with me! (나랑 이야기해 줘서 고마워!)', 'That was fun! (재밌었다!)'])); },
+  });
 }
 
 export function leaveBuddy() {
@@ -364,6 +389,9 @@ export function initBuddyUI({ toast, onChange }) {
   });
   $('room-done').addEventListener('click', () => { setEditing(false); say(pick(['방 예쁘다! 고마워!', '여기서 살고 싶어… 아, 여기 살지!'])); });
   $('btn-craft').addEventListener('click', openCraft);
+  $('btn-talk').addEventListener('click', startTalk);
+  $('room-talk').addEventListener('click', startTalk);
+  initTalkUI();
   for (const id of ['craft-sheet', 'slot-sheet']) {
     $(id).addEventListener('click', (e) => {
       if (e.target.id === id || e.target.closest('.sheet-close')) closeSheet(id);

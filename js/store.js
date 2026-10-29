@@ -180,6 +180,7 @@ export const remote = {
       species: Object.keys(caught).length,
       total: Object.values(caught).reduce((a, b) => a + b, 0),
       caught,
+      eng: Object.keys(state.english?.phrases || {}).length, // 배운 영어 표현 수
       buddy: state.buddy ? {
         speciesId: state.buddy.speciesId,
         nick: (state.buddy.nick || '').slice(0, 8),
