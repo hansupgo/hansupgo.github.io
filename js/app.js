@@ -6,8 +6,8 @@ import { spawnsAround, distanceM, specialEncounter, isNight } from './spawn.js';
 import { store, remote, levelFromXp, xpForLevel } from './store.js';
 import { startEncounter, initEncounterUI, encounterActive } from './catch.js';
 import { loadThree, createViewer } from './stage3d.js';
-import { hasBuddy, buddySpecies, STAGES } from './buddy.js';
-import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked } from './buddy-ui.js';
+import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
+import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 
 const $ = (id) => document.getElementById(id);
@@ -175,12 +175,13 @@ function updateMe(lat, lng, acc = 10) {
   refreshWorld();
 }
 
-// 걸은 거리: 3m 미만 흔들림은 모으고, 80m 넘게 튄 위치는 버림
+// 걸은 거리: 작은 흔들림은 모아서 세고, 80m 넘게 튄 위치는 버림
 function countWalk(lat, lng, acc) {
   if (acc > 60) return;
   if (!walkPrev) { walkPrev = { lat, lng }; return; }
   const d = distanceM(walkPrev, { lat, lng });
-  if (d < 3) return;
+  // 가만히 있어도 GPS는 몇 m씩 흔들리니, 정확도의 절반(최소 8m) 넘게 움직였을 때만 셈
+  if (d < Math.max(8, acc / 2)) return;
   walkPrev = { lat, lng };
   if (d <= 80) buddyWalked(d);
 }
@@ -503,7 +504,10 @@ function showSpecies(id) {
        <div><dt>가장 큰 크기</dt><dd>${c.bestSize}cm</dd></div>
        <div><dt>사는 곳</dt><dd>${habitatText(sp)}</dd></div>
        <div><dt>잡는 방법</dt><dd>${kind.how}</dd></div>
-       <div><dt>처음 만난 날</dt><dd>${new Date(c.firstAt).toLocaleDateString('ko-KR')}</dd></div></dl>`
+       <div><dt>처음 만난 날</dt><dd>${new Date(c.firstAt).toLocaleDateString('ko-KR')}</dd></div></dl>
+       ${buddy()?.speciesId === id
+    ? '<p class="muted">💛 지금 내 짝꿍이에요</p>'
+    : '<button id="sp-buddy" class="btn primary" type="button">💛 짝꿍으로 정하기</button>'}`
     : `${monsterSVG(sp, { size: 160, silhouette: true })}
        <h3>No.${String(sp.no).padStart(3, '0')} ???</h3>
        <p class="sp-tags">${rar} ${kind.label}</p>
@@ -511,6 +515,12 @@ function showSpecies(id) {
        <p class="hint">힌트: ${habitatText(sp)}</p>
        <p class="muted">잡는 방법: ${kind.how}</p>`;
   $('sp-sheet').hidden = false;
+  $('sp-buddy')?.addEventListener('click', () => {
+    $('sp-sheet').hidden = true;
+    closeViewer();
+    setBuddyFromDex(id);
+    showTab('buddy');
+  });
   const box = $('sp-3d');
   if (box) {
     createViewer(box, sp).then(v => {
@@ -584,7 +594,11 @@ function bindFamily(players) {
       const p = players.find(x => x.uid === btn.dataset.uid);
       if (!p) return;
       closeViewer();
+      const bsp = p.buddy && speciesById[p.buddy.speciesId];
+      const buddyHtml = bsp ? `<div class="friend-buddy">${monsterSVG(bsp, { size: 72 })}
+          <div><b>${esc(p.buddy.nick || bsp.name)}</b><br><span class="muted">${STAGES[p.buddy.stage]?.name || STAGES[0].name} ${bsp.name}${p.buddy.walkedKm ? ` · 함께 ${p.buddy.walkedKm}km 걸음` : ''}</span></div></div>` : '';
       $('sp-body').innerHTML = `<h3>${esc(p.name || '이름 없음')}의 도감</h3>
+        ${buddyHtml}
         <p class="muted">${Object.keys(p.caught || {}).length}/${SPECIES.length}종 발견</p>
         <div class="dex-grid small">${dexGrid(p.caught || {}, false)}</div>`;
       $('sp-sheet').hidden = false;

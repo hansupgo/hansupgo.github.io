@@ -24,6 +24,8 @@ let toastFn = () => {};
 let onChangeFn = () => {};
 let choosing = false;    // 짝꿍 바꾸기 중
 let editing = false;     // 방 꾸미기 중
+let viewToken = 0;       // 3D 화면을 여러 번 동시에 만들지 않도록
+let pendingGreeting = '';
 
 function fmtKm(m) { return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`; }
 
@@ -74,19 +76,29 @@ function choose(id) {
   renderBuddy(`안녕! 나는 ${displayName()}! 앞으로 잘 부탁해!`);
 }
 
+/** 도감에서 짝꿍으로 정하기 (화면은 짝꿍 탭을 열 때 그림) */
+export function setBuddyFromDex(id) {
+  const again = Boolean(store.state.buddyBook?.[id]);
+  adopt(id);
+  choosing = false;
+  onChangeFn();
+  pendingGreeting = again ? `다시 만나서 반가워! 나 ${displayName()}!` : `안녕! 나는 ${displayName()}! 앞으로 잘 부탁해!`;
+}
+
 // ---------- 돌보기 화면 ----------
 
 async function ensureView() {
   const sp = buddySpecies();
   const key = sp.id;
-  if (view && viewFor === key) return;
+  if (viewFor === key) return; // 이미 있거나 만드는 중
   closeView();
   viewFor = key;
+  const token = ++viewToken;
   const box = $('buddy-3d');
   const v = await createBuddyView(box, sp, {
     stage: stageIndex(), onPet, onSlot: openSlot, room: room(), slots: SLOTS, night: isNight(), zzzEl: $('buddy-zzz'),
   });
-  if (viewFor !== key || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
+  if (token !== viewToken || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
   view = v;
   $('buddy-svg').hidden = Boolean(view);
   if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
@@ -95,6 +107,7 @@ async function ensureView() {
 }
 
 function closeView() {
+  viewToken++;
   view?.dispose();
   view = null;
   viewFor = '';
@@ -135,6 +148,8 @@ export async function renderBuddy(greeting) {
   $('buddy-home').hidden = false;
   renderStats();
   const bonus = dailyRoomBonus();
+  if (!greeting && pendingGreeting) greeting = pendingGreeting;
+  pendingGreeting = '';
   if (bonus) { renderStats(); greeting = `아늑한 방에서 푹 쉬었더니 힘이 나! (성장 +${bonus.pts})`; }
   await ensureView();
   say(greeting || talk({ todayM: buddy().todayM }));

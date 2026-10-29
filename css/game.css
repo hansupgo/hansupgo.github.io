@@ -627,3 +627,7 @@ body.in-encounter .toast { bottom: calc(140px + var(--safe-b)); }
 }
 .mat-spot.near { border-color: #2fd18a; animation: bob 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .mat-spot.near { animation: none; } }
+
+.friend-buddy { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 16px; background: #fff7e3; text-align: left; }
+.friend-buddy b { font-family: var(--display); font-size: 17px; font-weight: 400; }
+#sp-buddy { margin-top: 6px; }
