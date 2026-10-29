@@ -425,27 +425,124 @@ function addAccessories(model, stage) {
   model.add(acc);
 }
 
-export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
+export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room = null, slots = [], night = false, zzzEl = null } = {}) {
   if (!webglOk() || !(await loadThree())) return null;
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
-  addLights(scene);
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
-  camera.position.set(0, 0.85, 3.2);
-  camera.lookAt(0, 0.48, 0);
+  const hemi = new THREE.HemisphereLight(0xfff6e8, 0x8a6a4a, 1.4);
+  const key = new THREE.DirectionalLight(0xfff1dc, 1.4);
+  key.position.set(-1.2, 3, 2.5);
+  const warm = new THREE.PointLight(0xffc98a, 0.6, 6, 1.2);
+  warm.position.set(0, 1.8, 0.8);
+  scene.add(hemi, key, warm);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 30);
+
+  // 짝꿍: holder(위치·방향) > model(몸짓)
+  const holder = new THREE.Group();
+  scene.add(holder);
   const shadow = blobShadow();
-  scene.add(shadow);
+  holder.add(shadow);
+  const HOME = { x: 0, z: 0.25 };
+  holder.position.set(HOME.x, 0, HOME.z);
 
   let model = null;
   let stageNow = stage;
   let sleeping = false;
+  let editing = false;
+  let isNight = night;
   let anim = { name: 'idle', t0: 0 };
   let clock = 0;
+  let walk = { target: null, wait: 2 };
+
+  // ---------- 방 ----------
+  let roomGroup = null;
+  let roomKey = '';
+  const furn = new Map(); // slotId -> { id, obj, born }
+  const markers = new Map(); // slotId -> mesh
+  let slotsDef = [];
+  let roomMod = null;
+
+  function slotPos(sl) {
+    return sl.where === 'wall'
+      ? new THREE.Vector3(sl.x, sl.y, -mod().ROOM.d / 2 + 0.01)
+      : new THREE.Vector3(sl.x, 0, sl.z);
+  }
+  const mod = () => roomMod;
+
+  function buildMarkers() {
+    for (const sl of slotsDef) {
+      const big = sl.where === 'rug';
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(big ? 0.5 : 0.2, big ? 0.58 : 0.27, 40),
+        new THREE.MeshBasicMaterial({ color: 0x2fd18a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      const fill = new THREE.Mesh(
+        new THREE.CircleGeometry(big ? 0.5 : 0.2, 40),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      ring.add(fill);
+      const p = slotPos(sl);
+      ring.position.copy(p);
+      if (sl.where === 'wall') ring.position.z += 0.02;
+      else { ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; }
+      ring.userData.slot = sl.id;
+      fill.userData.slot = sl.id;
+      ring.visible = false;
+      ring.renderOrder = 5;
+      scene.add(ring);
+      markers.set(sl.id, ring);
+    }
+  }
+
+  function setRoom(r) {
+    if (!r || !roomMod) return;
+    const k = `${r.wall}|${r.floor}`;
+    if (k !== roomKey) {
+      if (roomGroup) { scene.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
+      roomGroup = roomMod.buildRoom(THREE, r);
+      scene.add(roomGroup);
+      roomKey = k;
+    }
+    for (const sl of slotsDef) {
+      const want = r.slots[sl.id] || null;
+      const have = furn.get(sl.id);
+      if (have && have.id === want) continue;
+      if (have) { scene.remove(have.obj); disposeTree(have.obj); furn.delete(sl.id); }
+      if (!want) continue;
+      const obj = roomMod.buildFurniture(THREE, want);
+      obj.position.copy(slotPos(sl));
+      if (sl.where === 'floor') obj.rotation.y = Math.atan2(-sl.x, 1.4 - sl.z) * 0.6; // 방 가운데 쪽으로 살짝
+      obj.traverse(o => { o.userData.slot = sl.id; });
+      scene.add(obj);
+      furn.set(sl.id, { id: want, obj, born: clock });
+    }
+    applyNight();
+  }
+
+  function applyNight() {
+    hemi.intensity = isNight ? 0.55 : 1.4;
+    key.intensity = isNight ? 0.35 : 1.4;
+    warm.intensity = isNight ? 1.4 : 0.6;
+    for (const { obj } of furn.values()) {
+      const u = obj.userData;
+      if (u.light) u.light.intensity = isNight ? 2.2 : 0.6;
+      u.glowBase = isNight ? 1.6 : 0.8;
+      if (u.glow) u.glow.forEach(m => { m.emissiveIntensity = u.glowBase; });
+      if (u.sky) { u.sky.color.set(isNight ? 0x34407a : 0xffffff); u.sky.emissiveIntensity = isNight ? 0.08 : 0.35; }
+    }
+  }
+
+  if (room) {
+    roomMod = await import('./furniture3d.js');
+    slotsDef = slots;
+    buildMarkers();
+    setRoom(room);
+  }
 
   function setCreature(species, st) {
-    if (model) { scene.remove(model); disposeTree(model); }
+    if (model) { holder.remove(model); disposeTree(model); }
     model = buildModel(THREE, species);
-    scene.add(model);
+    holder.add(model);
     setStage(st);
   }
   function setStage(st) {
@@ -459,13 +556,24 @@ export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
     const h = el.clientHeight || 1;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    if (room) {
+      // 방 양쪽 가구(x=±1.45)가 보이도록 거리 맞추기
+      const tanH = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+      const z = Math.min(6, Math.max(3.4, 0.45 + 1.5 / tanH));
+      camera.position.set(0, 0.9 + z * 0.3, z);
+      camera.lookAt(0, 0.62, -0.25);
+    } else {
+      camera.fov = 32;
+      camera.position.set(0, 0.85, 3.2);
+      camera.lookAt(0, 0.48, 0);
+    }
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(resize);
   ro.observe(el);
   resize();
 
-  // 캐릭터를 톡 누르면 쓰다듬기
+  // 누르기: 꾸미기 중이면 자리 고르기, 아니면 짝꿍 쓰다듬기
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const onDown = (e) => {
@@ -473,9 +581,29 @@ export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
     const r = renderer.domElement.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
+    if (editing) {
+      const targets = [...markers.values(), ...[...furn.values()].map(f => f.obj)];
+      const hit = ray.intersectObjects(targets, true)[0];
+      if (hit) { onSlot?.(hit.object.userData.slot); return; }
+    }
     if (ray.intersectObject(model, true).length) onPet?.();
   };
   el.addEventListener('pointerdown', onDown);
+
+  // 짝꿍 돌아다니기 (방 가운데 빈 곳만)
+  function nextTarget() {
+    if (sleeping) {
+      const bedSlot = [...furn.entries()].find(([, f]) => f.id === 'bed');
+      if (bedSlot) {
+        const f = bedSlot[1].obj;
+        const at = f.userData.sleepAt;
+        const v = new THREE.Vector3(0, at.y, at.z).applyEuler(f.rotation).add(f.position);
+        return { x: v.x, z: v.z, y: at.y, bed: true };
+      }
+      return null;
+    }
+    return { x: (Math.random() - 0.5) * 1.0, z: -0.25 + Math.random() * 0.95, y: 0 };
+  }
 
   const SCALE = [0.72, 0.88, 1.0];
   let last = performance.now();
@@ -486,10 +614,38 @@ export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
     clock += dt;
     if (!model) return;
     const st = clock - anim.t0;
-    animateIdle(model, clock, { noLook: sleeping });
+    const busy = anim.name !== 'idle';
+    let walking = false;
+
+    if (room && !busy) {
+      if (walk.target) {
+        const dx = walk.target.x - holder.position.x;
+        const dz = walk.target.z - holder.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.03) {
+          holder.position.y = walk.target.y || 0;
+          walk = { target: null, wait: sleeping ? 1e9 : 2.5 + Math.random() * 4, at: walk.target };
+          holder.rotation.y = 0;
+        } else {
+          const step = Math.min(d, dt * (walk.target.bed ? 0.6 : 0.38));
+          holder.position.x += (dx / d) * step;
+          holder.position.z += (dz / d) * step;
+          holder.rotation.y = Math.atan2(dx, dz);
+          holder.position.y = walk.target.bed ? Math.min(walk.target.y, holder.position.y + dt) : 0;
+          walking = true;
+        }
+      } else if ((walk.wait -= dt) <= 0) {
+        walk.target = nextTarget();
+        if (walk.target && walk.at?.bed) holder.position.y = 0; // 침대에서 내려옴
+        if (!walk.target) walk.wait = 3;
+      }
+    }
+
+    animateIdle(model, clock, { noLook: sleeping || walking });
     let y = model.userData.flyer ? 0.12 + Math.sin(clock * 3) * 0.04 : 0;
+    if (walking) { y += Math.abs(Math.sin(clock * 9)) * 0.05; model.rotation.y = 0; }
     let s = SCALE[stageNow] ?? 1;
-    let rotY = sleeping ? 0.25 : null;
+    let rotY = sleeping && !walking ? 0.25 : null;
     switch (anim.name) {
       case 'hop': y += Math.max(0, Math.sin(Math.min(1, st / 0.45) * Math.PI)) * 0.25; if (st > 0.5) anim.name = 'idle'; break;
       case 'eat': s *= 1 + Math.sin(st * 18) * 0.04; if (st > 1) anim.name = 'idle'; break;
@@ -513,18 +669,56 @@ export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
       });
     }
     shadow.scale.setScalar(s * (1 - Math.min(0.6, y)));
+    if (zzzEl && sleeping) {
+      // 쿨쿨 글자가 짝꿍 머리 위를 따라가도록
+      const p = new THREE.Vector3(0.15, 0.85 * s, 0).applyMatrix4(holder.matrixWorld).project(camera);
+      zzzEl.style.left = `${((p.x + 1) / 2) * 100}%`;
+      zzzEl.style.top = `${((1 - p.y) / 2) * 100 - 6}%`;
+      zzzEl.style.right = 'auto';
+    }
+
+    for (const f of furn.values()) {
+      f.obj.userData.tick?.(clock);
+      const p = Math.min(1, (clock - f.born) / 0.45); // 놓을 때 통통
+      const k = 1.70158;
+      f.obj.scale.setScalar(p >= 1 ? 1 : 1 + (k + 1) * (p - 1) ** 3 + k * (p - 1) ** 2);
+    }
+    if (editing) {
+      const pulse = 1 + Math.sin(clock * 4) * 0.08;
+      for (const [id, m] of markers) {
+        m.scale.setScalar(pulse);
+        m.material.color.set(furn.has(id) ? 0xffc93c : 0x2fd18a);
+      }
+    }
     renderer.render(scene, camera);
   });
 
   return {
     setCreature,
     setStage,
-    setSleeping(v) { sleeping = v; },
+    setRoom,
+    setSleeping(v) {
+      if (v !== sleeping) {
+        sleeping = v;
+        walk = { target: null, wait: v ? 0.4 : 0.8, at: walk.at };
+        if (!v && holder.position.y > 0) { holder.position.y = 0; holder.position.x = HOME.x; holder.position.z = HOME.z; }
+      }
+    },
+    /** 자리의 화면 위치 (0~1) — 시험용 */
+    slotScreen(id) {
+      const m = markers.get(id);
+      if (!m) return null;
+      const p = m.getWorldPosition(new THREE.Vector3()).project(camera);
+      return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
+    },
+    setEditing(v) { editing = v; for (const m of markers.values()) m.visible = v; },
+    setNight(v) { isNight = v; applyNight(); },
     play(name) { anim = { name, t0: clock }; },
     dispose() {
       renderer.setAnimationLoop(null);
       ro.disconnect();
       el.removeEventListener('pointerdown', onDown);
+      roomGroup?.userData.dispose?.();
       disposeTree(scene);
       renderer.dispose();
       renderer.forceContextLoss?.();
