@@ -370,3 +370,165 @@ export async function createViewer(el, sp) {
     },
   };
 }
+
+// ---------- 짝꿍 방: 쓰다듬고, 밥 먹고, 자고, 자라는 3D ----------
+
+// 자란 단계에 따라 붙는 장식 (어린이: 리본 배지, 어른: 별 왕관 + 반짝이)
+function addAccessories(model, stage) {
+  const old = model.getObjectByName('acc');
+  if (old) { model.remove(old); disposeTree(old); }
+  if (stage < 1) return;
+  const acc = new THREE.Group();
+  acc.name = 'acc';
+  // 모델 자신의 좌표로 크기를 재기 위해 잠시 기본 자세로 돌려 둠
+  const keep = { s: model.scale.clone(), p: model.position.clone(), r: model.rotation.clone() };
+  model.scale.setScalar(1); model.position.set(0, 0, 0); model.rotation.set(0, 0, 0);
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model.children[0]);
+  model.scale.copy(keep.s); model.position.copy(keep.p); model.rotation.copy(keep.r);
+  const top = box.max.y;
+  const front = box.max.z;
+  const mat = (c, glow = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: glow ? 0.4 : 0, emissive: glow ? c : 0x000000, emissiveIntensity: glow });
+  // 리본 배지 (가슴 앞)
+  const badge = new THREE.Group();
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), mat(0xff6b8b));
+  for (const sx of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 16), mat(0xff8fa3));
+    wing.rotation.z = sx * Math.PI / 2;
+    wing.position.x = sx * 0.07;
+    badge.add(wing);
+  }
+  badge.add(knot);
+  badge.position.set(0, top * 0.3, front - 0.02);
+  acc.add(badge);
+  if (stage >= 2) {
+    const crown = new THREE.Group();
+    crown.add(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 20, 1, true), mat(0xffc93c, 0.3)));
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 10), mat(0xffc93c, 0.3));
+      tip.position.set(Math.sin(a) * 0.12, 0.07, Math.cos(a) * 0.12);
+      crown.add(tip);
+    }
+    crown.position.set(0.05, top + 0.04, 0);
+    crown.rotation.z = -0.15;
+    acc.add(crown);
+    const sparkles = new THREE.Group();
+    sparkles.name = 'sparkles';
+    for (let i = 0; i < 6; i++) {
+      const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.03), mat(0xfff2a8, 1));
+      s.userData.a = (i / 6) * Math.PI * 2;
+      sparkles.add(s);
+    }
+    acc.add(sparkles);
+  }
+  model.add(acc);
+}
+
+export async function createBuddyView(el, sp, { stage = 0, onPet } = {}) {
+  if (!webglOk() || !(await loadThree())) return null;
+  const renderer = makeRenderer(el);
+  const scene = new THREE.Scene();
+  addLights(scene);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
+  camera.position.set(0, 0.85, 3.2);
+  camera.lookAt(0, 0.48, 0);
+  const shadow = blobShadow();
+  scene.add(shadow);
+
+  let model = null;
+  let stageNow = stage;
+  let sleeping = false;
+  let anim = { name: 'idle', t0: 0 };
+  let clock = 0;
+
+  function setCreature(species, st) {
+    if (model) { scene.remove(model); disposeTree(model); }
+    model = buildModel(THREE, species);
+    scene.add(model);
+    setStage(st);
+  }
+  function setStage(st) {
+    stageNow = st;
+    addAccessories(model, st);
+  }
+  setCreature(sp, stage);
+
+  function resize() {
+    const w = el.clientWidth || 1;
+    const h = el.clientHeight || 1;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  const ro = new ResizeObserver(resize);
+  ro.observe(el);
+  resize();
+
+  // 캐릭터를 톡 누르면 쓰다듬기
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const onDown = (e) => {
+    if (!model) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    if (ray.intersectObject(model, true).length) onPet?.();
+  };
+  el.addEventListener('pointerdown', onDown);
+
+  const SCALE = [0.72, 0.88, 1.0];
+  let last = performance.now();
+  renderer.setAnimationLoop(() => {
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    clock += dt;
+    if (!model) return;
+    const st = clock - anim.t0;
+    animateIdle(model, clock, { noLook: sleeping });
+    let y = model.userData.flyer ? 0.12 + Math.sin(clock * 3) * 0.04 : 0;
+    let s = SCALE[stageNow] ?? 1;
+    let rotY = sleeping ? 0.25 : null;
+    switch (anim.name) {
+      case 'hop': y += Math.max(0, Math.sin(Math.min(1, st / 0.45) * Math.PI)) * 0.25; if (st > 0.5) anim.name = 'idle'; break;
+      case 'eat': s *= 1 + Math.sin(st * 18) * 0.04; if (st > 1) anim.name = 'idle'; break;
+      case 'happy': y += Math.abs(Math.sin(st * 6)) * 0.22; rotY = st * 6; if (st > 1.2) anim.name = 'idle'; break;
+      case 'evolve': { const p = Math.min(1, st / 1.6); rotY = p * Math.PI * 4; y += Math.sin(p * Math.PI) * 0.5; if (st > 1.7) anim.name = 'idle'; break; }
+      default:
+    }
+    if (sleeping) {
+      for (const e of model.userData.eyes) e.scale.y = 0.1;
+      model.children[0].scale.y = 1 + Math.sin(clock * 1.2) * 0.03; // 느린 숨
+    }
+    model.position.y = y;
+    model.scale.setScalar(s);
+    if (rotY !== null) model.rotation.y = rotY;
+    const sparkles = model.getObjectByName('sparkles');
+    if (sparkles) {
+      sparkles.children.forEach((m, i) => {
+        const a = m.userData.a + clock * 1.2;
+        m.position.set(Math.cos(a) * 0.55, 0.3 + Math.sin(clock * 2 + i) * 0.25, Math.sin(a) * 0.55);
+        m.rotation.y = clock * 3;
+      });
+    }
+    shadow.scale.setScalar(s * (1 - Math.min(0.6, y)));
+    renderer.render(scene, camera);
+  });
+
+  return {
+    setCreature,
+    setStage,
+    setSleeping(v) { sleeping = v; },
+    play(name) { anim = { name, t0: clock }; },
+    dispose() {
+      renderer.setAnimationLoop(null);
+      ro.disconnect();
+      el.removeEventListener('pointerdown', onDown);
+      disposeTree(scene);
+      renderer.dispose();
+      renderer.forceContextLoss?.();
+      renderer.domElement.remove();
+    },
+  };
+}

@@ -28,6 +28,8 @@ function defaultState() {
     specialDay: '',
     log: [],           // 최근 잡은 기록
     demo: false,
+    buddy: null,       // 지금 짝꿍 (buddy.js)
+    buddyBook: {},     // 예전 짝꿍들의 성장 기록
   };
 }
 
@@ -170,6 +172,13 @@ export const remote = {
       species: Object.keys(caught).length,
       total: Object.values(caught).reduce((a, b) => a + b, 0),
       caught,
+      buddy: state.buddy ? {
+        speciesId: state.buddy.speciesId,
+        nick: (state.buddy.nick || '').slice(0, 8),
+        // 업로드 횟수를 줄이려고 단계와 0.5km 단위 거리만 공유
+        stage: state.buddy.growth >= 1000 ? 2 : state.buddy.growth >= 300 ? 1 : 0,
+        walkedKm: Math.floor(state.buddy.walkedM / 500) / 2,
+      } : null,
     };
   },
 
