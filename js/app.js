@@ -9,6 +9,7 @@ import { loadThree, createViewer } from './stage3d.js';
 import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
+import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -64,9 +65,12 @@ function renderHud() {
   $('hud-balls').textContent = s.balls;
   $('hud-dex').textContent = `${store.speciesCount()}/${SPECIES.length}`;
   $('hud-snacks').textContent = s.snacks;
-  $('hud-time').textContent = isNight() ? '🌙' : '☀';
-  $('hud-time').title = isNight() ? '밤: 밤에만 나오는 친구들이 있어요' : '낮';
+  const w = weather();
+  const info = weatherInfo();
+  $('hud-time').textContent = `${isNight() ? info.night : info.icon}${w.temp != null ? ` ${w.temp}°` : ''}`;
+  $('hud-time').title = `${isNight() ? '밤' : '낮'} · ${info.name}`;
   $('hud-time').className = 'chip ' + (isNight() ? 'night' : 'day');
+  applyMapMood();
 }
 
 // ---------- 지도 ----------
@@ -89,10 +93,27 @@ function spawnIcon(spawn, near) {
   });
 }
 
+// 지도 색(아침·낮·노을·밤)과 비·눈 효과
+function applyMapMood() {
+  const panel = $('panel-map');
+  const tod = timeOfDay();
+  const kind = weather().kind;
+  for (const t of ['dawn', 'day', 'dusk', 'night']) panel.classList.toggle(`tod-${t}`, t === tod);
+  panel.classList.toggle('wx-gloomy', ['rain', 'storm', 'snow', 'cloudy', 'fog'].includes(kind));
+  $('wx-layer').className = `wx-layer ${kind}`;
+}
+
+function showWeatherTip() {
+  const w = weather();
+  const info = weatherInfo();
+  const tod = { dawn: '이른 아침', day: '낮', dusk: '노을 지는 저녁', night: '밤' }[timeOfDay()];
+  toast(`${info.icon} 지금 한숲시티: ${info.name}${w.temp != null ? ` ${w.temp}°C` : ''} · ${tod}\n${info.tip}${isNight() ? ' 밤에는 밤에만 나오는 친구들과 ✨별가루가 있어요.' : ''}`, 5200);
+}
+
 function matIcon(spot, near) {
   return L.divIcon({
     className: 'mat-icon',
-    html: `<div class="mat-spot ${near ? 'near' : ''}" title="${MATERIALS[spot.kind].name}">${MATERIALS[spot.kind].icon}</div>`,
+    html: `<div class="mat-spot ${near ? 'near' : ''} ${MATERIALS[spot.kind].seed ? 'seed' : MATERIALS[spot.kind].limited ? 'limited' : ''}" title="${MATERIALS[spot.kind].name}">${MATERIALS[spot.kind].icon}</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -732,6 +753,22 @@ async function main() {
   store.onChange(renderHud);
   remote.onChange(() => { if (document.body.dataset.tab === 'family') renderFamily(); });
   setInterval(() => { renderHud(); refreshWorld(); }, 15000);
+  $('hud-time').addEventListener('click', showWeatherTip);
+  // 날씨가 바뀌면 나오는 친구와 재료도 바뀜
+  let lastKind = weather().kind;
+  onWeather((w) => {
+    renderHud();
+    if (w.kind !== lastKind) {
+      lastKind = w.kind;
+      for (const m of spawnMarkers.values()) map.removeLayer(m);
+      spawnMarkers.clear();
+      for (const m of matMarkers.values()) map.removeLayer(m);
+      matMarkers.clear();
+      refreshWorld();
+    }
+  });
+  refreshWeather();
+  setInterval(() => refreshWeather(), 20 * 60000);
 
   showTab('map');
   // 3D 엔진은 미리 받아 둠 (잡기 화면을 빨리 열기 위해)

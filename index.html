@@ -28,7 +28,7 @@
       <span class="chip" title="가진 숲볼"><span class="ball-ico" aria-hidden="true"></span><b id="hud-balls">0</b></span>
       <span class="chip" title="가진 간식"><span aria-hidden="true">🍪</span><b id="hud-snacks">0</b></span>
       <span class="chip" title="도감"><b id="hud-dex">0/36</b></span>
-      <span id="hud-time" class="chip day" title="낮">☀</span>
+      <button id="hud-time" class="chip day" type="button" title="날씨">☀</button>
     </div>
   </header>
 
@@ -36,6 +36,7 @@
     <!-- 지도 -->
     <section id="panel-map" class="panel panel-map">
       <div id="map" aria-label="한숲시티 지도"></div>
+      <div id="wx-layer" class="wx-layer" aria-hidden="true"></div>
       <p id="gps-status" class="gps-status" role="status"></p>
       <div class="demo-badge">산책 연습 모드 · 지도를 누르면 걸어가요</div>
       <div class="map-btns">
@@ -62,6 +63,10 @@
           <p id="buddy-say" class="buddy-say" role="status"></p>
           <div id="buddy-zzz" class="buddy-zzz" aria-hidden="true" hidden><span>z</span><span>z</span><span>Z</span></div>
           <button id="room-talk" class="room-talk" type="button" aria-label="영어로 이야기하기">💬 English</button>
+          <div class="place-tabs" role="group" aria-label="장소">
+            <button id="place-room" type="button" aria-pressed="true">🏠 방</button>
+            <button id="place-garden" type="button" aria-pressed="false">🌱 텃밭</button>
+          </div>
           <div id="edit-bar" class="edit-bar" hidden>
             <span>초록 자리를 눌러서 가구를 놓아 봐</span>
             <button id="room-done" class="btn primary" type="button">다 했어</button>
@@ -98,7 +103,20 @@
             <span class="go">›</span>
           </button>
           <p class="muted small center">짝꿍을 톡 누르면 쓰다듬을 수 있어. 같이 걸으면 쑥쑥 자라!</p>
-          <div class="room-card">
+          <div id="garden-card" class="room-card" hidden>
+            <div class="room-head">
+              <h3>우리 텃밭</h3>
+              <span id="garden-wx" class="cozy"></span>
+            </div>
+            <p id="garden-tip" class="muted small"></p>
+            <div id="plot-chips" class="plot-chips"></div>
+            <p class="small"><b>씨앗</b> <span class="muted">(동네마다 나는 씨앗이 달라)</span></p>
+            <div id="seed-strip" class="mat-strip"></div>
+            <p class="small"><b>거둔 것</b> <span class="muted">(밥으로 주거나 특별 가구 재료로)</span></p>
+            <div id="crop-strip" class="mat-strip"></div>
+            <button id="btn-craft2" class="act" type="button"><span class="act-ico">🔨</span>거둔 것으로 특별 가구 만들기</button>
+          </div>
+          <div id="room-card" class="room-card">
             <div class="room-head">
               <h3>우리 방</h3>
               <span class="cozy" title="아늑함"><span id="cozy-hearts" aria-hidden="true"></span><span id="cozy-num"></span></span>

@@ -6,6 +6,8 @@
 import { speciesById } from './monsters.js';
 import { store } from './store.js';
 import { cozy, hasBed, room } from './room.js';
+import { FOODS, CROPS } from './garden.js';
+import { weather, timeOfDay } from './weather.js';
 
 export const STAGES = [
   { name: '아기', need: 0, scale: 0.72 },
@@ -99,6 +101,23 @@ export function feed() {
   const evolved = grow(5);
   store.save();
   return { ok: true, line: pick(['냠냠! 맛있다!', '우와, 내가 좋아하는 거야!', '배부르다~ 고마워!']), evolved };
+}
+
+/** 텃밭에서 거둔 것 먹이기: 간식보다 든든하고 성장 +8 */
+export function feedCrop(crop) {
+  tick();
+  const b = buddy();
+  const f = FOODS[crop];
+  const have = store.state.materials?.[crop] || 0;
+  if (!f || have <= 0) return { ok: false, line: `${CROPS[crop]?.name || '그거'}가 없네…` };
+  if (b.sleeping) return { ok: false, line: '쿨쿨… (자는 중이야)' };
+  if (b.hunger >= 95) return { ok: false, line: '배불러~ 이따가 줘!' };
+  store.state.materials[crop] = have - 1;
+  b.hunger = clamp(b.hunger + f.h);
+  b.mood = clamp(b.mood + f.m);
+  const evolved = grow(8);
+  store.save();
+  return { ok: true, line: pick(f.line), evolved };
 }
 
 export function play() {
@@ -199,6 +218,20 @@ export function talk(ctx = {}) {
   if (b.energy < 25) lines.push('하암… 졸려.', '나 좀 재워 줄래?');
   if (b.mood < 30) lines.push('심심해… 놀아 줘!', '오늘은 같이 산책 안 가?');
   if (lines.length) return pick(lines);
+  // 날씨·시간 이야기
+  const wx = weather().kind;
+  const tod = timeOfDay();
+  if (Math.random() < 0.35) {
+    const w = [];
+    if (wx === 'rain' || wx === 'storm') w.push('비 온다! 텃밭에 물 안 줘도 되겠다.', "It's raining! (비가 와!)", '빗방울 주우러 갈래? 우산 꼭 챙겨!');
+    if (wx === 'snow') w.push('눈이다!! 눈사람 만들고 싶어!', "It's snowing! (눈이 와!)");
+    if (wx === 'clear' && tod === 'day') w.push('햇볕이 따뜻해~ 텃밭이 쑥쑥 자라겠다!', "It's sunny today! (오늘 해가 쨍쨍해!)");
+    if (tod === 'dusk') w.push('하늘이 노을로 물들었어. 예쁘다…', 'Look at the sunset! (노을 좀 봐!)');
+    if (tod === 'dawn') w.push('일찍 일어났네! 상쾌하다!');
+    if (weather().temp != null && weather().temp >= 28) w.push('으, 더워! 시원한 물 마시자.');
+    if (weather().temp != null && weather().temp <= 0) w.push('추워… 따뜻하게 입고 나가!');
+    if (w.length) return pick(w);
+  }
   const placed = Object.values(room().slots);
   if (!placed.length) {
     if (Math.random() < 0.5) return pick(['방이 좀 휑하다… 같이 꾸밀래?', '나뭇잎 모아서 방석 만들어 줘!']);

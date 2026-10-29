@@ -4,6 +4,7 @@
 
 import { CONFIG } from './config.js';
 import { SPECIES, RARITY } from './monsters.js';
+import { weather } from './weather.js';
 
 export function hashString(str) {
   let h = 2166136261;
@@ -59,8 +60,9 @@ export function zoneAt(pos) {
 }
 
 /** 상황(밤/낮, 학교 주변, 연못/공원)에 맞는 출현 후보와 가중치 */
-export function candidates({ night, nearSchool, zone = null }) {
+export function candidates({ night, nearSchool, zone = null, wx = weather().kind }) {
   const list = [];
+  const wet = wx === 'rain' || wx === 'storm';
   for (const sp of SPECIES) {
     const h = sp.habitat;
     let w = RARITY[sp.rarity].weight;
@@ -72,12 +74,14 @@ export function candidates({ night, nearSchool, zone = null }) {
       w *= 3;
     }
     if (h.includes('water')) {
-      if (zone !== 'water') continue;
-      w *= 6;
+      // 비 오는 날엔 연못 친구들이 동네 웅덩이에도 나옴
+      if (zone !== 'water' && !wet) continue;
+      w *= zone === 'water' ? 6 : 0.8;
     } else if (zone === 'water') {
       w *= 0.5;
     }
     if (h.includes('park')) w *= zone === 'park' ? 3 : 0.5;
+    if (sp.kind === 'insect') w *= wet ? 0.4 : wx === 'snow' ? 0.15 : wx === 'clear' && !night ? 1.3 : 1;
     if (w > 0) list.push([sp, w]);
   }
   return list;

@@ -425,7 +425,10 @@ function addAccessories(model, stage) {
   model.add(acc);
 }
 
-export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room = null, slots = [], night = false, zzzEl = null } = {}) {
+export async function createBuddyView(el, sp, {
+  stage = 0, onPet, onSlot, onPlot, room = null, slots = [], night = false, zzzEl = null,
+  garden = null, place: startPlace = 'room', weatherKind = 'clear', tod = night ? 'night' : 'day',
+} = {}) {
   if (!webglOk() || !(await loadThree())) return null;
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -449,7 +452,13 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
   let stageNow = stage;
   let sleeping = false;
   let editing = false;
-  let isNight = night;
+  let isNight = tod === 'night';
+  let todNow = tod;
+  let wxKind = weatherKind;
+  let place = room ? startPlace : 'room';
+  const roomRoot = new THREE.Group();
+  const gardenRoot = new THREE.Group();
+  scene.add(roomRoot, gardenRoot);
   let anim = { name: 'idle', t0: 0 };
   let clock = 0;
   let walk = { target: null, wait: 2 };
@@ -489,7 +498,7 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
       fill.userData.slot = sl.id;
       ring.visible = false;
       ring.renderOrder = 5;
-      scene.add(ring);
+      roomRoot.add(ring);
       markers.set(sl.id, ring);
     }
   }
@@ -498,38 +507,121 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
     if (!r || !roomMod) return;
     const k = `${r.wall}|${r.floor}`;
     if (k !== roomKey) {
-      if (roomGroup) { scene.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
+      if (roomGroup) { roomRoot.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
       roomGroup = roomMod.buildRoom(THREE, r);
-      scene.add(roomGroup);
+      roomRoot.add(roomGroup);
       roomKey = k;
     }
     for (const sl of slotsDef) {
       const want = r.slots[sl.id] || null;
       const have = furn.get(sl.id);
       if (have && have.id === want) continue;
-      if (have) { scene.remove(have.obj); disposeTree(have.obj); furn.delete(sl.id); }
+      if (have) { roomRoot.remove(have.obj); disposeTree(have.obj); furn.delete(sl.id); }
       if (!want) continue;
       const obj = roomMod.buildFurniture(THREE, want);
       obj.position.copy(slotPos(sl));
       if (sl.where === 'floor') obj.rotation.y = Math.atan2(-sl.x, 1.4 - sl.z) * 0.6; // 방 가운데 쪽으로 살짝
       obj.traverse(o => { o.userData.slot = sl.id; });
-      scene.add(obj);
+      roomRoot.add(obj);
       furn.set(sl.id, { id: want, obj, born: clock });
     }
     applyNight();
   }
 
   function applyNight() {
-    hemi.intensity = isNight ? 0.55 : 1.4;
-    key.intensity = isNight ? 0.35 : 1.4;
-    warm.intensity = isNight ? 1.4 : 0.6;
+    isNight = todNow === 'night';
+    const gloomy = ['rain', 'storm', 'snow', 'cloudy', 'fog'].includes(wxKind);
+    const outdoor = place === 'garden';
+    const dayLight = { dawn: 1.1, day: 1.4, dusk: 1.05, night: 0.5 }[todNow] ?? 1.4;
+    hemi.intensity = dayLight * (outdoor && gloomy ? 0.8 : 1);
+    key.intensity = (isNight ? 0.3 : todNow === 'dusk' ? 1.0 : 1.4) * (outdoor && gloomy ? 0.55 : 1);
+    key.color.set(todNow === 'dusk' || todNow === 'dawn' ? 0xffc28a : 0xfff1dc);
+    warm.intensity = outdoor ? 0 : isNight ? 1.4 : 0.6;
+    if (outdoor && gardenMod) {
+      scene.background = new THREE.Color(gardenMod.skyColor(todNow, wxKind));
+      const gu = gardenGroup.userData;
+      gu.sun.visible = !isNight && !gloomy;
+      gu.moon.visible = isNight && !['rain', 'storm', 'snow'].includes(wxKind);
+    } else {
+      scene.background = null;
+    }
     for (const { obj } of furn.values()) {
       const u = obj.userData;
       if (u.light) u.light.intensity = isNight ? 2.2 : 0.6;
       u.glowBase = isNight ? 1.6 : 0.8;
       if (u.glow) u.glow.forEach(m => { m.emissiveIntensity = u.glowBase; });
-      if (u.sky) { u.sky.color.set(isNight ? 0x34407a : 0xffffff); u.sky.emissiveIntensity = isNight ? 0.08 : 0.35; }
+      const rainy = ['rain', 'storm'].includes(wxKind);
+      if (u.sky) {
+        u.sky.color.set(isNight ? 0x34407a : rainy ? 0x8e9bab : wxKind === 'snow' ? 0xe6eef7 : todNow === 'dusk' ? 0xffb07a : 0xffffff);
+        u.sky.emissiveIntensity = isNight ? 0.08 : rainy ? 0.15 : 0.35;
+      }
     }
+  }
+
+  // ---------- 텃밭 ----------
+  let gardenMod = null;
+  let gardenGroup = null;
+  let particles = null;
+  const plants = new Map(); // plotId -> { key, obj, drop, sparkle, born }
+
+  async function initGarden() {
+    if (gardenMod) return;
+    gardenMod = await import('./garden3d.js');
+    gardenGroup = gardenMod.buildGarden(THREE);
+    gardenRoot.add(gardenGroup);
+    setWeatherFx();
+  }
+
+  function setGarden(view) {
+    if (!gardenMod || !view) return;
+    for (const p of gardenMod.PLOTS) {
+      const v = view[p.id];
+      const key = v ? `${v.crop}:${v.stage}` : '';
+      let cur = plants.get(p.id);
+      if (cur && cur.key !== key) { gardenRoot.remove(cur.obj); disposeTree(cur.obj); plants.delete(p.id); cur = null; }
+      if (!cur && v) {
+        const obj = new THREE.Group();
+        obj.position.set(p.x, gardenMod.BED_TOP, p.z);
+        const plant = gardenMod.buildPlant(THREE, v.crop, v.stage);
+        obj.add(plant);
+        const drop = gardenMod.buildDrop(THREE);
+        drop.position.set(0, 0.45, 0);
+        obj.add(drop);
+        const sparkle = gardenMod.buildSparkle(THREE);
+        sparkle.position.set(0, 0.25, 0);
+        obj.add(sparkle);
+        obj.traverse(o => { o.userData.plot = p.id; });
+        gardenRoot.add(obj);
+        cur = { key, obj, plant, drop, sparkle, born: clock };
+        plants.set(p.id, cur);
+      }
+      if (cur) {
+        cur.drop.visible = Boolean(v?.thirsty);
+        cur.sparkle.visible = v?.stage === 3;
+      }
+      // 물 먹은 흙은 진하게
+      const soil = gardenGroup.userData.beds[p.id].userData.soil;
+      soil.material.color.set(v && !v.thirsty ? 0x4a3020 : 0x6b4a2f);
+    }
+  }
+
+  function setWeatherFx() {
+    if (particles) { gardenRoot.remove(particles); disposeTree(particles); particles = null; }
+    if (gardenMod) {
+      particles = gardenMod.buildWeather(THREE, wxKind);
+      if (particles) gardenRoot.add(particles);
+    }
+    applyNight();
+  }
+
+  function setPlace(p) {
+    place = p;
+    roomRoot.visible = p === 'room';
+    gardenRoot.visible = p === 'garden';
+    walk = { target: null, wait: 0.3 };
+    holder.position.set(p === 'garden' ? 0.55 : HOME.x, 0, p === 'garden' ? 0.3 : HOME.z);
+    resize();
+    applyNight();
   }
 
   if (room) {
@@ -538,6 +630,11 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
     buildMarkers();
     setRoom(room);
   }
+  if (garden) {
+    await initGarden();
+    setGarden(garden);
+  }
+  setPlace(place);
 
   function setCreature(species, st) {
     if (model) { holder.remove(model); disposeTree(model); }
@@ -556,7 +653,13 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
     const h = el.clientHeight || 1;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    if (room) {
+    if (room && place === 'garden') {
+      // 텃밭은 조금 더 위에서 내려다봐서 짝꿍 뒤 밭도 보이게
+      const tanH = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+      const z = Math.min(6, Math.max(3.4, 0.4 + 1.55 / tanH));
+      camera.position.set(0, 1.5 + z * 0.42, z);
+      camera.lookAt(0, 0.2, -0.55);
+    } else if (room) {
       // 방 양쪽 가구(x=±1.45)가 보이도록 거리 맞추기
       const tanH = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
       const z = Math.min(6, Math.max(3.4, 0.45 + 1.5 / tanH));
@@ -586,12 +689,25 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
       const hit = ray.intersectObjects(targets, true)[0];
       if (hit) { onSlot?.(hit.object.userData.slot); return; }
     }
-    if (ray.intersectObject(model, true).length) onPet?.();
+    if (ray.intersectObject(model, true).length) { onPet?.(); return; }
+    if (place === 'garden' && gardenGroup) {
+      const hit = ray.intersectObjects([gardenGroup, ...[...plants.values()].map(p => p.obj)], true).find(h => h.object.userData.plot);
+      if (hit) onPlot?.(hit.object.userData.plot);
+    }
   };
   el.addEventListener('pointerdown', onDown);
 
   // 짝꿍 돌아다니기 (방 가운데 빈 곳만)
   function nextTarget() {
+    if (place === 'garden') {
+      if (sleeping) return null;
+      // 가끔 밭 앞에 가서 들여다봄
+      if (gardenMod && Math.random() < 0.35) {
+        const p = gardenMod.PLOTS[3 + Math.floor(Math.random() * 3)];
+        return { x: p.x + (Math.random() - 0.5) * 0.3, z: p.z + 0.45, y: 0 };
+      }
+      return { x: (Math.random() - 0.5) * 2.4, z: 0.15 + Math.random() * 0.35, y: 0 };
+    }
     if (sleeping) {
       const bedSlot = [...furn.entries()].find(([, f]) => f.id === 'bed');
       if (bedSlot) {
@@ -677,6 +793,16 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
       zzzEl.style.right = 'auto';
     }
 
+    if (place === 'garden') {
+      particles?.userData.tick(dt, clock);
+      for (const p of plants.values()) {
+        const g = Math.min(1, (clock - p.born) / 0.5);
+        p.plant.scale.setScalar(0.3 + 0.7 * (1 - (1 - g) ** 3));
+        if (p.plant.userData.sway) p.plant.userData.sway.rotation.z = Math.sin(clock * 1.2) * 0.08;
+        p.drop.position.y = 0.45 + Math.sin(clock * 3) * 0.04;
+        p.sparkle.rotation.y = clock * 1.5;
+      }
+    }
     for (const f of furn.values()) {
       f.obj.userData.tick?.(clock);
       const p = Math.min(1, (clock - f.born) / 0.45); // 놓을 때 통통
@@ -712,13 +838,32 @@ export async function createBuddyView(el, sp, { stage = 0, onPet, onSlot, room =
       return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
     },
     setEditing(v) { editing = v; for (const m of markers.values()) m.visible = v; },
-    setNight(v) { isNight = v; applyNight(); },
+    setNight(v) { todNow = v ? 'night' : todNow === 'night' ? 'day' : todNow; applyNight(); },
+    setWeather(kind, t) {
+      const changed = kind !== wxKind;
+      wxKind = kind;
+      if (t) todNow = t;
+      if (changed) setWeatherFx(); else applyNight();
+    },
+    async setPlace(p, gardenView) {
+      if (p === 'garden') { await initGarden(); setGarden(gardenView); }
+      setPlace(p);
+    },
+    setGarden,
+    /** 밭의 화면 위치 (0~1) — 시험용 */
+    plotScreen(id) {
+      const bed = gardenGroup?.userData.beds[id];
+      if (!bed) return null;
+      const p = bed.getWorldPosition(new THREE.Vector3()).project(camera);
+      return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
+    },
     play(name) { anim = { name, t0: clock }; },
     dispose() {
       renderer.setAnimationLoop(null);
       ro.disconnect();
       el.removeEventListener('pointerdown', onDown);
       roomGroup?.userData.dispose?.();
+      gardenGroup?.userData.dispose?.();
       disposeTree(scene);
       renderer.dispose();
       renderer.forceContextLoss?.();
