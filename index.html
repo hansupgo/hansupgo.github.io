@@ -39,6 +39,7 @@
       <div id="wx-layer" class="wx-layer" aria-hidden="true"></div>
       <p id="gps-status" class="gps-status" role="status"></p>
       <div class="demo-badge">산책 연습 모드 · 지도를 누르면 걸어가요</div>
+      <div id="walk-banner" class="walk-banner" hidden></div>
       <div class="map-btns">
         <button id="btn-home" class="round-btn" type="button" title="한숲시티로 이동" aria-label="한숲시티로 이동">⌂</button>
         <button id="btn-center" class="round-btn" type="button" title="내 위치로" aria-label="내 위치로" hidden>◎</button>
@@ -190,7 +191,7 @@
     <button class="tab-btn active" data-tab="map" role="tab" type="button"><span class="ti">🗺</span>지도</button>
     <button class="tab-btn" data-tab="buddy" role="tab" type="button"><span class="ti">💛</span>짝꿍</button>
     <button class="tab-btn" data-tab="dex" role="tab" type="button"><span class="ti">📖</span>도감</button>
-    <button class="tab-btn" data-tab="family" role="tab" type="button"><span class="ti">🧑‍🤝‍🧑</span>친구</button>
+    <button class="tab-btn" data-tab="family" role="tab" type="button"><span class="ti">🧑‍🤝‍🧑</span>친구<span id="mail-badge" class="tab-badge" hidden></span></button>
     <button class="tab-btn" data-tab="settings" role="tab" type="button"><span class="ti">⚙</span>설정</button>
   </nav>
 
@@ -287,6 +288,24 @@
         </form>
       </div>
     </div>
+  </section>
+
+  <!-- 친구 집에 놀러 가기 -->
+  <section id="visit" class="talk visit" hidden aria-label="친구 집에 놀러 가기">
+    <header class="talk-top">
+      <button id="visit-close" class="talk-btn" type="button">← 돌아가기</button>
+      <div class="talk-head"><b id="visit-title">친구네 집</b></div>
+      <div class="talk-tools place-tabs-inline" role="group" aria-label="장소">
+        <button id="visit-room" class="talk-btn" type="button" aria-pressed="true">🏠 방</button>
+        <button id="visit-garden" class="talk-btn" type="button" aria-pressed="false">🌱 텃밭</button>
+      </div>
+    </header>
+    <div class="visit-stage buddy-room">
+      <div id="visit-3d" class="buddy-3d"></div>
+      <div id="visit-svg" class="buddy-svg" hidden></div>
+      <p id="visit-say" class="buddy-say" role="status"></p>
+    </div>
+    <div id="visit-info" class="talk-body visit-info"></div>
   </section>
 
   <!-- 가구 만들기 -->

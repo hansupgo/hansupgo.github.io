@@ -305,6 +305,23 @@ export function buildFurniture(THREE, id) {
       ticks.push((t) => drops.forEach((h, i) => { h.rotation.z = Math.sin(t * 2.2 + i * 1.3) * 0.15; }));
       break;
     }
+    case 'friendframe': {
+      box(0.56, 0.44, 0.04, 0xff9ac0, [0, 0, 0.02]);
+      box(0.5, 0.38, 0.02, 0xfff6e8, [0, 0, 0.04]);
+      // 두 짝꿍 사진 (동글동글 두 얼굴)
+      for (const [x, c] of [[-0.1, 0x8fd16a], [0.1, 0x7cc8ff]]) {
+        sph(0.08, c, [x, -0.03, 0.06], [1, 1, 0.4]);
+        for (const ex of [-0.025, 0.025]) sph(0.01, 0x222222, [x + ex, -0.02, 0.09]);
+      }
+      const heart = new THREE.Group();
+      heart.position.set(0, 0.11, 0.07);
+      for (const sx of [-1, 1]) sph(0.03, 0xff5c8a, [sx * 0.022, 0, 0], [1, 1, 0.5], { glow: 0.4 }, heart);
+      const tip = mesh(new THREE.ConeGeometry(0.04, 0.05, 4), 0xff5c8a, [0, -0.03, 0], { glow: 0.4 }, heart);
+      tip.rotation.z = Math.PI;
+      g.add(heart);
+      ticks.push((t) => { const k = 1 + Math.sin(t * 3) * 0.08; heart.scale.setScalar(k); });
+      break;
+    }
     case 'snowman': {
       sph(0.17, 0xffffff, [0, 0.16, 0], [1, 0.95, 1], { rough: 0.9 });
       sph(0.12, 0xffffff, [0, 0.4, 0], [1, 1, 1], { rough: 0.9 });

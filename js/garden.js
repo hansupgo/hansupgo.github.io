@@ -59,7 +59,35 @@ export function tickGarden(now = Date.now()) {
     p.last = now;
     if (wet && p.grown < totalMs(p.crop)) p.moistUntil = Math.max(p.moistUntil || 0, now + stageMs(p.crop)); // 비가 물을 줌
   }
+  shareView(now);
   store.save();
+}
+
+/** 친구에게 보여 줄 텃밭 모습 (작물:단계[:t=목마름]) — 바뀔 때만 서버에 올라감 */
+function shareView(now = Date.now()) {
+  const v = {};
+  for (const id of PLOT_IDS) {
+    const p = plot(id);
+    if (p) v[id] = `${p.crop}:${stageOf(p)}${isThirsty(p, now) ? ':t' : ''}`;
+  }
+  g().view = v;
+}
+
+/** 친구가 보낸 물 (우편) */
+export function waterFromFriend(id) {
+  const p = plot(id);
+  if (!p || isReady(p)) return false;
+  return water(id);
+}
+
+/** 친구 텃밭 모습 → 3D용 */
+export function parseFriendGarden(v) {
+  const out = {};
+  for (const id of PLOT_IDS) {
+    const [crop, st, t] = String(v?.[id] || '').split(':');
+    out[id] = CROPS[crop] ? { crop, stage: Math.max(0, Math.min(3, Number(st) || 0)), thirsty: t === 't' } : null;
+  }
+  return out;
 }
 
 export function stageOf(p) {
@@ -89,6 +117,7 @@ export function plant(id, crop) {
   store.state.materials[seedKey(crop)] = seeds(crop) - 1;
   const now = Date.now();
   g().plots[id] = { crop, grown: 0, moistUntil: isWet() ? now + stageMs(crop) : 0, last: now, at: now };
+  shareView(now);
   store.save();
   return true;
 }
@@ -102,6 +131,7 @@ export function water(id) {
   if ((p.moistUntil || 0) > now + 60000) return false; // 이미 촉촉해
   p.moistUntil = now + stageMs(p.crop);
   p.last = now;
+  shareView(now);
   store.save();
   return true;
 }
@@ -114,6 +144,7 @@ export function harvest(id) {
   const n = a + Math.floor(Math.random() * (b - a + 1));
   store.state.materials[p.crop] = crops(p.crop) + n;
   delete g().plots[id];
+  shareView();
   store.save();
   return n;
 }

@@ -10,6 +10,7 @@ import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
+import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -75,6 +76,7 @@ function renderHud() {
   $('hud-time').title = `${isNight() ? '밤' : '낮'} · ${info.name}`;
   $('hud-time').className = 'chip ' + (isNight() ? 'night' : 'day');
   applyMapMood();
+  walkBanner();
 }
 
 // ---------- 지도 ----------
@@ -214,6 +216,7 @@ function countWalk(lat, lng, acc) {
     return;
   }
   buddyWalked(d);
+  onWalk(d); // 친구와 같이 걷는 중이면 보너스
 }
 
 function updateBuddyMarker() {
@@ -594,12 +597,18 @@ function renderFamily() {
     if (!sp) return '';
     const when = new Date(f.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     return `<li><span class="mini-av" style="background:${safeColor(f.color)}">${esc((f.name || '?').slice(0, 1))}</span>
-      <span><b>${esc(f.name)}</b>님이 ${sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를')} ${KINDS[sp.kind].feed}${f.isNew ? ' <em>NEW</em>' : ''}</span><time>${when}</time></li>`;
+      <span>${f.kind === 'visit'
+    ? `<b>${esc(f.name)}</b>님 짝꿍이 <b>${esc(f.toName || '친구')}</b>네 집에 놀러 갔어요 🏡`
+    : f.kind === 'walk'
+      ? `<b>${esc(f.name)}</b>님이 <b>${esc(f.withName || '친구')}</b>님과 같이 1km를 걸었어요 🎀`
+      : `<b>${esc(f.name)}</b>님이 ${sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를')} ${KINDS[sp.kind].feed}${f.isNew ? ' <em>NEW</em>' : ''}`}</span><time>${when}</time></li>`;
   }).join('');
-  box.innerHTML = `<p class="group-code">친구 코드 <b>${esc(s.group)}</b> · ${players.length}명 참여 중</p>
+  box.innerHTML = `${walkCardHtml()}${inboxHtml()}
+    <p class="group-code">친구 코드 <b>${esc(s.group)}</b> · ${players.length}명 참여 중</p>
     ${players.length ? familyList(players, remote.uid) : '<p class="muted">아직 기록이 없어요. 도감 친구를 만나면 여기에 나타나요.</p>'}
     <h3 class="sub">최근 소식</h3>
     <ul class="feed">${feed || '<li class="muted">아직 소식이 없어요.</li>'}</ul>`;
+  bindInbox(box, renderFamily);
   bindFamily(players);
 }
 
@@ -632,8 +641,10 @@ function bindFamily(players) {
           <div><b>${esc(p.buddy.nick || bsp.name)}</b><br><span class="muted">${STAGES[p.buddy.stage]?.name || STAGES[0].name} ${bsp.name}${num(p.buddy.walkedKm) ? ` · 함께 ${num(p.buddy.walkedKm)}km 걸음` : ''}</span></div></div>` : '';
       $('sp-body').innerHTML = `<h3>${esc(p.name || '이름 없음')}의 도감</h3>
         ${buddyHtml}
+        ${friendActionsHtml(p)}
         <p class="muted">${Object.keys(p.caught || {}).length}/${SPECIES.length}종 발견</p>
         <div class="dex-grid small">${dexGrid(p.caught || {}, false)}</div>`;
+      bindFriendActions($('sp-body'), p);
       $('sp-sheet').hidden = false;
     });
   }
@@ -734,6 +745,7 @@ async function main() {
   initMap();
   initEncounterUI();
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
+  initFriends({ toast, onChange: () => { renderHud(); if (document.body.dataset.tab === 'family') renderFamily(); } });
   bindSettings();
   bindOnboarding();
   renderHud();
