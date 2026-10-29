@@ -335,7 +335,7 @@ async function setPlace(p) {
 
 // 밥: 텃밭에서 거둔 게 있으면 고르기
 function openFood() {
-  if (!hasFood()) { afterAction(feed(), 'eat'); return; }
+  if (!hasFood()) { afterAction(feed(), 'eat', { food: 'cookie' }); return; }
   $('slot-title').textContent = '뭐 줄까?';
   const items = [{ k: 'snack', icon: '🍪', name: '간식', n: store.state.snacks, meta: '배부름 +35' },
     ...Object.keys(FOODS).filter(k => crops(k) > 0).map(k => ({ k, icon: CROPS[k].icon, name: CROPS[k].name, n: crops(k), meta: `배부름 +${FOODS[k].h} · 기분 +${FOODS[k].m} · 성장 +8` }))];
@@ -345,7 +345,8 @@ function openFood() {
   for (const b of $('slot-items').querySelectorAll('[data-food]')) {
     b.addEventListener('click', () => {
       closeSheet('slot-sheet');
-      afterAction(b.dataset.food === 'snack' ? feed() : feedCrop(b.dataset.food), 'eat');
+      const food = b.dataset.food;
+      afterAction(food === 'snack' ? feed() : feedCrop(food), 'eat', { food: food === 'snack' ? 'cookie' : food });
     });
   }
   openSheet('slot-sheet');
@@ -472,10 +473,10 @@ function openCraft() {
   openSheet('craft-sheet');
 }
 
-function afterAction(res, anim) {
+function afterAction(res, anim, opts) {
   if (!res) return;
   if (res.line) say(res.line);
-  if (res.ok && anim) view?.play(anim);
+  if (res.ok && anim) view?.play(anim, opts);
   renderStats();
   onChangeFn();
   if (res.evolved != null) showEvolve(res.evolved);
@@ -517,7 +518,7 @@ export function initBuddyUI({ toast, onChange }) {
   $('act-feed').addEventListener('click', openFood);
   $('place-room').addEventListener('click', () => setPlace('room'));
   $('place-garden').addEventListener('click', () => setPlace('garden'));
-  $('act-play').addEventListener('click', () => afterAction(play(), 'happy'));
+  $('act-play').addEventListener('click', () => afterAction(play(), 'happy', { ball: true }));
   $('act-sleep').addEventListener('click', () => afterAction(toggleSleep(), null));
   $('buddy-svg').addEventListener('click', onPet);
   $('buddy-change').addEventListener('click', () => { choosing = true; renderBuddy(); });

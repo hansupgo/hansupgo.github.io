@@ -5,6 +5,7 @@
 
 import { buildModel as buildRaw } from './model3d.js';
 import { stylize, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
+import { createParticles, ambientFor, ambientPos, makeFood, makeToyBall, makeGlow, makeEvolveFx, flashWhite, trickFor, trickPose } from './fx3d.js';
 
 // 캐릭터 = 기본 모델 + 툰 그림체·외곽선
 function buildModel(T, sp) { return stylize(T, buildRaw(T, sp)); }
@@ -258,6 +259,9 @@ export async function createStage(container) {
   }
 
   // ---------- 상태 애니메이션 ----------
+  const encFx = createParticles(THREE, scene, 50);
+  let encSp = null;
+  let encAmbT = 0;
   function play(name) {
     state = { name, t0: clock };
     if (!model) return;
@@ -292,6 +296,17 @@ export async function createStage(container) {
       case 'leave': rotY = Math.PI; x = st * 1.8; s = Math.max(0.01, 1 - st * 0.5); break;
       default:
     }
+    // 속성별 주변 입자
+    const amb = encSp && ambientFor(encSp);
+    if (amb && state.name !== 'sucked' && state.name !== 'leave') {
+      encAmbT -= dt;
+      if (encAmbT <= 0) {
+        encAmbT = amb.every * (0.7 + Math.random() * 0.6);
+        model.updateMatrixWorld();
+        encFx.spawn(amb.kind, ambientPos(THREE, model, amb.from), { vel: amb.vel, size: amb.size * 1.3, life: amb.life, drift: amb.drift, jitter: 0.15 });
+      }
+    }
+    encFx.update(dt);
     if (u.flyer && !fly) y += 0.35 + Math.sin(t * 3) * 0.05;
     if (u.swimmer) { x += -0.4 + Math.sin(t * 0.6) * 0.3; rotY = (rotY ?? 0) + (Math.cos(t * 0.6) > 0 ? 0 : Math.PI); y += 0.35; s *= 0.62; }
     if (fly) { x += fly.x; y += fly.y; rotY = (rotY ?? 0) + fly.dir; }
@@ -317,6 +332,8 @@ export async function createStage(container) {
   return {
     setCreature(sp, m) {
       if (model) { anchor.remove(model); disposeTree(model); }
+      encSp = sp;
+      encFx.clear();
       mode = m;
       fly = null;
       resize();
@@ -328,6 +345,7 @@ export async function createStage(container) {
     },
     clear() {
       if (model) { anchor.remove(model); disposeTree(model); model = null; }
+      encFx.clear();
       if (!renderer.xr.isPresenting) renderer.setAnimationLoop(null); // 안 보일 땐 그리지 않음 (배터리)
     },
     play,
@@ -496,6 +514,22 @@ export async function createBuddyView(el, sp, {
   const hemi = new THREE.HemisphereLight(0xfff6e8, 0x8a6a4a, 1.4);
   const key = new THREE.DirectionalLight(0xfff1dc, 1.4);
   key.position.set(-1.2, 3, 2.5);
+  // 진짜 그림자 (화질 '낮음'이 아니면)
+  const shadows = gfxLevel() !== 'low';
+  if (shadows) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    key.castShadow = true;
+    const sz = gfxLevel() === 'high' ? 2048 : 1024;
+    key.shadow.mapSize.set(sz, sz);
+    Object.assign(key.shadow.camera, { left: -2.4, right: 2.4, top: 2.4, bottom: -2.4, near: 0.5, far: 9 });
+    key.shadow.bias = -0.0015;
+    key.shadow.radius = 4;
+  }
+  const castAll = (obj, recv = false) => {
+    if (!shadows) return;
+    obj.traverse(o => { if (o.isMesh && !o.userData.isOutline && !(o.material?.transparent)) { o.castShadow = true; o.receiveShadow = recv; } });
+  };
   const warm = new THREE.PointLight(0xffc98a, 0.6, 6, 1.2);
   warm.position.set(0, 1.8, 0.8);
   scene.add(hemi, key, warm);
@@ -570,6 +604,7 @@ export async function createBuddyView(el, sp, {
     if (k !== roomKey) {
       if (roomGroup) { roomRoot.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
       roomGroup = stylize(THREE, roomMod.buildRoom(THREE, r), { outline: false });
+      if (shadows) roomGroup.children[0].receiveShadow = true; // 바닥
       roomRoot.add(roomGroup);
       roomKey = k;
     }
@@ -583,6 +618,20 @@ export async function createBuddyView(el, sp, {
       obj.position.copy(slotPos(sl));
       if (sl.where === 'floor') obj.rotation.y = Math.atan2(-sl.x, 1.4 - sl.z) * 0.6; // 방 가운데 쪽으로 살짝
       obj.traverse(o => { o.userData.slot = sl.id; });
+      castAll(obj, true);
+      // 램프·등불 둘레 빛 번짐
+      if (obj.userData.light) {
+        const glow = makeGlow(THREE, 0xffcf8a, 0.95);
+        glow.position.copy(obj.userData.light.position);
+        obj.add(glow);
+        obj.userData.glowSprite = glow;
+      } else if (want === 'garland') {
+        const glow = makeGlow(THREE, 0xfff0b0, 1.1);
+        glow.scale.set(1.1, 0.45, 1);
+        glow.position.set(0, -0.02, 0.05);
+        obj.add(glow);
+        obj.userData.glowSprite = glow;
+      }
       roomRoot.add(obj);
       furn.set(sl.id, { id: want, obj, born: clock });
     }
@@ -613,6 +662,7 @@ export async function createBuddyView(el, sp, {
     for (const { obj } of furn.values()) {
       const u = obj.userData;
       if (u.light) u.light.intensity = isNight ? 2.2 : 0.6;
+      if (u.glowSprite) u.glowSprite.material.opacity = isNight ? 0.85 : 0.22;
       u.glowBase = isNight ? 1.6 : 0.8;
       if (u.glow) u.glow.forEach(m => { m.emissiveIntensity = u.glowBase; });
       const rainy = ['rain', 'storm'].includes(wxKind);
@@ -633,6 +683,8 @@ export async function createBuddyView(el, sp, {
     if (gardenMod) return;
     gardenMod = await import('./garden3d.js');
     gardenGroup = stylize(THREE, gardenMod.buildGarden(THREE), { width: 0.012 });
+    castAll(gardenGroup, true);
+    if (shadows) gardenGroup.children[0].castShadow = false;
     gardenRoot.add(gardenGroup);
     setWeatherFx();
   }
@@ -648,6 +700,7 @@ export async function createBuddyView(el, sp, {
         const obj = new THREE.Group();
         obj.position.set(p.x, gardenMod.BED_TOP, p.z);
         const plant = stylize(THREE, gardenMod.buildPlant(THREE, v.crop, v.stage), { width: 0.008 });
+        castAll(plant);
         obj.add(plant);
         const drop = gardenMod.buildDrop(THREE);
         drop.position.set(0, 0.45, 0);
@@ -710,12 +763,55 @@ export async function createBuddyView(el, sp, {
   }
   setPlace(place);
 
+  let curSp = sp;
+  let evolveT0 = 0;
   function setCreature(species, st) {
     if (model) { holder.remove(model); disposeTree(model); }
+    curSp = species;
     model = buildModel(THREE, species);
+    castAll(model);
     holder.add(model);
     setStage(st);
   }
+
+  // ---------- 효과 ----------
+  const fx = createParticles(THREE, scene);
+  const evolveFx = makeEvolveFx(THREE);
+  scene.add(evolveFx.obj);
+  const flying = []; // 날아오는 밥·공
+  let ambT = 0;
+  let trick = null;
+  let trickWait = 5 + Math.random() * 4;
+  const headPos = () => new THREE.Vector3(0, 0.75 * (SCALE_BY_STAGE[stageNow] ?? 1), 0.1).applyMatrix4(holder.matrixWorld);
+  const mouthPos = () => new THREE.Vector3(0, 0.38 * (SCALE_BY_STAGE[stageNow] ?? 1), 0.32).applyMatrix4(holder.matrixWorld);
+  function throwIn(obj, from, toFn, dur, arc, onHit) {
+    obj.position.copy(from);
+    scene.add(obj);
+    flying.push({ obj, from: from.clone(), toFn, t0: clock, dur, arc, onHit, phase: 'in' });
+  }
+  function startFood(food) {
+    const obj = makeFood(THREE, food);
+    const from = camera.position.clone().add(new THREE.Vector3(0.25, -0.9, -1.2));
+    throwIn(obj, from, mouthPos, 0.55, 0.5, (f) => {
+      scene.remove(f.obj); disposeTree(f.obj);
+      fx.spawn('crumb', mouthPos(), { count: 7, vel: { x: 0, y: 0.5, z: 0.2 }, jitter: 0.9, gravity: 2.2, size: 0.05, life: 0.7 });
+      fx.spawn('heart', headPos(), { count: 2, vel: { x: 0, y: 0.5, z: 0 }, size: 0.12, life: 1.1 });
+      anim = { name: 'eat', t0: clock };
+    });
+  }
+  function startBall() {
+    const ball = makeToyBall(THREE);
+    const from = holder.position.clone().add(new THREE.Vector3(1.3, 0.9, 0.6));
+    throwIn(ball, from, headPos, 0.6, 0.35, (f) => {
+      // 머리로 콩! 하고 튕겨 나감
+      fx.spawn('star', headPos(), { count: 4, vel: { x: 0, y: 0.6, z: 0 }, jitter: 0.8, size: 0.1, life: 0.7 });
+      f.phase = 'out';
+      f.vel = new THREE.Vector3(-1.4, 1.6, 0.4);
+      f.t0 = clock;
+      anim = { name: 'hop', t0: clock };
+    });
+  }
+
   function setStage(st) {
     stageNow = st;
     addAccessories(model, st);
@@ -857,7 +953,18 @@ export async function createBuddyView(el, sp, {
       }
     }
 
-    const looking = !walking && !sleeping && clock - look.t < 2.5;
+    // 재롱: 가만히 있을 때 가끔
+    let tp = null;
+    if (!walking && !sleeping && !busy && !editing) {
+      if (trick) {
+        tp = trickPose(trick.name, clock - trick.t0);
+        if (tp.done) { trick = null; tp = null; trickWait = 6 + Math.random() * 6; }
+      } else if ((trickWait -= dt) <= 0) {
+        trick = { name: trickFor(curSp), t0: clock };
+        flashExpression(model, 'happy', clock);
+      }
+    } else if (trick) { trick = null; }
+    const looking = !walking && !sleeping && !tp && clock - look.t < 2.5;
     animateIdle(model, clock, { noLook: sleeping || walking || looking, energy: walking ? 1.6 : anim.name !== 'idle' ? 1.8 : 1 });
     let y = model.userData.flyer ? 0.12 + Math.sin(clock * 3) * 0.04 : 0;
     let sy = 1;
@@ -870,6 +977,12 @@ export async function createBuddyView(el, sp, {
       model.rotation.y = 0;
     }
     if (looking) model.rotation.y += (look.x * 0.75 - model.rotation.y) * 0.12; // 손가락 쪽 바라보기
+    model.rotation.x = 0;
+    if (tp) {
+      y += tp.y; sy *= tp.sy;
+      model.rotation.z += tp.rotZ; model.rotation.x = tp.rotX;
+      if (tp.rotY !== null) model.rotation.y = tp.rotY;
+    }
     let s = SCALE[stageNow] ?? 1;
     let rotY = sleeping && !walking ? 0.25 : null;
     switch (anim.name) {
@@ -895,6 +1008,44 @@ export async function createBuddyView(el, sp, {
       });
     }
     shadow.scale.setScalar(s * (1 - Math.min(0.6, y)));
+    // 속성별 주변 입자 (불씨, 물방울, 나뭇잎...)
+    const amb = ambientFor(curSp);
+    if (amb && !sleeping && place) {
+      ambT -= dt;
+      if (ambT <= 0) {
+        ambT = amb.every * (0.7 + Math.random() * 0.6);
+        holder.updateMatrixWorld();
+        fx.spawn(amb.kind, ambientPos(THREE, model, amb.from), { vel: amb.vel, size: amb.size, life: amb.life, drift: amb.drift, jitter: 0.15 });
+      }
+    }
+    // 날아오는 밥·공
+    for (let i = flying.length - 1; i >= 0; i--) {
+      const f = flying[i];
+      const k = (clock - f.t0) / f.dur;
+      if (f.phase === 'in') {
+        const to = f.toFn();
+        const p = Math.min(1, k);
+        f.obj.position.lerpVectors(f.from, to, p);
+        f.obj.position.y += Math.sin(p * Math.PI) * f.arc;
+        f.obj.rotation.x += dt * 8;
+        f.obj.rotation.z += dt * 5;
+        if (p >= 1) { f.phase = 'hit'; f.onHit(f); }
+      } else if (f.phase === 'out') {
+        f.vel.y -= 4 * dt;
+        f.obj.position.addScaledVector(f.vel, dt);
+        f.obj.rotation.x += dt * 10;
+        if (clock - f.t0 > 1.2) { scene.remove(f.obj); f.obj.userData.dispose?.(); disposeTree(f.obj); flying.splice(i, 1); }
+      } else { flying.splice(i, 1); }
+    }
+    // 진화 연출: 빛 기둥 + 하얀 실루엣
+    if (evolveFx.update(clock)) {
+      evolveFx.obj.position.copy(holder.position);
+      const k = clock - evolveT0;
+      flashWhite(model, k < 1.3 ? Math.sin(Math.min(1, k / 1.3) * Math.PI) * 1.4 : 0);
+      if (Math.random() < 0.5) fx.spawn('spark', holder.position.clone().add(new THREE.Vector3(0, 0.4, 0)), { vel: { x: 0, y: 1.1, z: 0 }, jitter: 1.2, spread: 0.6, size: 0.12, life: 1 });
+    } else if (evolveT0 > 0) { flashWhite(model, 0); evolveT0 = 0; }
+    fx.update(dt);
+
     if (zzzEl && sleeping) {
       // 쿨쿨 글자가 짝꿍 머리 위를 따라가도록
       const p = new THREE.Vector3(0.15, 0.85 * s, 0).applyMatrix4(holder.matrixWorld).project(camera);
@@ -993,11 +1144,20 @@ export async function createBuddyView(el, sp, {
       const p = bed.getWorldPosition(new THREE.Vector3()).project(camera);
       return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
     },
-    play(name) {
-      anim = { name, t0: clock };
+    play(name, opts = {}) {
       if (!model) return;
-      if (name === 'evolve') { flashExpression(model, 'surprised', clock); setTimeout(() => model && flashExpression(model, 'happy', clock), 900); }
-      else flashExpression(model, 'happy', clock);
+      trick = null;
+      if (name === 'eat') { startFood(opts.food || 'cookie'); flashExpression(model, 'happy', clock); return; }
+      if (name === 'happy' && opts.ball) { startBall(); flashExpression(model, 'surprised', clock); setTimeout(() => model && flashExpression(model, 'happy', clock), 650); return; }
+      anim = { name, t0: clock };
+      if (name === 'hop') fx.spawn('heart', headPos(), { count: 3, vel: { x: 0, y: 0.6, z: 0 }, jitter: 0.5, size: 0.12, life: 1.1 });
+      if (name === 'evolve') {
+        flashExpression(model, 'surprised', clock);
+        setTimeout(() => model && flashExpression(model, 'happy', clock), 1300);
+        evolveFx.start(clock);
+        evolveT0 = clock;
+        fx.spawn('star', holder.position.clone().add(new THREE.Vector3(0, 0.5, 0)), { count: 14, vel: { x: 0, y: 1.2, z: 0 }, jitter: 2.2, gravity: 1.2, size: 0.13, life: 1.6 });
+      } else flashExpression(model, 'happy', clock);
       if (guestModel && name === 'happy') flashExpression(guestModel, 'happy', clock);
     },
     /** 평소 표정: 'normal' | 'sleepy' | 'sad' */
@@ -1007,6 +1167,7 @@ export async function createBuddyView(el, sp, {
       ro.disconnect();
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onLook);
+      fx.dispose();
       roomGroup?.userData.dispose?.();
       gardenGroup?.userData.dispose?.();
       disposeTree(scene);
