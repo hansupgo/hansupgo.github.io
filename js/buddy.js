@@ -136,6 +136,23 @@ export function toggleSleep() {
   return { ok: true, line: b.sleeping ? '잘 자… 쿨쿨' : pick(['잘 잤다! 좋은 아침!', '으아~ 개운해!']) };
 }
 
+/** 영어 대화를 끝냈을 때: 하루 3번까지 성장 +10, 그 뒤로는 기분만 */
+export function englishReward(todayCount) {
+  const b = buddy();
+  if (!b) return {};
+  tick();
+  if (todayCount <= 3) {
+    b.mood = clamp(b.mood + 15);
+    const evolved = grow(10);
+    store.state.xp += 30;
+    store.save();
+    return { pts: 10, mood: 15, evolved };
+  }
+  b.mood = clamp(b.mood + 5);
+  store.save();
+  return { mood: 5 };
+}
+
 /** 아늑한 방에서 하루 한 번 받는 성장 보너스 */
 export function dailyRoomBonus() {
   const b = buddy();

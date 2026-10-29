@@ -584,7 +584,7 @@ function familyList(players, myUid) {
       <span class="rank-no">${i + 1}</span>
       <span class="mini-av" style="background:${esc(p.color || '#888')}">${esc((p.name || '?').slice(0, 1))}</span>
       <span class="rank-name">${esc(p.name || '이름 없음')}${p.uid === myUid ? ' <small>(나)</small>' : ''}${buddyBadge(p.buddy)}</span>
-      <span class="rank-stat"><b>${p.species || 0}</b>/${SPECIES.length}종 · Lv.${p.level || 1}</span>
+      <span class="rank-stat"><b>${p.species || 0}</b>/${SPECIES.length}종 · Lv.${p.level || 1}${p.eng ? ` · 📘${p.eng}` : ''}</span>
     </button></li>`).join('')}</ol>`;
 }
 

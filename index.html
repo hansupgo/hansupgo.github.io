@@ -61,6 +61,7 @@
           <div id="buddy-svg" class="buddy-svg" hidden></div>
           <p id="buddy-say" class="buddy-say" role="status"></p>
           <div id="buddy-zzz" class="buddy-zzz" aria-hidden="true" hidden><span>z</span><span>z</span><span>Z</span></div>
+          <button id="room-talk" class="room-talk" type="button" aria-label="영어로 이야기하기">💬 English</button>
           <div id="edit-bar" class="edit-bar" hidden>
             <span>초록 자리를 눌러서 가구를 놓아 봐</span>
             <button id="room-done" class="btn primary" type="button">다 했어</button>
@@ -91,6 +92,11 @@
             <button id="act-play" class="act" type="button"><span class="act-ico">🎾</span>놀아주기</button>
             <button id="act-sleep" class="act" type="button"><span class="act-ico">🌙</span><span id="act-sleep-label">재우기</span></button>
           </div>
+          <button id="btn-talk" class="talk-start" type="button">
+            <span class="talk-start-ico">💬</span>
+            <span><b>영어로 이야기하기</b><br><small lang="en">Let's talk in English!</small></span>
+            <span class="go">›</span>
+          </button>
           <p class="muted small center">짝꿍을 톡 누르면 쓰다듬을 수 있어. 같이 걸으면 쑥쑥 자라!</p>
           <div class="room-card">
             <div class="room-head">
@@ -235,6 +241,33 @@
       <p id="coord-text" class="coord"></p>
       <p class="muted">거점 위치를 고칠 때 js/config.js에 붙여 넣으세요.</p>
       <button id="coord-copy" class="btn primary" type="button">복사</button>
+    </div>
+  </section>
+
+  <!-- 영어로 이야기하기 -->
+  <section id="talk" class="talk" hidden aria-label="짝꿍과 영어로 이야기하기">
+    <header class="talk-top">
+      <button id="talk-close" class="talk-btn" type="button">← 나가기</button>
+      <div class="talk-head"><b id="talk-title">영어로 이야기하기</b><small id="talk-step"></small></div>
+      <div class="talk-tools">
+        <button id="talk-sound" class="talk-btn" type="button" aria-pressed="true" title="소리 켜기/끄기">🔊</button>
+        <button id="talk-slow" class="talk-btn" type="button" aria-pressed="false" title="천천히 말하기">🐢</button>
+        <button id="talk-ko" class="talk-btn" type="button" aria-pressed="true" title="한글 뜻 보기">한글</button>
+      </div>
+    </header>
+    <div id="talk-menu" class="talk-body"></div>
+    <div id="talk-book" class="talk-body talk-book" hidden></div>
+    <div id="talk-chat" class="talk-chat" hidden>
+      <div id="talk-log" class="talk-log" aria-live="polite"></div>
+      <div id="talk-answer" class="talk-answer">
+        <div id="talk-options" class="talk-options"></div>
+        <form id="talk-form" class="talk-form">
+          <label for="talk-input" class="sr-only">영어로 직접 쓰기</label>
+          <input id="talk-input" lang="en" placeholder="영어로 직접 써 봐 (Type in English)" autocomplete="off" autocapitalize="sentences" spellcheck="false" />
+          <button id="talk-mic" class="talk-mic" type="button" aria-label="말로 대답하기">🎤</button>
+          <button class="btn primary" type="submit">보내기</button>
+        </form>
+      </div>
     </div>
   </section>
 
