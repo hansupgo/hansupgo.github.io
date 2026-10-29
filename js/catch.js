@@ -324,12 +324,22 @@ function onBallUp(e) {
   // (손가락을 멈췄다가 한참 뒤에 떼면 던지지 않음)
   const still = Math.hypot(up.x - tail.x, up.y - tail.y) < 3;
   const end = still ? tail : up;
-  const paused = still && up.t - tail.t > 150;
+  // 3D 때문에 폰이 버벅이면 손가락 움직임이 띄엄띄엄 들어옴 → 멈춘 걸로 잘못 보지 않게
+  const gaps = samples.slice(1).map((s, i) => s.t - samples[i].t);
+  const janky = gaps.some(g => g > 60) || up.t - tail.t > 60;
+  const paused = still && up.t - tail.t > (janky ? 450 : 150);
   const first = [...samples].reverse().find(s => end.t - s.t >= 40) || samples[0];
   const dt = Math.max(16, end.t - first.t);
-  const vx = paused ? 0 : (end.x - first.x) / dt;
-  const vy = paused ? 0 : (end.y - first.y) / dt;
+  let vx = paused ? 0 : (end.x - first.x) / dt;
+  let vy = paused ? 0 : (end.y - first.y) / dt;
   const last = end;
+  // 버벅일 때: 마지막 순간 속도 대신 전체 손짓의 방향으로 던짐 (위로 80px 넘게 밀었으면)
+  const all = { dx: end.x - samples[0].x, dy: end.y - samples[0].y, dt: end.t - samples[0].t };
+  if (vy > -0.35 && janky && !paused && all.dy < -80 && all.dt < 1200) {
+    const len = Math.hypot(all.dx, all.dy);
+    vx = (all.dx / len) * 1.5;
+    vy = (all.dy / len) * 1.5;
+  }
   if (vy > -0.35) {
     resetBall();
     if (samples.length > 2) setMsg('조금 더 힘차게 위로 밀어 보세요!');

@@ -298,7 +298,7 @@ export function walkBanner() {
   const el = $('walk-banner');
   if (!el) return;
   el.hidden = !w || !w.on;
-  if (w?.on) el.textContent = `🚶 ${w.withName}님과 같이 걷기 ${Math.round(w.total)}/${WALK_GOAL}m`;
+  if (w?.on) el.textContent = w.done ? `🎀 ${w.withName}님과 같이 걷기 성공!` : `🚶 ${w.withName}님과 같이 걷기 ${Math.round(w.total)}/${WALK_GOAL}m`;
 }
 
 // ---------- 친구 창 단추 ----------
@@ -361,7 +361,9 @@ function renderVisitInfo() {
     <p class="visit-host">${bsp ? `${esc(p.buddy.nick || bsp.name)} · ${STAGES[num(p.buddy.stage, 0, 2)].name} ${bsp.name}` : '아직 짝꿍이 없는 친구예요'}</p>
     <p class="small">${visitPlace === 'room'
       ? `아늑함 ${'💛'.repeat(lv)}${'🤍'.repeat(5 - lv)} (${cz})`
-      : `텃밭 ${PLOT_IDS.filter(id => garden[id]).length}칸 · ${thirsty ? `💧 목마른 밭 ${thirsty}칸 — 눌러서 물을 줘요!` : '모두 촉촉해요'}${ready ? ` · 다 자란 것 ${ready}칸` : ''}`}</p>
+      : PLOT_IDS.some(id => garden[id])
+        ? `텃밭 ${PLOT_IDS.filter(id => garden[id]).length}칸 · ${thirsty ? `💧 목마른 밭 ${thirsty}칸 — 눌러서 물을 줘요!` : '모두 촉촉해요'}${ready ? ` · 다 자란 것 ${ready}칸` : ''}`
+        : '아직 심은 게 없는 텃밭이에요. 씨앗을 선물해 볼까요?'}</p>
     <p class="small"><b>방명록 남기기</b> <span class="muted">(친구에게 쪽지로 가요)</span></p>
     <div class="sticker-list">${STICKERS.map((s, i) => `<button type="button" data-vst="${i}"><span lang="en">${esc(s[1])}</span><small>${esc(s[0])}</small></button>`).join('')}</div>
     <button id="visit-gift" class="btn ghost" type="button">🎁 선물도 주기 (${giftsLeft()}/${GIFTS_PER_DAY})</button>`;

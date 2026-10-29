@@ -387,7 +387,8 @@ function useStop(stop) {
     store.state.specialDay = todayKey();
     store.save();
     toast(`★ ${stop.name} 특별 거점! 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)} + 특별한 몬스터가 나타났어요!`, 4000);
-    setTimeout(() => { if (!encounterActive()) openEncounter(specialEncounter(store.state.id, todayKey())); }, 900);
+    // 안내를 읽을 시간을 준 뒤 특별 몬스터 등장 (안내가 몬스터를 가리지 않게)
+    setTimeout(() => { $('toast').hidden = true; if (!encounterActive()) openEncounter(specialEncounter(store.state.id, todayKey())); }, 2600);
   } else {
     toast(`${stop.name}에서 숲볼 ${n}개, 간식 ${k}개, ${gainText(mats)}를 받았어요!`, 3200);
   }

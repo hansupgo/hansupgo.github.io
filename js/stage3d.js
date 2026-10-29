@@ -35,7 +35,27 @@ function makeRenderer(canvasParent) {
   renderer.toneMappingExposure = 1.1;
   renderer.domElement.className = 'stage3d-canvas';
   canvasParent.appendChild(renderer.domElement);
+  renderer.quality = autoQuality(renderer);
   return renderer;
+}
+
+/** 폰이 버거워하면(평균 30fps 미만) 화질을 한 단계 낮춰 부드럽게 */
+function autoQuality(renderer) {
+  let n = 0;
+  let sum = 0;
+  let done = false;
+  return (dt) => {
+    if (done || dt <= 0) return;
+    n++;
+    if (n < 20) return; // 처음 몇 프레임은 불러오느라 느림
+    sum += dt;
+    if (n < 110) return;
+    done = true;
+    if (sum / (n - 20) > 1 / 30 && renderer.getPixelRatio() > 1) {
+      renderer.setPixelRatio(1);
+      console.info('3D 화질을 낮춰 부드럽게 했어요');
+    }
+  };
 }
 
 function addLights(scene) {
@@ -253,6 +273,7 @@ export async function createStage(container) {
   const loop = (now, frame) => {
     const tnow = performance.now();
     const dt = Math.min(0.05, (tnow - last) / 1000);
+    renderer.quality(dt);
     last = tnow;
     if (xr) xrPlace(frame);
     else if (gyro.on) camera.quaternion.slerp(gyro.target, 0.25);
@@ -351,6 +372,7 @@ export async function createViewer(el, sp) {
   renderer.setAnimationLoop(() => {
     const now = performance.now();
     const dt = Math.min(0.05, (now - last) / 1000);
+    renderer.quality(dt);
     last = now;
     t += dt;
     if (!drag) { vel += (0.6 - vel) * dt * 2; spin += vel * dt; }
@@ -763,6 +785,7 @@ export async function createBuddyView(el, sp, {
   renderer.setAnimationLoop(() => {
     const now = performance.now();
     const dt = Math.min(0.05, (now - last) / 1000);
+    renderer.quality(dt);
     last = now;
     clock += dt;
     if (!model) return;

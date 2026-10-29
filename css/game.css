@@ -823,3 +823,8 @@ body.talking .tabs { display: none; }
 .visit-info p { margin: 0; }
 .visit-host { font-family: var(--display); font-size: 19px; color: var(--forest-d); }
 .visit #visit-gift { margin: 0; }
+
+/* 길게 누를 때 글자가 선택되거나 메뉴가 뜨지 않게 (게임 화면) */
+.encounter, .tabs, .hud, .map-btns, .nearby-wrap, .buddy-room, .act, .btn, .talk-opt, .plot-chip, .slot-chip, .dex-card, .place-tabs {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
