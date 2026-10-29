@@ -48,6 +48,50 @@
       </div>
     </section>
 
+    <!-- 짝꿍 -->
+    <section id="panel-buddy" class="panel panel-page buddy-panel" hidden>
+      <div id="buddy-adopt" class="page-inner" hidden>
+        <h2>짝꿍 고르기</h2>
+        <p id="adopt-lead" class="muted"></p>
+        <div id="adopt-grid" class="dex-grid"></div>
+      </div>
+      <div id="buddy-home" hidden>
+        <div class="buddy-room">
+          <div id="buddy-3d" class="buddy-3d"></div>
+          <div id="buddy-svg" class="buddy-svg" hidden></div>
+          <p id="buddy-say" class="buddy-say" role="status"></p>
+          <div id="buddy-zzz" class="buddy-zzz" aria-hidden="true" hidden><span>z</span><span>z</span><span>Z</span></div>
+        </div>
+        <div class="page-inner buddy-info">
+          <div class="buddy-title">
+            <h2 id="buddy-name"></h2>
+            <button id="buddy-rename" class="link-btn" type="button">이름 짓기</button>
+          </div>
+          <form id="rename-form" class="rename-form" hidden>
+            <label for="rename-input" class="sr-only">짝꿍 이름</label>
+            <input id="rename-input" maxlength="8" placeholder="새 이름 (8자까지)" />
+            <button class="btn primary" type="submit">저장</button>
+          </form>
+          <p id="buddy-stage" class="buddy-stage-label"></p>
+          <div class="grow-bar"><span id="buddy-grow"></span></div>
+          <p id="buddy-next" class="muted small"></p>
+          <div class="stat-list">
+            <div class="stat"><span class="stat-name">배부름</span><div class="bar"><span id="st-hunger"></span></div></div>
+            <div class="stat"><span class="stat-name">기분</span><div class="bar"><span id="st-mood"></span></div></div>
+            <div class="stat"><span class="stat-name">기운</span><div class="bar"><span id="st-energy"></span></div></div>
+          </div>
+          <p id="buddy-walk" class="buddy-walk"></p>
+          <div class="buddy-actions">
+            <button id="act-feed" class="act" type="button"><span class="act-ico">🍪</span><span id="act-feed-label">밥 주기</span></button>
+            <button id="act-play" class="act" type="button"><span class="act-ico">🎾</span>놀아주기</button>
+            <button id="act-sleep" class="act" type="button"><span class="act-ico">🌙</span><span id="act-sleep-label">재우기</span></button>
+          </div>
+          <p class="muted small center">짝꿍을 톡 누르면 쓰다듬을 수 있어. 같이 걸으면 쑥쑥 자라!</p>
+          <button id="buddy-change" class="btn ghost" type="button">짝꿍 바꾸기</button>
+        </div>
+      </div>
+    </section>
+
     <!-- 도감 -->
     <section id="panel-dex" class="panel panel-page" hidden>
       <div class="page-inner">
@@ -102,6 +146,7 @@
   <!-- 하단 탭 -->
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" data-tab="map" role="tab" type="button"><span class="ti">🗺</span>지도</button>
+    <button class="tab-btn" data-tab="buddy" role="tab" type="button"><span class="ti">💛</span>짝꿍</button>
     <button class="tab-btn" data-tab="dex" role="tab" type="button"><span class="ti">📖</span>도감</button>
     <button class="tab-btn" data-tab="family" role="tab" type="button"><span class="ti">🧑‍🤝‍🧑</span>친구</button>
     <button class="tab-btn" data-tab="settings" role="tab" type="button"><span class="ti">⚙</span>설정</button>
@@ -172,6 +217,16 @@
       <p id="coord-text" class="coord"></p>
       <p class="muted">거점 위치를 고칠 때 js/config.js에 붙여 넣으세요.</p>
       <button id="coord-copy" class="btn primary" type="button">복사</button>
+    </div>
+  </section>
+
+  <!-- 진화 축하 -->
+  <section id="evolve" class="modal evolve" hidden>
+    <div class="modal-card evolve-card">
+      <div id="evolve-art" class="evolve-art"></div>
+      <h1 id="evolve-title"></h1>
+      <p id="evolve-line" class="ob-lead"></p>
+      <button id="evolve-ok" class="btn primary" type="button">좋아!</button>
     </div>
   </section>
 

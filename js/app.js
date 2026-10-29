@@ -6,6 +6,8 @@ import { spawnsAround, distanceM, specialEncounter, isNight } from './spawn.js';
 import { store, remote, levelFromXp, xpForLevel } from './store.js';
 import { startEncounter, initEncounterUI, encounterActive } from './catch.js';
 import { loadThree, createViewer } from './stage3d.js';
+import { hasBuddy, buddySpecies, STAGES } from './buddy.js';
+import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked } from './buddy-ui.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -13,6 +15,9 @@ const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'
 let map;
 let me = null;               // { lat, lng, acc }
 let meMarker = null;
+let buddyMarker = null;       // 나를 따라오는 짝꿍
+let buddyMarkerFor = '';
+let walkPrev = null;          // 짝꿍 산책 거리 계산용
 let accCircle = null;
 let catchCircle = null;
 let gpsWatch = null;
@@ -154,7 +159,42 @@ function updateMe(lat, lng, acc = 10) {
     catchCircle.setLatLng([lat, lng]);
   }
   if (followMe) map.panTo([lat, lng], { animate: true });
+  countWalk(lat, lng, acc);
+  updateBuddyMarker();
   refreshWorld();
+}
+
+// 걸은 거리: 3m 미만 흔들림은 모으고, 80m 넘게 튄 위치는 버림
+function countWalk(lat, lng, acc) {
+  if (acc > 60) return;
+  if (!walkPrev) { walkPrev = { lat, lng }; return; }
+  const d = distanceM(walkPrev, { lat, lng });
+  if (d < 3) return;
+  walkPrev = { lat, lng };
+  if (d <= 80) buddyWalked(d);
+}
+
+function updateBuddyMarker() {
+  if (!me || !hasBuddy()) {
+    if (buddyMarker) { buddyMarker.remove(); buddyMarker = null; buddyMarkerFor = ''; }
+    return;
+  }
+  const sp = buddySpecies();
+  const pos = [me.lat, me.lng];
+  if (!buddyMarker) {
+    buddyMarker = L.marker(pos, { zIndexOffset: 900, interactive: false }).addTo(map);
+  } else {
+    buddyMarker.setLatLng(pos);
+  }
+  if (buddyMarkerFor !== sp.id) {
+    buddyMarkerFor = sp.id;
+    buddyMarker.setIcon(L.divIcon({
+      className: 'me-buddy',
+      html: monsterSVG(sp, { size: 34 }),
+      iconSize: [34, 34],
+      iconAnchor: [-4, 30], // 내 위치 점의 오른쪽 옆
+    }));
+  }
 }
 
 function refreshWorld() {
@@ -341,9 +381,11 @@ function showTab(name) {
     b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false');
   }
   for (const p of document.querySelectorAll('.panel')) p.hidden = p.id !== `panel-${name}`;
+  if (document.body.dataset.tab === 'buddy' && name !== 'buddy') leaveBuddy();
   document.body.dataset.tab = name;
   if (name === 'map') setTimeout(() => map.invalidateSize(), 50);
   if (name === 'dex') renderDex();
+  if (name === 'buddy') renderBuddy();
   if (name === 'family') renderFamily();
   if (name === 'settings') renderSettings();
 }
@@ -469,12 +511,19 @@ function renderFamily() {
   bindFamily(players);
 }
 
+function buddyBadge(b) {
+  const sp = b && speciesById[b.speciesId];
+  if (!sp) return '';
+  const stage = STAGES[b.stage]?.name || STAGES[0].name;
+  return `<br><span class="rank-buddy">${monsterSVG(sp, { size: 26 })}${esc(b.nick || sp.name)} · ${stage}${b.walkedKm ? ` · ${b.walkedKm}km` : ''}</span>`;
+}
+
 function familyList(players, myUid) {
   return `<ol class="rank">${players.map((p, i) => `
     <li><button class="rank-row" data-uid="${esc(p.uid)}" type="button">
       <span class="rank-no">${i + 1}</span>
       <span class="mini-av" style="background:${esc(p.color || '#888')}">${esc((p.name || '?').slice(0, 1))}</span>
-      <span class="rank-name">${esc(p.name || '이름 없음')}${p.uid === myUid ? ' <small>(나)</small>' : ''}</span>
+      <span class="rank-name">${esc(p.name || '이름 없음')}${p.uid === myUid ? ' <small>(나)</small>' : ''}${buddyBadge(p.buddy)}</span>
       <span class="rank-stat"><b>${p.species || 0}</b>/${SPECIES.length}종 · Lv.${p.level || 1}</span>
     </button></li>`).join('')}</ol>`;
 }
@@ -587,6 +636,7 @@ async function main() {
   document.body.classList.toggle('demo', store.state.demo);
   initMap();
   initEncounterUI();
+  initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
   bindSettings();
   bindOnboarding();
   renderHud();

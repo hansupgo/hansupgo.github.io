@@ -1,0 +1,187 @@
+// 짝꿍 키우기
+// 잡은 친구 하나를 짝꿍으로 정해 돌보고, 함께 걸으면서 키웁니다.
+// - 배부름·기분·기운은 실제 시간에 따라 천천히 줄어요 (0까지 떨어져도 벌칙은 없고 시무룩해질 뿐).
+// - 함께 걸은 거리와 돌봄으로 성장 점수가 쌓이고, 아기 → 어린이 → 어른으로 자라요.
+
+import { speciesById } from './monsters.js';
+import { store } from './store.js';
+
+export const STAGES = [
+  { name: '아기', need: 0, scale: 0.72 },
+  { name: '어린이', need: 300, scale: 0.88 },
+  { name: '어른', need: 1000, scale: 1.0 },
+];
+
+// 한 시간에 변하는 양
+const DECAY = { hunger: 6, mood: 4, energy: 5 };
+const SLEEP_RECOVER = 25;
+const FLOOR = 10; // 아무리 오래 안 들어와도 이 밑으로는 안 떨어짐
+
+const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
+const today = () => new Date().toLocaleDateString('ko-KR');
+
+export function hasBuddy() { return Boolean(store.state.buddy); }
+export function buddy() { return store.state.buddy; }
+export function buddySpecies() { return hasBuddy() ? speciesById[buddy().speciesId] : null; }
+export function displayName() { const b = buddy(); return b ? (b.nick || speciesById[b.speciesId].name) : ''; }
+
+export function stageIndex(growth = buddy()?.growth || 0) {
+  let i = 0;
+  STAGES.forEach((s, k) => { if (growth >= s.need) i = k; });
+  return i;
+}
+
+export function stageProgress() {
+  const g = buddy().growth;
+  const i = stageIndex(g);
+  if (i === STAGES.length - 1) return { i, pct: 100, next: null };
+  const a = STAGES[i].need;
+  const b = STAGES[i + 1].need;
+  return { i, pct: Math.round(((g - a) / (b - a)) * 100), next: b - g };
+}
+
+/** 짝꿍 정하기 (이미 있으면 바꾸기). 성장 기록은 짝꿍마다 따로 보관 */
+export function adopt(speciesId) {
+  const s = store.state;
+  s.buddyBook = s.buddyBook || {};
+  if (s.buddy) s.buddyBook[s.buddy.speciesId] = s.buddy;
+  s.buddy = s.buddyBook[speciesId] || {
+    speciesId, nick: '', growth: 0, hunger: 70, mood: 80, energy: 90,
+    sleeping: false, walkedM: 0, day: today(), todayM: 0, since: Date.now(), last: Date.now(),
+  };
+  s.buddy.last = Date.now();
+  store.save();
+  return s.buddy;
+}
+
+/** 지난 접속 이후 흐른 시간만큼 상태를 갱신 */
+export function tick(now = Date.now()) {
+  const b = buddy();
+  if (!b) return;
+  const h = Math.max(0, (now - (b.last || now)) / 3600000);
+  if (h < 1 / 120) return; // 30초 미만은 무시
+  b.hunger = Math.max(Math.min(b.hunger, FLOOR), b.hunger - DECAY.hunger * h);
+  b.mood = Math.max(Math.min(b.mood, FLOOR), b.mood - DECAY.mood * h * (b.hunger < 30 ? 1.5 : 1));
+  if (b.sleeping) {
+    b.energy = clamp(b.energy + SLEEP_RECOVER * h);
+    if (b.energy >= 100) b.sleeping = false; // 푹 자면 스스로 일어남
+  } else {
+    b.energy = Math.max(Math.min(b.energy, FLOOR), b.energy - DECAY.energy * h);
+  }
+  b.last = now;
+  if (b.day !== today()) { b.day = today(); b.todayM = 0; }
+  store.save();
+}
+
+function grow(points) {
+  const b = buddy();
+  const before = stageIndex(b.growth);
+  b.growth += points;
+  const after = stageIndex(b.growth);
+  return after > before ? after : null; // 진화하면 새 단계 번호
+}
+
+// ---------- 돌보기 ----------
+// 결과: { ok, line, evolved }
+
+export function feed() {
+  tick();
+  const b = buddy();
+  if (b.sleeping) return { ok: false, line: '쿨쿨… (자는 중이야)' };
+  if (b.hunger >= 92) return { ok: false, line: '배불러~ 이따가 줘!' };
+  if (store.state.snacks <= 0) return { ok: false, line: '간식이 없네… 거점에 가서 받아 오자!' };
+  store.state.snacks -= 1;
+  b.hunger = clamp(b.hunger + 35);
+  b.mood = clamp(b.mood + 5);
+  const evolved = grow(5);
+  store.save();
+  return { ok: true, line: pick(['냠냠! 맛있다!', '우와, 내가 좋아하는 거야!', '배부르다~ 고마워!']), evolved };
+}
+
+export function play() {
+  tick();
+  const b = buddy();
+  if (b.sleeping) return { ok: false, line: '쿨쿨… (자는 중이야)' };
+  if (b.energy < 15) return { ok: false, line: '졸려서 못 놀겠어… 재워 줄래?' };
+  if (b.hunger < 15) return { ok: false, line: '배고파서 힘이 안 나… 밥 먼저!' };
+  b.mood = clamp(b.mood + 25);
+  b.energy = clamp(b.energy - 10);
+  b.hunger = clamp(b.hunger - 4);
+  const evolved = grow(5);
+  store.save();
+  return { ok: true, line: pick(['히히, 재밌다!', '한 번 더! 한 번 더!', '너랑 노는 게 제일 좋아!']), evolved };
+}
+
+let lastPet = 0;
+export function pet() {
+  const b = buddy();
+  if (b.sleeping) return { ok: false, line: '음냐… (자면서 웃어)' };
+  const now = Date.now();
+  if (now - lastPet < 1500) return { ok: false };
+  lastPet = now;
+  b.mood = clamp(b.mood + 3);
+  store.save();
+  return { ok: true, line: pick(['헤헤, 간지러워!', '쓰담쓰담 좋아~', '기분 좋다!']) };
+}
+
+export function toggleSleep() {
+  tick();
+  const b = buddy();
+  b.sleeping = !b.sleeping;
+  b.last = Date.now();
+  store.save();
+  return { ok: true, line: b.sleeping ? '잘 자… 쿨쿨' : pick(['잘 잤다! 좋은 아침!', '으아~ 개운해!']) };
+}
+
+export function rename(nick) {
+  buddy().nick = nick.trim().slice(0, 8);
+  store.save();
+}
+
+/** 걸은 거리 반영 (m). 10m마다 성장 1점 */
+export function addWalk(m) {
+  const b = buddy();
+  if (!b || !(m > 0)) return null;
+  if (b.day !== today()) { b.day = today(); b.todayM = 0; }
+  const before = Math.floor(b.walkedM / 10);
+  b.walkedM += m;
+  b.todayM += m;
+  const pts = Math.floor(b.walkedM / 10) - before;
+  const evolved = pts > 0 ? grow(pts) : null;
+  if (!b.sleeping) b.mood = clamp(b.mood + m * 0.02);
+  store.save();
+  return { evolved, milestone: Math.floor((b.todayM - m) / 200) < Math.floor(b.todayM / 200) };
+}
+
+// ---------- 말하기 (반말) ----------
+
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+export function talk(ctx = {}) {
+  const b = buddy();
+  if (!b) return '';
+  if (b.sleeping) return pick(['쿨쿨…', '음냐음냐… 도토리…', 'zzZ']);
+  const h = new Date().getHours();
+  const lines = [];
+  if (b.hunger < 30) lines.push('배고파… 간식 줄래?', '꼬르륵… 들었어?');
+  if (b.energy < 25) lines.push('하암… 졸려.', '나 좀 재워 줄래?');
+  if (b.mood < 30) lines.push('심심해… 놀아 줘!', '오늘은 같이 산책 안 가?');
+  if (lines.length) return pick(lines);
+  const pool = [
+    '오늘 햇빛공원 가 보고 싶어!',
+    '물빛공원 연못에 물고기 보러 가자!',
+    '남곡초 앞에 가면 특별한 친구가 있대!',
+    '너랑 같이 걸으면 쑥쑥 클 것 같아!',
+    '나 오늘 기분 최고야!',
+    '어제 산책 진짜 재밌었어.',
+    '너 오늘 몇 걸음 걸었어?',
+  ];
+  if (h >= 6 && h < 11) pool.push('좋은 아침! 오늘도 같이 걷자!');
+  if (h >= 19 || h < 6) pool.push('밤에는 반짝반디가 나온대!', '밤하늘 별이 예쁘다…');
+  if (ctx.todayM > 500) pool.push(`오늘 벌써 ${(ctx.todayM / 1000).toFixed(1)}km나 걸었어! 대단해!`);
+  return pick(pool);
+}
+
+export function evolveLine(stage) {
+  return stage === 1 ? '나 좀 컸지? 이제 어린이야!' : '짠! 나 이제 어른이야! 고마워!';
+}
