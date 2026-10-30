@@ -107,6 +107,7 @@ Firebase의 `apiKey`는 비밀번호가 아니라 앱을 구분하는 값이라 
 
 ```
 hansupgo.github.io/
+├── manual.html        그림으로 보는 사용 설명서 (manual/img: 게임 화면 사진)
 ├── index.html          화면 구성
 ├── css/game.css        디자인
 ├── js/config.js        거점·규칙·Firebase 설정

@@ -1028,3 +1028,5 @@ body.talking .tabs { display: none; }
 .pop-quiz .go { font-family: var(--display); color: #e8873a; }
 .rp-words { display: flex; flex-wrap: wrap; gap: 6px; }
 .rp-words span { background: #f6f8f2; border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+
+.manual-link { display: block; text-align: center; text-decoration: none; margin: 12px 0; }
