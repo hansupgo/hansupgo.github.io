@@ -175,6 +175,12 @@
           <select id="set-gfx"></select>
           <p class="muted small">자동은 폰이 버거워하면 알아서 낮춰요. 오래된 폰에서 버벅이면 "낮음"을 골라 보세요. 다음에 3D 화면을 열 때부터 적용돼요.</p>
         </div>
+        <div class="parent-box">
+          <h3>👪 보호자</h3>
+          <div class="row"><button id="btn-report" class="btn primary" type="button">📊 이번 주 리포트</button>
+            <button id="btn-parent" class="btn ghost" type="button">🔒 보호자 설정</button></div>
+          <p class="muted small">놀이 시간·잠잘 시간·걸을 때 앞 보기 알림·캐릭터가 안 나오는 곳을 정해요. 기록은 이 휴대폰에만 있어요.</p>
+        </div>
         <div class="safety">
           <h3>안전하게 놀아요</h3>
           <ul>
@@ -312,6 +318,46 @@
       <p id="visit-say" class="buddy-say" role="status"></p>
     </div>
     <div id="visit-info" class="talk-body visit-info"></div>
+  </section>
+
+  <!-- 이번 주 리포트 -->
+  <section id="report-sheet" class="sheet" hidden>
+    <div class="sheet-card">
+      <button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>📊 이번 주 리포트</h3>
+      <div id="report-body"></div>
+    </div>
+  </section>
+
+  <!-- 보호자 설정 -->
+  <section id="parent-sheet" class="sheet" hidden>
+    <div class="sheet-card">
+      <button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>🔒 보호자 설정</h3>
+      <div id="parent-body"></div>
+    </div>
+  </section>
+
+  <!-- 쉬는 시간 (놀이 시간·잠잘 시간) -->
+  <section id="rest" class="rest" hidden role="dialog" aria-modal="true" aria-labelledby="rest-title">
+    <div class="rest-card">
+      <div id="rest-art" class="rest-art"></div>
+      <h2 id="rest-title">오늘은 여기까지!</h2>
+      <p id="rest-text"></p>
+      <button id="rest-parent" class="link-btn" type="button">보호자: 조금 더 놀게 하기</button>
+      <form id="rest-pin" class="pin-form" hidden><input id="rest-pin-input" inputmode="numeric" maxlength="4" placeholder="보호자 비밀번호" autocomplete="off" />
+        <button class="btn primary" type="submit">확인</button></form>
+    </div>
+  </section>
+
+  <!-- 걸을 때 앞 보기 -->
+  <section id="lookup" class="lookup" hidden role="alertdialog" aria-labelledby="lookup-title">
+    <div class="lookup-card">
+      <div class="lookup-ico">🚶‍♀️👀</div>
+      <h2 id="lookup-title">앞을 봐요!</h2>
+      <p>걸을 때는 화면 말고 길을 봐요. 멈춰 서서 하면 안전해요.</p>
+      <button id="lookup-ok" class="btn primary" type="button">멈췄어요</button>
+    </div>
   </section>
 
   <!-- 오늘의 할 일 · 계절 행사 -->

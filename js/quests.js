@@ -5,6 +5,7 @@
 
 import { store } from './store.js';
 import { hashString, mulberry32 } from './spawn.js';
+import { record } from './parent.js';
 
 // ---------- 계절 행사 ----------
 
@@ -131,6 +132,7 @@ export function onQuestDone(fn) { progressFn = fn; }
  * 새로 끝낸 할 일 목록을 돌려줌
  */
 export function track(on, info = {}) {
+  record(on, info); // 보호자 리포트용 날마다 기록
   const Q = quests();
   const finished = [];
   for (const q of Q.list) {
@@ -141,6 +143,7 @@ export function track(on, info = {}) {
     q.prog = Math.min(def.goal, q.prog + (on === 'walk' ? info.m || 0 : 1));
     if (questDone(q)) finished.push(def);
   }
+  if (finished.length) record('questDone', { n: finished.length });
   if (finished.length || on === 'walk') store.save();
   for (const def of finished) progressFn(def);
   return finished;
