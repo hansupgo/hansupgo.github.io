@@ -145,9 +145,11 @@ export function harvest(id) {
   const [a, b] = CROPS[p.crop].yield;
   const n = a + Math.floor(Math.random() * (b - a + 1));
   store.state.materials[p.crop] = crops(p.crop) + n;
+  const crop = p.crop;
   delete g().plots[id];
   shareView();
   store.save();
+  track('harvest', { id: crop });
   return n;
 }
 

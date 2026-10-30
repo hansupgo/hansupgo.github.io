@@ -6,6 +6,7 @@
 import { store } from './store.js';
 import { hashString, mulberry32 } from './spawn.js';
 import { record } from './parent.js';
+import { learnFrom, canQuiz } from './vocab.js';
 
 // ---------- 계절 행사 ----------
 
@@ -51,6 +52,7 @@ const POOL = [
   { id: 'catchAnimal', cat: 'catch', text: '동물 친구 1마리 만나기', icon: '🐱', goal: 1, on: 'catch', kind: 'animal' },
   { id: 'catchPark', cat: 'catch', text: '공원에서 친구 1마리 잡기', icon: '🌳', goal: 1, on: 'catch', place: 'park' },
   { id: 'dex', cat: 'care', text: '도감에서 만난 친구 2번 살펴보기', icon: '📖', goal: 2, on: 'dex' },
+  { id: 'quiz', cat: 'care', text: '짝꿍 영어 퀴즈 3문제 맞히기', icon: '🧩', goal: 3, on: 'quizRight', need: 'words' },
   { id: 'talk', cat: 'care', text: '짝꿍이랑 영어로 1번 이야기하기', icon: '💬', goal: 1, on: 'talk', need: 'buddy' },
   { id: 'feed', cat: 'care', text: '짝꿍에게 밥 2번 주기', icon: '🍪', goal: 2, on: 'feed', need: 'buddy' },
   { id: 'play', cat: 'care', text: '짝꿍이랑 2번 놀아 주기', icon: '🎾', goal: 2, on: 'play', need: 'buddy' },
@@ -81,6 +83,7 @@ export function todayKey(d = new Date()) {
 function needOk(need) {
   if (need === 'buddy') return Boolean(store.state.buddy);
   if (need === 'friends') return Boolean(store.state.group);
+  if (need === 'words') return Boolean(store.state.buddy) && canQuiz();
   return true;
 }
 
@@ -133,6 +136,7 @@ export function onQuestDone(fn) { progressFn = fn; }
  */
 export function track(on, info = {}) {
   record(on, info); // 보호자 리포트용 날마다 기록
+  learnFrom(on, info); // 만난 것 → 영어 낱말 카드
   const Q = quests();
   const finished = [];
   let moved = false;

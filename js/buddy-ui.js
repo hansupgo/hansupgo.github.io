@@ -10,7 +10,7 @@ import {
 } from './garden.js';
 import {
   STAGES, hasBuddy, buddy, buddySpecies, displayName, stageIndex, stageProgress,
-  adopt, tick, feed, feedCrop, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus, englishReward,
+  adopt, tick, feed, feedCrop, play, pet, toggleSleep, rename, addWalk, talk, evolveLine, dailyRoomBonus, englishReward, quizReward,
 } from './buddy.js';
 import { openTalk, initTalkUI } from './english.js';
 import {
@@ -19,6 +19,7 @@ import {
   cozy, cozyLevel, craftable,
 } from './room.js';
 import { eventById } from './quests.js';
+import { popQuizReady, usePopQuiz } from './vocab.js';
 
 const $ = (id) => document.getElementById(id);
 const STARTERS = ['sumbbong', 'mulbangkong', 'bulssikkomi'];
@@ -170,6 +171,8 @@ export async function renderBuddy(greeting) {
   if (bonus) { renderStats(); greeting = `아늑한 방에서 푹 쉬었더니 힘이 나! (성장 +${bonus.pts})`; }
   await ensureView();
   say(greeting || talk({ todayM: buddy().todayM }));
+  // 가끔 짝꿍이 깜짝 영어 퀴즈를 냄 (하루 3번까지)
+  $('btn-popquiz').hidden = !(!buddy().sleeping && popQuizReady());
   if (bonus?.evolved != null) showEvolve(bonus.evolved);
   clearInterval(talkTimer); // 겹쳐 불려도 하나만
   talkTimer = setInterval(() => {
@@ -190,8 +193,9 @@ function englishLine() {
   return `${en} (${v.ko})`;
 }
 
-function startTalk() {
+function startTalk(start = '', quizN = 5) {
   if (!hasBuddy()) return;
+  $('btn-popquiz').hidden = true;
   viewFor = ''; // 돌아오면 같은 장소로 다시 그림
   setEditing(false);
   clearInterval(talkTimer);
@@ -201,7 +205,10 @@ function startTalk() {
     name: store.state.name,
     stage: stageIndex(),
     toast: toastFn,
+    start,
+    quizN,
     onDone: (n) => { const r = englishReward(n); onChangeFn(); return r; },
+    onQuiz: (right, canGrow) => { const r = quizReward(right, canGrow); onChangeFn(); return r; },
     onEvolve: showEvolve,
     onClose: () => { if (document.body.dataset.tab === 'buddy') renderBuddy(pick(['Thanks for talking with me! (나랑 이야기해 줘서 고마워!)', 'That was fun! (재밌었다!)'])); },
   });
@@ -557,7 +564,8 @@ export function initBuddyUI({ toast, onChange }) {
   $('room-done').addEventListener('click', () => { setEditing(false); say(pick(['방 예쁘다! 고마워!', '여기서 살고 싶어… 아, 여기 살지!'])); });
   $('btn-craft').addEventListener('click', openCraft);
   $('btn-craft2').addEventListener('click', openCraft);
-  $('btn-talk').addEventListener('click', startTalk);
+  $('btn-talk').addEventListener('click', () => startTalk());
+  $('btn-popquiz').addEventListener('click', () => { usePopQuiz(); startTalk('quiz', 3); });
   $('room-talk').addEventListener('click', startTalk);
   initTalkUI();
   for (const id of ['craft-sheet', 'slot-sheet']) {

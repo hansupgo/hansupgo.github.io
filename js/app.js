@@ -14,6 +14,7 @@ import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
 import { initParentUI, walkedStep } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
+import { onNewWord } from './vocab.js';
 import { track } from './quests.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
@@ -323,7 +324,7 @@ function tapMaterial(m) {
   }
   if (!gather(m)) return;
   toast(`${gainText({ [m.kind]: m.amount })}를 주웠어요!`);
-  track('gather');
+  track('gather', { id: m.kind });
   const mk = matMarkers.get(m.id);
   if (mk) { map.removeLayer(mk); matMarkers.delete(m.id); }
 }
@@ -774,6 +775,8 @@ async function main() {
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
   initFriends({ toast, onChange: () => { renderHud(); if (document.body.dataset.tab === 'family') renderFamily(); } });
   initQuestUI({ toast, onChange: renderHud });
+  // 새 영어 단어 카드를 얻으면 살짝 알려 줌 (다른 안내와 겹치지 않게 조금 뒤에)
+  onNewWord((fresh) => setTimeout(() => toast(`🔤 새 단어 카드! ${fresh.map(w => `${w.pic} ${w.en}(${w.ko})`).join(', ')}`, 2600), 2200));
   initParentUI({
     toast,
     center: () => map.getCenter(),
