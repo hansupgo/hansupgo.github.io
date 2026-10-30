@@ -8,7 +8,7 @@ import { store } from './store.js';
 import { hashString, mulberry32, distanceM, currentSlot, slotEndsAt, zoneAt, isNight, spawnsAround } from './spawn.js';
 import { weather } from './weather.js';
 import { CROPS } from './garden.js';
-import { EVENTS, currentEvent } from './quests.js';
+import { EVENTS, currentEvent, track } from './quests.js';
 
 export const MATERIALS = {
   leaf: { name: '나뭇잎', icon: '🍃' },
@@ -148,6 +148,7 @@ export function craft(id) {
   pay(f.cost);
   st().furniture[id] = owned(id) + 1;
   store.save();
+  track('craft', { id });
   return true;
 }
 

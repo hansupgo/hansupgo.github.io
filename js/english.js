@@ -6,6 +6,8 @@
 import { SCENES, sceneById, LINES } from './english-data.js';
 import { store } from './store.js';
 import { monsterSVG, josa } from './monsters.js';
+import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS } from './vocab.js';
+import { track } from './quests.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -253,6 +255,8 @@ async function finish() {
   learnedNow = scene.learn.filter(([en]) => !e.phrases[en]);
   for (const [en, ko] of scene.learn) e.phrases[en] = { ko, scene: scene.id, at: e.phrases[en]?.at || Date.now() };
   store.save();
+  // 대화에 나온 낱말도 단어 카드로
+  learnFromText(scene.turns.map(t => [t.say[0], ...t.options.map(o => o.en)].join(' ')).join(' '));
   // 보상은 인사를 기다리기 전에 줌 (인사 중에 나가도 받도록)
   const reward = ctx.onDone?.(e.today) || {};
   const my = sceneToken;
@@ -278,8 +282,7 @@ function startScene(id) {
   sceneToken++;
   scene = sceneById[id];
   turnIdx = 0;
-  $('talk-menu').hidden = true;
-  $('talk-book').hidden = true;
+  hideViews();
   $('talk-chat').hidden = false;
   $('talk-answer').hidden = false;
   $('talk-log').innerHTML = `<p class="talk-where">${scene.icon} ${esc(scene.title)} · ${esc(scene.where)}</p>`;
@@ -302,8 +305,7 @@ function showMenu() {
   sceneToken++;
   scene = null;
   const e = eng();
-  $('talk-chat').hidden = true;
-  $('talk-book').hidden = true;
+  hideViews();
   $('talk-menu').hidden = false;
   $('talk-title').textContent = '영어로 이야기하기';
   const rec = recommended();
@@ -315,6 +317,10 @@ function showMenu() {
       <span><small>오늘의 대화</small><br><b>${esc(rec.title)}</b> <span class="muted">· ${esc(rec.where)}</span></span><span class="go">시작 ›</span></button>
     <div class="talk-stats"><span>오늘 ${e.today}번 · 모두 ${e.total || 0}번</span>
       <button id="talk-book-btn" class="link-btn" type="button">📘 표현 노트 (${phraseCount()})</button></div>
+    <div class="talk-learn">
+      <button id="talk-words-btn" class="talk-learn-btn" type="button"><span class="talk-ico">🔤</span><b>단어 카드</b><small>${knownCount()}/${WORDS.length}장 모음</small></button>
+      <button id="talk-quiz-btn" class="talk-learn-btn" type="button" ${canQuiz() ? '' : 'disabled'}><span class="talk-ico">🧩</span><b>짝꿍 퀴즈</b><small>${canQuiz() ? 'What\'s this? 맞혀 봐!' : `카드 ${QUIZ_MIN}장부터`}</small></button>
+    </div>
     <div class="talk-grid">${SCENES.map(s => {
       const lock = s.level === 2 && !l2;
       return `<button class="talk-scene ${lock ? 'locked' : ''}" data-id="${s.id}" type="button" ${lock ? 'disabled' : ''}>
@@ -323,6 +329,8 @@ function showMenu() {
     }).join('')}</div>`;
   for (const b of $('talk-menu').querySelectorAll('[data-id]')) b.addEventListener('click', () => startScene(b.dataset.id));
   $('talk-book-btn').addEventListener('click', showBook);
+  $('talk-words-btn').addEventListener('click', showWords);
+  $('talk-quiz-btn').addEventListener('click', () => startQuiz(5));
 }
 
 function showBook() {
@@ -330,8 +338,7 @@ function showBook() {
   sceneToken++;
   scene = null;
   const e = eng();
-  $('talk-chat').hidden = true;
-  $('talk-menu').hidden = true;
+  hideViews();
   $('talk-book').hidden = false;
   $('talk-title').textContent = '📘 표현 노트';
   const groups = SCENES.map(s => ({ s, items: s.learn.filter(([en]) => e.phrases[en]) })).filter(g => g.items.length);
@@ -341,6 +348,134 @@ function showBook() {
     : '<p class="muted">아직 모은 표현이 없어. 짝꿍이랑 이야기하면 여기에 쌓여!</p>'}`;
   $('book-back').addEventListener('click', showMenu);
   for (const b of $('talk-book').querySelectorAll('[data-say]')) b.addEventListener('click', () => speak(b.dataset.say, { pitch: 1.0 }));
+}
+
+function hideViews() {
+  for (const id of ['talk-menu', 'talk-book', 'talk-chat', 'talk-words', 'talk-quiz']) $(id).hidden = true;
+}
+
+// ---------- 🔤 단어 카드 ----------
+
+const starHtml = (n) => `<span class="w-stars" aria-label="별 ${n}개">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+
+function showWords() {
+  stopSpeak();
+  sceneToken++;
+  scene = null;
+  hideViews();
+  $('talk-words').hidden = false;
+  $('talk-title').textContent = '🔤 단어 카드';
+  const have = new Set(known().map(w => w.en));
+  $('talk-words').innerHTML = `<button id="words-back" class="link-btn" type="button">‹ 대화 고르기</button>
+    <p class="w-lead"><b>${have.size}</b> / ${WORDS.length}장 모음 · 카드를 누르면 소리로 들려줘요. 친구를 잡고, 가구를 만들고, 짝꿍이랑 이야기하면 새 카드가 생겨요!</p>
+    ${Object.entries(CATS).map(([cat, title]) => {
+      const list = WORDS.filter(w => w.cat === cat);
+      return `<h4>${title} <small class="muted">${list.filter(w => have.has(w.en)).length}/${list.length}</small></h4>
+      <div class="w-grid">${list.map(w => have.has(w.en)
+        ? `<button class="w-card" type="button" data-word="${w.en}"><span class="w-pic">${w.pic}</span><b lang="en">${esc(w.en)}</b><small>${esc(w.ko)}</small>${starHtml(stars(w.en))}</button>`
+        : '<div class="w-card locked" aria-label="아직 못 모은 카드"><span class="w-pic">❔</span><b>???</b><small>&nbsp;</small></div>').join('')}</div>`;
+    }).join('')}
+    <div id="w-detail" class="w-detail" hidden></div>
+    ${canQuiz() ? '<button id="words-quiz" class="btn primary w-quiz-btn" type="button">🧩 짝꿍 퀴즈 풀기</button>' : ''}`;
+  $('words-back').addEventListener('click', showMenu);
+  $('words-quiz')?.addEventListener('click', () => startQuiz(5));
+  for (const b of $('talk-words').querySelectorAll('[data-word]')) {
+    b.addEventListener('click', async () => {
+      const w = WORDS.find(x => x.en === b.dataset.word);
+      const d = $('w-detail');
+      d.hidden = false;
+      d.innerHTML = `<span class="w-pic big">${w.pic}</span><div><b lang="en">${esc(w.en)}</b> · ${esc(w.ko)}<br>
+        <span lang="en">${esc(w.ex[0])}</span> <button class="say-btn" type="button" data-ex aria-label="예문 듣기">🔊</button><br><small>${esc(w.ex[1])}</small></div>`;
+      b.after(d);
+      d.querySelector('[data-ex]').addEventListener('click', () => speak(w.ex[0], { pitch: 1.0 }));
+      await speak(w.en, { pitch: 1.0 });
+    });
+  }
+}
+
+// ---------- 🧩 짝꿍 퀴즈 ----------
+
+let quiz = [];
+let qi = 0;
+let qRight = 0;
+let quizToken = 0;
+
+function startQuiz(n) {
+  stopSpeak();
+  sceneToken++;
+  scene = null;
+  quiz = makeQuiz(n);
+  if (!quiz.length) { showWords(); return; }
+  qi = 0;
+  qRight = 0;
+  hideViews();
+  $('talk-quiz').hidden = false;
+  $('talk-title').textContent = '🧩 짝꿍 퀴즈';
+  showQuestion();
+}
+
+const Cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
+async function showQuestion() {
+  const my = ++quizToken;
+  const q = quiz[qi];
+  const pic = q.type === 'pic';
+  const ask = pic ? ["What's this?", '이건 뭘까?'] : [`Where is the ${q.word.en}?`, '잘 듣고 그림을 골라 봐!'];
+  $('talk-quiz').innerHTML = `<div class="q-top"><span>${qi + 1} / ${quiz.length}</span><span>맞힌 수 ${qRight}</span></div>
+    <div class="quiz-ask">${monsterSVG(ctx.sp, { size: 64 })}
+      <div class="quiz-bubble"><p class="en" lang="en">${pic ? esc(ask[0]) : 'Where is the …?'}</p><p class="ko">${esc(ask[1])}</p>
+      <button class="say-btn" type="button" id="quiz-say" aria-label="다시 듣기">🔊</button></div></div>
+    ${pic ? `<div class="quiz-pic">${q.word.pic}</div>` : '<div class="quiz-pic listen">👂</div>'}
+    <div class="quiz-choices ${pic ? 'words' : 'pics'}">${q.choices.map(c => `<button class="quiz-opt" type="button" data-qc="${c.en}">${pic ? `<span lang="en">${esc(c.en)}</span>` : `<span class="w-pic">${c.pic}</span>`}</button>`).join('')}</div>
+    <div id="quiz-feedback" class="quiz-feedback" hidden></div>`;
+  const sayIt = () => speak(pic ? ask[0] : `Where is the ${q.word.en}?`, { pitch: pitchFor(ctx.stage) });
+  $('quiz-say').addEventListener('click', sayIt);
+  for (const b of $('talk-quiz').querySelectorAll("[data-qc]")) b.addEventListener('click', () => pickAnswer(b.dataset.qc));
+  await sayIt();
+  if (my !== quizToken) return;
+}
+
+async function pickAnswer(en) {
+  const my = quizToken;
+  const q = quiz[qi];
+  const ok = en === q.word.en;
+  for (const b of $('talk-quiz').querySelectorAll("[data-qc]")) {
+    b.disabled = true;
+    if (b.dataset.qc === q.word.en) b.classList.add('right');
+    else if (b.dataset.qc === en) b.classList.add('wrong');
+  }
+  answerQuiz(q.word.en, ok);
+  track(ok ? 'quizRight' : 'quizWrong', { en: q.word.en });
+  if (ok) qRight++;
+  const fb = $('quiz-feedback');
+  const line = ok ? [`${pick(['Yes!', 'Great job!', 'You got it!'])} ${Cap(q.word.en)}!`, `맞았어! ${q.word.ko}!`] : [`Oops! This is ${q.word.en}.`, `아쉬워! 이건 ${q.word.ko}야.`];
+  fb.hidden = false;
+  fb.className = `quiz-feedback ${ok ? 'good' : 'bad'}`;
+  fb.innerHTML = `<p><span class="w-pic">${q.word.pic}</span> <b lang="en">${esc(line[0])}</b><br><small>${esc(line[1])}</small></p>
+    <p class="quiz-ex"><span lang="en">${esc(q.word.ex[0])}</span><br><small>${esc(q.word.ex[1])}</small></p>
+    <button id="quiz-next" class="btn primary" type="button">${qi + 1 < quiz.length ? '다음 ›' : '결과 보기'}</button>`;
+  $('quiz-next').addEventListener('click', () => { if (qi + 1 < quiz.length) { qi++; showQuestion(); } else quizDone(); });
+  await speak(line[0], { pitch: pitchFor(ctx.stage) });
+  if (my !== quizToken) return;
+}
+
+function quizDone() {
+  quizToken++;
+  const round = finishRound();
+  const reward = ctx.onQuiz?.(qRight, round <= QUIZ_GROW_ROUNDS) || {};
+  const all = qRight === quiz.length;
+  $('talk-quiz').innerHTML = `<div class="talk-done">
+    <h3>${all ? '🏆 다 맞혔어!' : '🎉 퀴즈 끝!'}</h3>
+    <p>${quiz.length}문제 중 <b>${qRight}개</b> 맞혔어!</p>
+    <p>${reward.pts ? `짝꿍 성장 +${reward.pts} · 경험치 +${reward.xp}` : `경험치 +${reward.xp || 0} (오늘 짝꿍 성장 보너스는 다 받았어)`}</p>
+    <div class="talk-done-btns"><button id="quiz-again" class="btn primary" type="button">한 판 더</button>
+    <button id="quiz-words" class="btn ghost" type="button">🔤 단어 카드</button></div>
+    <button id="quiz-menu" class="link-btn" type="button">‹ 대화 고르기</button></div>`;
+  $('quiz-again').addEventListener('click', () => startQuiz(5));
+  $('quiz-words').addEventListener('click', showWords);
+  $('quiz-menu').addEventListener('click', showMenu);
+  speak(all ? 'Perfect! You are amazing!' : 'Good job! Let\'s play again!', { pitch: pitchFor(ctx.stage) });
+  if (reward.evolved != null) ctx.onEvolve?.(reward.evolved);
 }
 
 function renderTools() {
@@ -360,10 +495,13 @@ export function openTalk(options) {
   $('talk').hidden = false;
   document.body.classList.add('talking');
   if (!voice && synth) pickVoice();
-  showMenu();
+  if (options.start === 'quiz' && canQuiz()) startQuiz(options.quizN || 5);
+  else if (options.start === 'words') showWords();
+  else showMenu();
 }
 
 export function closeTalk() {
+  quizToken++;
   stopSpeak();
   stopMic();
   sceneToken++;

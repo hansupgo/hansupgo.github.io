@@ -50,6 +50,7 @@ export function record(on, info = {}) {
   else if (on === 'talk') t.talk++;
   else if (on === 'feed' || on === 'play' || on === 'pet') t.care++;
   else if (on === 'questDone') t.quests += info.n || 1;
+  else if (on === 'quizRight' || on === 'quizWrong') { t.quiz = (t.quiz || 0) + 1; if (on === 'quizRight') t.quizOk = (t.quizOk || 0) + 1; }
   else return;
   if (on !== 'walk') store.save(); // 걸음은 track이 저장
 }

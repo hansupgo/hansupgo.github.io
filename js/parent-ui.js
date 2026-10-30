@@ -7,6 +7,7 @@ import {
   settings, setSetting, restReason, allowMore, tickPlay, hasPin, setPin, checkPin,
   zones, addZone, removeZone, onMove, isStill, snoozeLookUp, week, today,
 } from './parent.js';
+import { weekWords, accuracy } from './vocab.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -143,7 +144,9 @@ function reportData() {
   const newSp = Object.entries(store.state.caught || {})
     .filter(([, c]) => c.firstAt >= from.getTime()).map(([id]) => speciesById[id]).filter(Boolean);
   const playedDays = days.filter(d => d.play >= 1 || d.walk > 0 || d.catch > 0).length;
-  return { days, from, walk: sum('walk'), play: sum('play'), catch: sum('catch'), talk: sum('talk'), care: sum('care'), quests: sum('quests'), phrases, newSp, playedDays };
+  const quiz = days.reduce((n, d) => n + (d.quiz || 0), 0);
+  const quizOk = days.reduce((n, d) => n + (d.quizOk || 0), 0);
+  return { days, from, walk: sum('walk'), play: sum('play'), catch: sum('catch'), talk: sum('talk'), care: sum('care'), quests: sum('quests'), phrases, newSp, playedDays, words: weekWords(from.getTime()), quiz, quizOk };
 }
 
 const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
@@ -166,12 +169,17 @@ function renderReport() {
       <div><b>${r.talk}번</b><small>💬 영어 대화</small></div>
       <div><b>${r.phrases.length}개</b><small>📘 새로 배운 표현</small></div>
       <div><b>${r.quests}개</b><small>📋 끝낸 할 일</small></div>
+      <div><b>${r.words.length}장</b><small>🔤 새 단어 카드</small></div>
+      <div><b>${r.quiz ? `${Math.round((r.quizOk / r.quiz) * 100)}%` : '-'}</b><small>🧩 퀴즈 정답률 (${r.quizOk}/${r.quiz})</small></div>
+      <div><b>${accuracy() ?? '-'}${accuracy() == null ? '' : '%'}</b><small>🧩 지금까지 정답률</small></div>
     </div>
     <h4>👟 날마다 걸은 거리</h4>${bars('walk', maxW, fmtDist, 'walk')}
     <h4>⏰ 날마다 놀이 시간</h4>${bars('play', maxP, (m) => `${Math.round(m)}분`, 'play')}
     ${b ? `<h4>💛 짝꿍</h4><p class="rp-buddy">${monsterSVG(buddySpecies(), { size: 44 })}<span><b>${esc(displayName())}</b> · ${STAGES[stageIndex()].name} · 돌봐 준 횟수 ${r.care}번</span></p>` : ''}
     <h4>📘 이번 주 새로 배운 영어 표현</h4>
     ${r.phrases.length ? `<ul class="rp-phr">${r.phrases.slice(0, 12).map(([en, v]) => `<li><b lang="en">${esc(en)}</b> ${esc(v.ko)}</li>`).join('')}</ul>${r.phrases.length > 12 ? `<p class="muted small">외 ${r.phrases.length - 12}개</p>` : ''}` : '<p class="muted">이번 주는 아직 없어요. 짝꿍이랑 영어로 이야기해 봐요!</p>'}
+    <h4>🔤 이번 주 모은 단어 카드</h4>
+    <p class="rp-words">${r.words.length ? r.words.map(w => `<span>${w.pic} <b lang="en">${esc(w.en)}</b> ${esc(w.ko)}</span>`).join('') : '<span class="muted">아직 없어요.</span>'}</p>
     <h4>🆕 이번 주 새로 만난 친구</h4>
     <p>${r.newSp.length ? r.newSp.map(sp => esc(sp.name)).join(' · ') : '<span class="muted">아직 없어요.</span>'}</p>
     <button id="report-copy" class="btn primary" type="button">📋 리포트 복사해서 보내기</button>`;
@@ -180,6 +188,7 @@ function renderReport() {
       `👟 걸은 거리 ${fmtDist(r.walk)} · ⏰ 놀이 시간 ${fmtMin(r.play)} · ${r.playedDays}일`,
       `🎯 잡은 친구 ${r.catch}번 (새 친구 ${r.newSp.length}) · 📋 끝낸 할 일 ${r.quests}개`,
       `💬 영어 대화 ${r.talk}번 · 📘 새 표현 ${r.phrases.length}개${r.phrases.length ? `: ${r.phrases.slice(0, 5).map(([en]) => en).join(' / ')}` : ''}`,
+      `🔤 새 단어 ${r.words.length}개${r.words.length ? `: ${r.words.slice(0, 8).map(w => w.en).join(', ')}` : ''} · 🧩 퀴즈 ${r.quizOk}/${r.quiz}`,
       b ? `💛 짝꿍 ${displayName()} (${STAGES[stageIndex()].name})` : ''].filter(Boolean).join('\n');
     try { await navigator.clipboard.writeText(text); cb.toast('리포트를 복사했어요. 메신저에 붙여 넣어 보내 보세요.'); }
     catch { cb.toast('복사하지 못했어요.'); }

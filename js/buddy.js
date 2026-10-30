@@ -157,6 +157,7 @@ export function toggleSleep() {
   b.sleeping = !b.sleeping;
   b.last = Date.now();
   store.save();
+  if (b.sleeping) track('sleep');
   return { ok: true, line: b.sleeping ? '잘 자… 쿨쿨' : pick(['잘 잤다! 좋은 아침!', '으아~ 개운해!']) };
 }
 
@@ -195,6 +196,19 @@ export function englishReward(todayCount) {
   b.mood = clamp(b.mood + 5);
   store.save();
   return { mood: 5 };
+}
+
+/** 영어 퀴즈 한 판: 맞힌 만큼 경험치, 하루 3판까지 성장 (+2씩) */
+export function quizReward(right, canGrow) {
+  const b = buddy();
+  const xp = right * 10;
+  store.state.xp += xp;
+  if (!b || !canGrow || !right) { store.save(); return { xp }; }
+  tick();
+  b.mood = clamp(b.mood + right * 2);
+  const evolved = grow(right * 2);
+  store.save();
+  return { pts: right * 2, xp, evolved };
 }
 
 /** 아늑한 방에서 하루 한 번 받는 성장 보너스 */
