@@ -2,6 +2,7 @@
 // 카메라는 원점, 캐릭터는 (0, -0.95, -3.4)에 서 있습니다. 바닥 높이는 y = -0.95.
 
 import { buildWeather, skyColor } from './garden3d.js';
+import { roundedBox } from './charfx.js';
 
 const GROUND_Y = -0.95;
 
@@ -18,7 +19,7 @@ function kitOf(THREE, g) {
   const add = (geo, c, pos, o, parent = g) => { const m = new THREE.Mesh(geo, c?.isMaterial ? c : mat(c, o)); m.position.set(...pos); parent.add(m); return m; };
   return {
     mat, add,
-    box: (w, h, d, c, pos, o, p) => add(new THREE.BoxGeometry(w, h, d), c, pos, o, p),
+    box: (w, h, d, c, pos, o, p) => add(roundedBox(THREE, w, h, d, 0.2), c, pos, o, p), // 둥근 모서리 (마을풍)
     cyl: (r1, r2, h, c, pos, o, p, seg = 12) => add(new THREE.CylinderGeometry(r1, r2, h, seg), c, pos, o, p),
     sph: (r, c, pos, sc = [1, 1, 1], o, p) => { const m = add(new THREE.SphereGeometry(r, 16, 12), c, pos, o, p); m.scale.set(...sc); return m; },
     cone: (r, h, c, pos, o, p) => add(new THREE.ConeGeometry(r, h, 12), c, pos, o, p),
@@ -60,6 +61,27 @@ function tree(THREE, k, x, z, s, colors) {
   return g;
 }
 
+// 마을풍 '굴러가는 세상': 멀리 있는 땅과 풍경일수록 아래로 휘어 지평선이 둥글게 보임.
+// 캐릭터가 서는 앞쪽(5m 안)은 그대로라 발이 뜨지 않음. 하늘(셰이더)과 별(점)은 그대로.
+const ROLL_START = 5, ROLL_K = 0.005;
+function rollWorld(root) {
+  const done = new Set();
+  root.traverse(o => {
+    if (!o.isMesh || Array.isArray(o.material) || done.has(o.material)) return;
+    if (!o.material.isMeshStandardMaterial && !o.material.isMeshBasicMaterial) return;
+    for (let p = o; p; p = p.parent) if (p.userData.noRoll) return; // 하늘에 뜬 것(해·달·구름)은 그대로
+    const m = o.material;
+    done.add(m);
+    m.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+        float rollD = max(0.0, -mvPosition.z - ${ROLL_START.toFixed(1)});
+        mvPosition.y -= ${ROLL_K} * rollD * rollD;
+        gl_Position = projectionMatrix * mvPosition;`);
+    };
+    m.customProgramCacheKey = () => 'roll';
+  });
+}
+
 function windowTex(THREE, lit) {
   return canvasTex(THREE, 64, 128, (x, w, h) => {
     x.fillStyle = '#f2ece2'; x.fillRect(0, 0, w, h);
@@ -96,14 +118,15 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xfff6d0, size: 0.18, sizeAttenuation: true, depthWrite: false })));
-    k.sph(1.2, 0xfff2b0, [-9, 12, -28], [1, 1, 1], { e: 0xfff2b0, ei: 1 });
+    k.sph(1.2, 0xfff2b0, [-9, 12, -28], [1, 1, 1], { e: 0xfff2b0, ei: 1 }).userData.noRoll = true;
   } else if (!['rain', 'storm', 'snow', 'cloudy', 'fog'].includes(weather) && !night) {
-    k.sph(1.6, 0xffe066, [10, 14, -30], [1, 1, 1], { e: 0xffd23f, ei: 1 });
+    k.sph(1.6, 0xffe066, [10, 14, -30], [1, 1, 1], { e: 0xffd23f, ei: 1 }).userData.noRoll = true;
   }
   // 구름 몇 개
   if (!night) {
     for (let i = 0; i < 5; i++) {
       const cg = new THREE.Group();
+      cg.userData.noRoll = true;
       cg.position.set(-14 + i * 7 + R() * 3, 6 + R() * 4, -26 - R() * 4);
       const cc = ['rain', 'storm'].includes(weather) ? 0xb8c2cc : 0xffffff;
       for (let j = 0; j < 4; j++) k.sph(0.9 + R() * 0.6, cc, [j * 0.9 - 1.3, R() * 0.4, 0], [1.3, 0.8, 0.8], {}, cg);
@@ -123,7 +146,8 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
   }, [70, 70]);
   grass.anisotropy = 4;
   textures.push(grass);
-  const ground = k.add(new THREE.CircleGeometry(40, 48), k.mat(0xffffff, { map: grass }), [0, GROUND_Y - 0.002, 0]);
+  const ground = k.add(new THREE.RingGeometry(0.01, 40, 64, 40), // 안쪽까지 잘게 나눠야 둥글게 휠 수 있음
+     k.mat(0xffffff, { map: grass }), [0, GROUND_Y - 0.002, 0]);
   ground.rotation.x = -Math.PI / 2;
   // 먼 언덕
   for (const [x, s, c] of [[-16, 6, 0x9fd27c], [-4, 8, 0x8cc86a], [10, 7, 0x9fd27c], [22, 6, 0x8cc86a]]) {
@@ -135,6 +159,10 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
     for (let i = 0; i < 10; i++) {
       const side = i % 2 ? 1 : -1;
       g.add(tree(THREE, k, side * (2.4 + R() * 5), -5 - R() * 10, 0.9 + R() * 0.9, treeCols));
+    }
+    // 멀리 동글동글한 나무들 (캐릭터 뒤 먼 배경)
+    if (kind !== 'school') {
+      for (let i = 0; i < 5; i++) g.add(tree(THREE, k, -5 + i * 2.4 + (R() - 0.5) * 1.2, -15 - R() * 5, 1.1 + R() * 0.5, treeCols));
     }
     // 덤불과 꽃
     for (let i = 0; i < 12; i++) {
@@ -148,7 +176,7 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
 
   if (kind === 'pond') {
     // 연못: 반짝이는 물 + 퍼지는 물결 + 연잎 + 부들
-    const water = k.add(new THREE.CircleGeometry(3.2, 40), k.mat(night ? 0x2c4f7a : 0x5ec8e8, { r: 0.15, op: 0.92 }), [0.6, GROUND_Y + 0.004, -7.4]);
+    const water = k.add(new THREE.RingGeometry(0.01, 3.2, 40, 8), k.mat(night ? 0x2c4f7a : 0x5ec8e8, { r: 0.15, op: 0.92 }), [0.6, GROUND_Y + 0.004, -7.4]);
     water.rotation.x = -Math.PI / 2;
     water.scale.set(1.5, 1, 1);
     const ripples = [];
@@ -246,5 +274,6 @@ export function buildBackdrop(THREE, kind, { tod = 'day', weather = 'clear' } = 
   g.userData.tick = (dt, t) => ticks.forEach(f => f(dt, t));
   g.userData.dispose = () => textures.forEach(t => t.dispose());
   g.userData.night = night;
+  rollWorld(g);
   return g;
 }
