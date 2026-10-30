@@ -5,6 +5,7 @@
 
 import { store } from './store.js';
 import { weather, timeOfDay, isWet } from './weather.js';
+import { track } from './quests.js';
 
 export const CROPS = {
   lettuce: { name: '상추', icon: '🥬', hours: 1, yield: [2, 3], from: '남곡초 거점 (학교 텃밭)' },
@@ -133,6 +134,7 @@ export function water(id) {
   p.last = now;
   shareView(now);
   store.save();
+  track('water');
   return true;
 }
 

@@ -10,6 +10,7 @@ import { RARITY, KINDS, speciesById, monsterSVG, josa } from './monsters.js';
 import { store } from './store.js';
 import { createStage } from './stage3d.js';
 import { zoneAt, distanceM } from './spawn.js';
+import { track, eventCatchGain } from './quests.js';
 import { weather, timeOfDay } from './weather.js';
 
 /** 만난 곳에 맞는 3D 배경: 남곡초(특별) → 학교, 연못 → 연못, 공원 → 공원, 단지 가까이 → 아파트 단지 */
@@ -254,9 +255,11 @@ async function succeed(extraMsg = '') {
   busy = true;
   stopLoop();
   const { gained, isNew } = store.recordCatch(cur);
+  const ev = eventCatchGain(sp); // 계절 행사 재료
+  track('catch', { sp, place: placeFor(cur) });
   const verb = KINDS[sp.kind].done;
   const who = sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를');
-  setMsg(`${extraMsg}${who} ${verb}! +${gained} XP${isNew ? ' · 새로 등록!' : ''}`, 'good');
+  setMsg(`${extraMsg}${who} ${verb}! +${gained} XP${isNew ? ' · 새로 등록!' : ''} · ${ev.icon}${ev.name} +${ev.n}`, 'good');
   monState('happy');
   if (s3on) s3.burst(mode === 'fish' ? 'splash' : 'catch');
   confetti();

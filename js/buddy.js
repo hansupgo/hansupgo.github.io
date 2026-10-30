@@ -7,6 +7,7 @@ import { speciesById, josa } from './monsters.js';
 import { store } from './store.js';
 import { cozy, hasBed, room } from './room.js';
 import { FOODS, CROPS } from './garden.js';
+import { track } from './quests.js';
 import { weather, timeOfDay } from './weather.js';
 
 export const STAGES = [
@@ -100,6 +101,7 @@ export function feed() {
   b.mood = clamp(b.mood + 5);
   const evolved = grow(5);
   store.save();
+  track('feed');
   return { ok: true, line: pick(['냠냠! 맛있다!', '우와, 내가 좋아하는 거야!', '배부르다~ 고마워!']), evolved };
 }
 
@@ -117,6 +119,7 @@ export function feedCrop(crop) {
   b.mood = clamp(b.mood + f.m);
   const evolved = grow(8);
   store.save();
+  track('feed');
   return { ok: true, line: pick(f.line), evolved };
 }
 
@@ -131,6 +134,7 @@ export function play() {
   b.hunger = clamp(b.hunger - 4);
   const evolved = grow(5);
   store.save();
+  track('play');
   return { ok: true, line: pick(['히히, 재밌다!', '한 번 더! 한 번 더!', '너랑 노는 게 제일 좋아!']), evolved };
 }
 
@@ -143,6 +147,7 @@ export function pet() {
   lastPet = now;
   b.mood = clamp(b.mood + 3);
   store.save();
+  track('pet');
   return { ok: true, line: pick(['헤헤, 간지러워!', '쓰담쓰담 좋아~', '기분 좋다!']) };
 }
 
@@ -179,6 +184,7 @@ export function englishReward(todayCount) {
   const b = buddy();
   if (!b) return {};
   tick();
+  track('talk');
   if (todayCount <= 3) {
     b.mood = clamp(b.mood + 15);
     const evolved = grow(10);

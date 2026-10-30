@@ -336,6 +336,103 @@ export function buildFurniture(THREE, id) {
       for (const sx of [-1, 1]) { const arm = cyl(0.008, 0.008, 0.18, WOOD_D, [sx * 0.2, 0.42, 0]); arm.rotation.z = sx * 1.0; }
       break;
     }
+    // ---------- 계절 행사 가구 ----------
+    case 'blossomtree': {
+      // 화분 + 굵은 줄기 + 분홍 꽃 뭉치, 꽃잎이 살랑
+      cyl(0.13, 0.1, 0.16, 0xd8835a, [0, 0.08, 0]);
+      cyl(0.135, 0.135, 0.03, 0xc06e48, [0, 0.165, 0]);
+      cyl(0.03, 0.045, 0.34, 0x8f5a32, [0, 0.33, 0]);
+      const crown = new THREE.Group();
+      crown.position.set(0, 0.56, 0);
+      g.add(crown);
+      for (const [x, y, z, r, c] of [[0, 0.04, 0, 0.17, 0xffb3cf], [-0.13, -0.02, 0.04, 0.12, 0xffc8dc], [0.13, -0.01, 0.03, 0.12, 0xff9ac0],
+        [0.03, 0.13, -0.03, 0.11, 0xffc8dc], [-0.05, -0.06, 0.12, 0.1, 0xffd6e5], [0.07, -0.05, -0.12, 0.1, 0xff9ac0]]) {
+        sph(r, c, [x, y, z], [1, 0.9, 1], {}, crown);
+      }
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; sph(0.018, 0xffffff, [Math.cos(a) * 0.17, 0.02 + (i % 2) * 0.08, Math.sin(a) * 0.17], [1, 0.6, 1], { glow: 0.2 }, crown); }
+      ticks.push((t) => { crown.rotation.z = Math.sin(t * 1.1) * 0.04; crown.rotation.x = Math.sin(t * 0.8) * 0.03; });
+      break;
+    }
+    case 'firejar': {
+      // 유리병 속 반딧불이들이 둥둥, 밤에 은은하게 빛남
+      cyl(0.12, 0.12, 0.3, 0xdff4ff, [0, 0.15, 0], { opacity: 0.35, rough: 0.1 });
+      cyl(0.09, 0.12, 0.05, 0xdff4ff, [0, 0.325, 0], { opacity: 0.35, rough: 0.1 });
+      cyl(0.075, 0.075, 0.05, 0xc58a52, [0, 0.37, 0]);
+      mesh(new THREE.TorusGeometry(0.078, 0.01, 8, 20), 0xe8534a, [0, 0.35, 0]).rotation.x = Math.PI / 2;
+      const flies = [];
+      const glowM = [];
+      for (let i = 0; i < 5; i++) {
+        const f = sph(0.022, 0xfff27a, [0, 0, 0], [1, 1, 1], { glow: 1.2 });
+        flies.push(f);
+        glowM.push(f.material);
+      }
+      ticks.push((t) => flies.forEach((f, i) => {
+        const a = t * (0.7 + i * 0.13) + i * 1.7;
+        f.position.set(Math.cos(a) * 0.06, 0.1 + ((Math.sin(t * 0.9 + i) + 1) / 2) * 0.16, Math.sin(a) * 0.06);
+      }));
+      const light = new THREE.PointLight(0xfff27a, 0.6, 1.8, 1.5);
+      light.position.set(0, 0.2, 0.15);
+      g.add(light);
+      g.userData.light = light;
+      g.userData.glow = glowM;
+      break;
+    }
+    case 'acornlamp': {
+      // 커다란 도토리 모양 등: 갈색 몸통 + 모자, 몸통에 동그란 창이 빛남
+      sph(0.17, 0xc98a4b, [0, 0.2, 0], [1, 1.15, 1]);
+      mesh(new THREE.SphereGeometry(0.19, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), 0x6e4523, [0, 0.3, 0]).scale.set(1, 0.75, 1);
+      cyl(0.02, 0.025, 0.08, 0x6e4523, [0, 0.47, 0]);
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; sph(0.03, 0x5a381c, [Math.cos(a) * 0.15, 0.33, Math.sin(a) * 0.15], [1, 0.6, 1]); }
+      const win = sph(0.06, 0xffe08a, [0, 0.18, 0.165], [1, 1, 0.3], { glow: 1.2 });
+      sph(0.035, 0xffe08a, [-0.1, 0.15, 0.12], [1, 1, 0.3], { glow: 1.2 });
+      const light = new THREE.PointLight(0xffb057, 0.7, 2, 1.5);
+      light.position.set(0, 0.2, 0.3);
+      g.add(light);
+      g.userData.light = light;
+      g.userData.glow = [win.material];
+      break;
+    }
+    case 'mapleframe': {
+      box(0.46, 0.46, 0.04, 0xa8683a, [0, 0, 0.02]);
+      box(0.4, 0.4, 0.02, 0xfff2df, [0, 0, 0.04]);
+      // 단풍잎 세 장 (손바닥 모양)
+      const leaf = (x, y, s, c, rz) => {
+        const lg = new THREE.Group();
+        lg.position.set(x, y, 0.055);
+        lg.rotation.z = rz;
+        lg.scale.setScalar(s);
+        for (let i = 0; i < 5; i++) {
+          const a = Math.PI / 2 + (i - 2) * 0.62;
+          const p = mesh(new THREE.ConeGeometry(0.035, 0.11, 4), c, [Math.cos(a) * 0.04, Math.sin(a) * 0.04, 0], {}, lg);
+          p.rotation.z = a - Math.PI / 2;
+          p.scale.z = 0.3;
+        }
+        cyl(0.004, 0.004, 0.06, 0x7a3d1a, [0, -0.04, 0], {}, lg);
+        g.add(lg);
+      };
+      leaf(-0.06, 0.04, 1.3, 0xe8534a, 0.2);
+      leaf(0.09, -0.06, 1.0, 0xf2a13b, -0.4);
+      leaf(0.08, 0.1, 0.8, 0xffc93c, 0.6);
+      break;
+    }
+    case 'snowglobe': {
+      // 받침 위 유리 공 안에 작은 눈사람과 눈송이
+      cyl(0.15, 0.17, 0.08, 0x6c4fd8, [0, 0.04, 0]);
+      cyl(0.155, 0.155, 0.015, 0xffd23f, [0, 0.085, 0]);
+      sph(0.045, 0xffffff, [0, 0.13, 0], [1, 0.9, 1]);
+      sph(0.032, 0xffffff, [0, 0.19, 0]);
+      sph(0.008, 0xff8a3d, [0, 0.19, 0.03]);
+      for (const x of [-0.06, 0.07]) { cyl(0.004, 0.004, 0.05, 0x8f5a32, [x, 0.115, -0.03]); mesh(new THREE.ConeGeometry(0.035, 0.09, 10), 0x5fae55, [x, 0.17, -0.03]); }
+      const flakes = [];
+      for (let i = 0; i < 10; i++) flakes.push(sph(0.008, 0xffffff, [0, 0, 0], [1, 1, 1], { glow: 0.5 }));
+      sph(0.16, 0xe8f6ff, [0, 0.21, 0], [1, 1, 1], { opacity: 0.25, rough: 0.05 });
+      ticks.push((t) => flakes.forEach((f, i) => {
+        const y = 0.33 - (((t * 0.06 + i * 0.023) % 0.22));
+        const a = i * 2.3 + t * 0.3;
+        f.position.set(Math.cos(a) * 0.09, y, Math.sin(a) * 0.09);
+      }));
+      break;
+    }
     default:
       box(0.3, 0.3, 0.3, 0xcccccc, [0, 0.15, 0]);
   }

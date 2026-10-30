@@ -16,8 +16,9 @@ import { openTalk, initTalkUI } from './english.js';
 import {
   MATERIALS, MATERIAL_IDS, BASIC_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
   room, matCount, canAfford, craft, unlockTheme, hasTheme, owned, spare, place, clearSlot,
-  cozy, cozyLevel,
+  cozy, cozyLevel, craftable,
 } from './room.js';
+import { eventById } from './quests.js';
 
 const $ = (id) => document.getElementById(id);
 const STARTERS = ['sumbbong', 'mulbangkong', 'bulssikkomi'];
@@ -437,12 +438,20 @@ function costHtml(cost) {
 
 function openCraft() {
   $('craft-mats').innerHTML = matChips();
-  $('craft-list').innerHTML = FURNITURE.map(f => `<div class="craft-item ${f.special ? 'special' : ''}">
+  // 행사 가구: 지금 계절 것 + 이미 만든 것만 보임 (맨 위에)
+  const list = FURNITURE.filter(f => !f.event || craftable(f) || owned(f.id))
+    .sort((a, b) => (b.event && craftable(b) ? 1 : 0) - (a.event && craftable(a) ? 1 : 0));
+  $('craft-list').innerHTML = list.map(f => {
+    const ev = f.event ? eventById[f.event] : null;
+    const tag = ev ? `<span class="craft-tag event">${ev.icon} ${ev.name}</span>` : f.special ? '<span class="craft-tag">특별</span>' : '';
+    const can = craftable(f);
+    return `<div class="craft-item ${f.special ? 'special' : ''} ${ev ? 'event' : ''}">
       <span class="craft-ico">${f.icon}</span>
-      <span><span class="craft-name">${f.name}</span>${f.special ? '<span class="craft-tag">특별</span>' : ''}${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
-        <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${costHtml(f.cost)}</span></span>
-      <button class="btn primary" data-craft="${f.id}" type="button" ${canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
-    </div>`).join('');
+      <span><span class="craft-name">${f.name}</span>${tag}${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
+        <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${can ? costHtml(f.cost) : '행사 기간이 끝났어요'}</span></span>
+      <button class="btn primary" data-craft="${f.id}" type="button" ${can && canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
+    </div>`;
+  }).join('');
   const r = room();
   $('theme-list').innerHTML = ['wall', 'floor'].flatMap(kind => THEMES[kind].map(t => {
     const using = r[kind] === t.id;

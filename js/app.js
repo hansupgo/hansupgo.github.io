@@ -11,6 +11,8 @@ import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } fr
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
+import { initQuestUI } from './quests-ui.js';
+import { track } from './quests.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
 const $ = (id) => document.getElementById(id);
@@ -220,6 +222,7 @@ function countWalk(lat, lng, acc) {
   }
   buddyWalked(d);
   onWalk(d); // 친구와 같이 걷는 중이면 보너스
+  track('walk', { m: d });
 }
 
 function updateBuddyMarker() {
@@ -308,6 +311,7 @@ function tapMaterial(m) {
   }
   if (!gather(m)) return;
   toast(`${gainText({ [m.kind]: m.amount })}를 주웠어요!`);
+  track('gather');
   const mk = matMarkers.get(m.id);
   if (mk) { map.removeLayer(mk); matMarkers.delete(m.id); }
 }
@@ -387,6 +391,7 @@ function useStop(stop) {
   store.state.xp += 50;
   const mats = stopMaterials(stop.special);
   store.save();
+  track('stop');
   renderHud();
   refreshWorld();
   if (stop.special && store.state.specialDay !== todayKey()) {
@@ -557,6 +562,7 @@ function showSpecies(id) {
        <p class="hint">힌트: ${habitatText(sp)}</p>
        <p class="muted">잡는 방법: ${kind.how}</p>`;
   $('sp-sheet').hidden = false;
+  if (c) track('dex', { id });
   $('sp-buddy')?.addEventListener('click', () => {
     $('sp-sheet').hidden = true;
     closeViewer();
@@ -755,6 +761,7 @@ async function main() {
   initEncounterUI();
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
   initFriends({ toast, onChange: () => { renderHud(); if (document.body.dataset.tab === 'family') renderFamily(); } });
+  initQuestUI({ toast, onChange: renderHud });
   bindSettings();
   bindOnboarding();
   renderHud();

@@ -10,6 +10,7 @@ import { CROPS, PLOT_IDS, parseFriendGarden, waterFromFriend } from './garden.js
 import { createBuddyView } from './stage3d.js';
 import { showEvolve } from './buddy-ui.js';
 import { weather, timeOfDay } from './weather.js';
+import { track } from './quests.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -193,6 +194,7 @@ export function openGift(p) {
       store.save();
       $('slot-sheet').hidden = true;
       const ok = await remote.sendMail(store.state, p.uid, { kind: 'gift', item, n, sticker });
+      if (ok) track('gift');
       if (!ok) {
         if (item === 'snack') store.state.snacks += n; else addMaterials({ [item]: n });
         f().gifts--;
@@ -396,6 +398,7 @@ async function waterFriendPlot(plotId) {
   if (!ok) { toastFn('물을 주지 못했어요. 인터넷 연결을 확인해 주세요.'); return; }
   f().watered[key] = true;
   store.save();
+  track('friendWater');
   visitView?.play('happy');
   visitSay(pick([`${c.name}에 물 줬다! 친구가 좋아하겠다!`, 'Water for your plants! (네 식물에 물 줬어!)']));
   toastFn(`💧 ${p.name}님 텃밭의 ${c.name}에 물을 줬어요!`);

@@ -8,6 +8,7 @@ import { store } from './store.js';
 import { hashString, mulberry32, distanceM, currentSlot, slotEndsAt, zoneAt, isNight, spawnsAround } from './spawn.js';
 import { weather } from './weather.js';
 import { CROPS } from './garden.js';
+import { EVENTS, currentEvent } from './quests.js';
 
 export const MATERIALS = {
   leaf: { name: '나뭇잎', icon: '🍃' },
@@ -20,6 +21,8 @@ export const MATERIALS = {
   snowflake: { name: '눈송이', icon: '❄️', limited: '눈 오는 날에만' },
   ribbon: { name: '우정 리본', icon: '🎀', limited: '친구와 같이 걷기 목표를 채우면' },
 };
+// 계절 행사 재료 (도토리, 눈뭉치...)
+for (const e of EVENTS) MATERIALS[e.token] = { name: e.tokenName, icon: e.tokenIcon, limited: `${e.name} 행사 때 (친구를 잡으면)`, event: e.id };
 // 씨앗(seed_딸기...)과 거둔 작물도 재료 주머니에 함께 담음
 for (const [id, c] of Object.entries(CROPS)) {
   MATERIALS[`seed_${id}`] = { name: `${c.name} 씨앗`, icon: c.icon, seed: true, limited: c.from };
@@ -50,6 +53,12 @@ export const FURNITURE = [
   { id: 'snowman', name: '눈사람 인형', icon: '⛄', where: 'floor', cozy: 4, cost: { snowflake: 4, twig: 1 }, special: true },
   { id: 'chime', name: '빗방울 풍경', icon: '💧', where: 'wall', cozy: 4, cost: { raindrop: 3, shell: 1 }, special: true },
   { id: 'friendframe', name: '우정 사진 액자', icon: '💞', where: 'wall', cozy: 6, cost: { ribbon: 1, twig: 2 }, special: true },
+  // 계절 행사 기간에만 만들 수 있는 가구 (만든 건 계속 가질 수 있음)
+  { id: 'blossomtree', name: '벚꽃 나무 화분', icon: '🌸', where: 'floor', cozy: 6, cost: { blossom: 8, pebble: 2 }, special: true, event: 'spring' },
+  { id: 'firejar', name: '반딧불 병', icon: '🫙', where: 'floor', cozy: 6, cost: { glowbug: 8, pebble: 1 }, special: true, event: 'summer' },
+  { id: 'acornlamp', name: '도토리 등불', icon: '🌰', where: 'floor', cozy: 6, cost: { acorn: 8, twig: 2 }, special: true, event: 'autumn' },
+  { id: 'mapleframe', name: '단풍잎 액자', icon: '🍁', where: 'wall', cozy: 5, cost: { acorn: 5, leaf: 3 }, special: true, event: 'autumn' },
+  { id: 'snowglobe', name: '반짝 스노볼', icon: '🔮', where: 'floor', cozy: 6, cost: { snowball: 8, star: 1 }, special: true, event: 'winter' },
 ];
 export const furnitureById = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 
@@ -128,9 +137,14 @@ export function placedCount(id) {
 
 export const spare = (id) => owned(id) - placedCount(id);
 
+/** 행사 가구는 그 계절에만 만들 수 있음 (이미 만든 건 목록에 계속 보임) */
+export function craftable(f, now = new Date()) {
+  return !f.event || f.event === currentEvent(now).id;
+}
+
 export function craft(id) {
   const f = furnitureById[id];
-  if (!f || !canAfford(f.cost)) return false;
+  if (!f || !craftable(f) || !canAfford(f.cost)) return false;
   pay(f.cost);
   st().furniture[id] = owned(id) + 1;
   store.save();
