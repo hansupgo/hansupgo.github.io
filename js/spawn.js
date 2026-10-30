@@ -5,6 +5,7 @@
 import { CONFIG } from './config.js';
 import { SPECIES, RARITY } from './monsters.js';
 import { weather } from './weather.js';
+import { eventBoost } from './quests.js';
 
 export function hashString(str) {
   let h = 2166136261;
@@ -82,6 +83,7 @@ export function candidates({ night, nearSchool, zone = null, wx = weather().kind
     }
     if (h.includes('park')) w *= zone === 'park' ? 3 : 0.5;
     if (sp.kind === 'insect') w *= wet ? 0.4 : wx === 'snow' ? 0.15 : wx === 'clear' && !night ? 1.3 : 1;
+    w *= eventBoost(sp.id); // 계절 행사 친구는 더 자주
     if (w > 0) list.push([sp, w]);
   }
   return list;

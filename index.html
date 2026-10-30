@@ -41,6 +41,7 @@
       <div class="demo-badge">산책 연습 모드 · 지도를 누르면 걸어가요</div>
       <div id="walk-banner" class="walk-banner" hidden></div>
       <div class="map-btns">
+        <button id="btn-quest" class="round-btn quest-btn" type="button" title="오늘의 할 일 · 계절 행사" aria-label="오늘의 할 일과 계절 행사">📋<span id="quest-badge" class="quest-badge" hidden>0</span></button>
         <button id="btn-home" class="round-btn" type="button" title="한숲시티로 이동" aria-label="한숲시티로 이동">⌂</button>
         <button id="btn-center" class="round-btn" type="button" title="내 위치로" aria-label="내 위치로" hidden>◎</button>
       </div>
@@ -311,6 +312,15 @@
       <p id="visit-say" class="buddy-say" role="status"></p>
     </div>
     <div id="visit-info" class="talk-body visit-info"></div>
+  </section>
+
+  <!-- 오늘의 할 일 · 계절 행사 -->
+  <section id="quest-sheet" class="sheet" hidden>
+    <div class="sheet-card">
+      <button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>📋 오늘의 할 일</h3>
+      <div id="quest-body"></div>
+    </div>
   </section>
 
   <!-- 가구 만들기 -->

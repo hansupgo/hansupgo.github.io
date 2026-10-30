@@ -876,3 +876,45 @@ body.talking .tabs { display: none; }
 .stop.ready .stop-cube { animation: stopGlow 2.2s ease-in-out infinite; }
 @keyframes stopGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.0), 0 2px 4px rgba(0,0,0,.25); transform: rotate(45deg) translateY(0); } 50% { box-shadow: 0 0 12px 4px rgba(255,255,255,.75), 0 2px 4px rgba(0,0,0,.25); transform: rotate(45deg) translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .spawn svg, .spawn.near svg, .spawn.fresh svg, .stop.ready .stop-cube { animation: none; } .rustle { display: none; } }
+
+/* ---------- 오늘의 할 일 · 계절 행사 ---------- */
+.quest-btn { position: relative; font-size: 21px; }
+.quest-btn.has { animation: questPulse 1.6s ease-in-out infinite; }
+@keyframes questPulse { 0%, 100% { box-shadow: 0 3px 10px rgba(0,0,0,.2); } 50% { box-shadow: 0 0 0 6px rgba(255,201,60,.55), 0 3px 10px rgba(0,0,0,.2); } }
+.quest-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  background: #ff5a6e; color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; font-family: var(--body);
+}
+.quest-badge[hidden] { display: none; }
+.q-lead { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.q-list { display: flex; flex-direction: column; gap: 8px; }
+.q-row, .q-bonus {
+  display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px;
+  padding: 10px; border-radius: 14px; background: #f6f8f2; border: 1px solid #e3ead9;
+}
+.q-bonus { grid-template-columns: 1fr auto; margin-top: 10px; background: #fff8e1; border-color: #ffe08a; }
+.q-row.done:not(.claimed), .q-bonus.ready:not(.claimed) { background: #fff4c7; border-color: #ffd23f; }
+.q-row.claimed, .q-bonus.claimed { opacity: .65; }
+.q-ico { font-size: 24px; text-align: center; }
+.q-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.q-text { font-weight: 700; font-size: 15px; }
+.q-meta { color: var(--muted); font-size: 12px; }
+.q-bar { display: block; height: 7px; border-radius: 999px; background: #e1e7d8; overflow: hidden; }
+.q-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7cc95a, #3f8f5a); }
+.q-claim { margin: 0; padding: 8px 14px; min-height: 40px; }
+.q-claim[disabled] { background: #dfe5d8; color: #8a957f; box-shadow: none; border-color: transparent; }
+.q-got { color: var(--forest); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.ev-card { margin-top: 14px; padding: 12px; border-radius: 18px; background: linear-gradient(160deg, #fff3e0, #ffe2c4); border: 2px solid #f6b26b; }
+.ev-card.ev-spring { background: linear-gradient(160deg, #fff0f5, #ffd9e6); border-color: #ff9ac0; }
+.ev-card.ev-summer { background: linear-gradient(160deg, #eef0ff, #d9dcff); border-color: #8f8ff0; }
+.ev-card.ev-winter { background: linear-gradient(160deg, #f2f8ff, #dcebfb); border-color: #8fb8e8; }
+.ev-head { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; }
+.ev-head b { font-family: var(--display); font-weight: 400; font-size: 19px; }
+.ev-head small { color: var(--muted); }
+.ev-ico { font-size: 32px; text-align: center; }
+.ev-tokens { font-size: 18px; font-weight: 700; background: rgba(255,255,255,.8); border-radius: 999px; padding: 4px 12px; }
+.ev-desc { margin: 8px 0 4px; font-size: 14px; }
+.ev-how { margin: 0 0 10px; padding-left: 18px; font-size: 13px; color: #5a4a3a; }
+.ev-how li { margin: 2px 0; }
+.ev-card .q-row { background: rgba(255,255,255,.75); }
+.craft-tag.event { background: #ffe2c4; color: #9a4a00; }
