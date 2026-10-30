@@ -20,6 +20,7 @@ import {
 } from './room.js';
 import { eventById } from './quests.js';
 import { popQuizReady, usePopQuiz } from './vocab.js';
+import { isBad, BAD_NAME_MSG } from './safety.js';
 
 const $ = (id) => document.getElementById(id);
 const STARTERS = ['sumbbong', 'mulbangkong', 'bulssikkomi'];
@@ -547,6 +548,7 @@ export function initBuddyUI({ toast, onChange }) {
   });
   $('rename-form').addEventListener('submit', (e) => {
     e.preventDefault();
+    if (isBad($('rename-input').value)) { toastFn(BAD_NAME_MSG, 3500); $('rename-input').focus(); return; }
     rename($('rename-input').value);
     $('rename-form').hidden = true;
     renderStats();

@@ -5,6 +5,14 @@
 
 import { CONFIG, firebaseEnabled } from './config.js';
 import { RARITY, speciesById } from './monsters.js';
+import { cleanName } from './safety.js';
+
+// 친구 기록 속 이름에 나쁜 말이 있으면 가려서 보여 줌
+function cleanPlayer(p) {
+  const out = { ...p, name: cleanName(p.name) };
+  if (p.buddy && typeof p.buddy === 'object') out.buddy = { ...p.buddy, nick: cleanName(p.buddy.nick, '') };
+  return out;
+}
 
 const KEY = 'hansupgo.v1';
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2';
@@ -163,18 +171,18 @@ export const remote = {
     const { collection, onSnapshot, query, orderBy, limit } = this.fs;
     const base = ['groups', group];
     this.unsubs.push(onSnapshot(collection(this.db, ...base, 'players'), (snap) => {
-      this.players = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      this.players = snap.docs.map(d => cleanPlayer({ uid: d.id, ...d.data() }));
       this.error = '';
       this.emit();
     }, (e) => { this.error = '친구 기록을 불러오지 못했습니다.'; console.warn(e); this.emit(); }));
     this.unsubs.push(onSnapshot(
       query(collection(this.db, ...base, 'feed'), orderBy('at', 'desc'), limit(25)),
-      (snap) => { this.feed = snap.docs.map(d => d.data()); this.emit(); },
+      (snap) => { this.feed = snap.docs.map(d => { const f = d.data(); return { ...f, name: cleanName(f.name) }; }); this.emit(); },
       (e) => console.warn(e)));
     const { where } = this.fs;
     this.unsubs.push(onSnapshot(
       query(collection(this.db, ...base, 'mail'), where('to', '==', this.uid)),
-      (snap) => { this.mail = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.at || 0) - (b.at || 0)); this.emit(); },
+      (snap) => { this.mail = snap.docs.map(d => { const m = { id: d.id, ...d.data() }; return { ...m, fromName: cleanName(m.fromName) }; }).sort((a, b) => (a.at || 0) - (b.at || 0)); this.emit(); },
       (e) => console.warn('우편함', e)));
   },
 

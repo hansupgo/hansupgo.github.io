@@ -15,6 +15,7 @@ import { initQuestUI } from './quests-ui.js';
 import { initParentUI, walkedStep } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
 import { onNewWord } from './vocab.js';
+import { isBad, BAD_NAME_MSG } from './safety.js';
 import { track } from './quests.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
@@ -714,6 +715,7 @@ function bindSettings() {
     const name = $('set-name').value.trim().slice(0, 12);
     const group = normalizeGroup($('set-group').value);
     if (!name) { toast('닉네임을 입력해 주세요.'); return; }
+    if (isBad(name) || isBad($('set-group').value)) { toast(BAD_NAME_MSG, 3500); return; } // 다듬기 전 글자로 검사
     const groupChanged = group !== store.state.group;
     store.state.name = name;
     store.state.group = group;
@@ -741,6 +743,7 @@ function bindOnboarding() {
     e.preventDefault();
     const name = $('ob-name').value.trim().slice(0, 12);
     if (!name) { $('ob-name').focus(); return; }
+    if (isBad(name) || isBad($('ob-group').value)) { toast(BAD_NAME_MSG, 3500); $('ob-name').focus(); return; }
     store.state.name = name;
     store.state.group = normalizeGroup($('ob-group').value);
     store.save();
@@ -750,9 +753,10 @@ function bindOnboarding() {
     begin();
   });
   $('ob-demo').addEventListener('click', () => {
-    const name = $('ob-name').value.trim().slice(0, 12) || '연습생';
+    const typed = $('ob-name').value.trim().slice(0, 12);
+    const name = typed && !isBad(typed) ? typed : '연습생';
     store.state.name = name;
-    store.state.group = normalizeGroup($('ob-group').value);
+    store.state.group = isBad($('ob-group').value) ? '' : normalizeGroup($('ob-group').value);
     store.save();
     $('onboard').hidden = true;
     remote.watchGroup(store.state.group);
