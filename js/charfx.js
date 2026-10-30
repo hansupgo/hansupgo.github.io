@@ -109,6 +109,28 @@ export function stylize(THREE, root, { outline = outlinesOn(), width = 0.014, to
   return root;
 }
 
+/**
+ * 마을풍: 외곽선·단계 명암 없이 부드러운 무광 재질 + 은은한 자체 밝기.
+ * 이미 빛나는 재질(전등, 창밖 하늘 등)은 그대로 둔다.
+ */
+export function soften(THREE, root, { lift = 0.12 } = {}) {
+  const seen = new Set();
+  root.traverse(o => {
+    if (!o.isMesh || Array.isArray(o.material)) return;
+    const m = o.material;
+    if (!m.isMeshStandardMaterial || seen.has(m)) return;
+    seen.add(m);
+    if (m.metalness < 0.3) m.roughness = Math.max(m.roughness, 0.85);
+    if (!m.emissiveIntensity) {
+      m.emissive.copy(m.color);
+      if (m.map) m.emissiveMap = m.map;
+      m.emissiveIntensity = lift;
+      m.needsUpdate = true;
+    }
+  });
+  return root;
+}
+
 // ---------- 표정 ----------
 // model.userData.face = { arcs, blush, mouths, oh } (model3d.js에서 만듦)
 
