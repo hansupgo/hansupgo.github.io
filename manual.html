@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2f6b4f" />
+  <title>한숲GO 사용 설명서</title>
+  <meta name="description" content="한숲GO 게임 사용 설명서: 잡기, 짝꿍 키우기, 영어, 텃밭, 친구, 보호자 안내" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" />
+  <style>
+    :root {
+      --forest: #2f6b4f; --forest-d: #1f4a37; --leaf: #8fd16a; --sun: #ffd23f; --sky: #dff1ff;
+      --bg: #f4f8ef; --card: #fff; --ink: #23312a; --muted: #64746b; --line: #d9e6dc;
+      --display: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      --body: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.65; }
+    a { color: var(--forest); }
+    h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.25; }
+    img { max-width: 100%; }
+
+    /* 맨 위 */
+    .hero { background: linear-gradient(180deg, #bfe6f2 0%, #e8f6e0 70%, var(--bg) 100%); padding: 32px 16px 26px; text-align: center; }
+    .hero h1 { font-size: clamp(38px, 9vw, 64px); margin: 4px 0 0; color: var(--forest); text-shadow: 0 4px 0 #fff; }
+    .hero p { margin: 6px auto 0; max-width: 560px; font-size: 18px; }
+    .crew { display: flex; justify-content: center; align-items: flex-end; gap: 2px; margin: 14px 0 6px; min-height: 96px; }
+    .crew svg { width: clamp(64px, 18vw, 110px); height: auto; animation: bob 2.4s ease-in-out infinite; }
+    .crew svg:nth-child(2) { animation-delay: .3s; width: clamp(76px, 21vw, 130px); }
+    .crew svg:nth-child(3) { animation-delay: .6s; }
+    .crew svg:nth-child(4) { animation-delay: .9s; }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @media (prefers-reduced-motion: reduce) { .crew svg { animation: none; } html { scroll-behavior: auto; } }
+    .play { display: inline-block; margin-top: 14px; padding: 13px 28px; border-radius: 999px; background: var(--forest); color: #fff; text-decoration: none; font-family: var(--display); font-size: 22px; box-shadow: 0 4px 0 var(--forest-d); }
+
+    /* 차례 */
+    .toc { position: sticky; top: 0; z-index: 10; background: rgba(244, 248, 239, .94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+    .toc-in { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; max-width: 980px; margin: 0 auto; scrollbar-width: none; }
+    .toc-in::-webkit-scrollbar { display: none; }
+    .toc a { flex: none; padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); text-decoration: none; color: var(--ink); font-size: 15px; white-space: nowrap; }
+
+    main { max-width: 980px; margin: 0 auto; padding: 8px 16px 40px; }
+    section { margin: 34px 0; }
+    .sec-h { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .sec-h .no { flex: none; width: 46px; height: 46px; border-radius: 14px; background: var(--forest); color: #fff; display: grid; place-items: center; font-family: var(--display); font-size: 24px; }
+    .sec-h h2 { margin: 0; font-size: clamp(26px, 6vw, 34px); color: var(--forest-d); }
+    .lead { margin: 4px 0 14px; color: var(--muted); }
+
+    /* 화면 + 설명 */
+    .step { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 18px; align-items: start; background: var(--card); border-radius: 22px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(40, 70, 50, .07); }
+    .step.flip { grid-template-columns: 1fr minmax(150px, 220px); }
+    .step.flip .phone { order: 2; }
+    .step h3 { margin: 2px 0 6px; font-size: 22px; color: var(--forest); }
+    .step ol, .step ul { margin: 6px 0; padding-left: 22px; }
+    .step li { margin: 4px 0; }
+    .phone { margin: 0; }
+    .phone img { display: block; width: 100%; border-radius: 22px; border: 5px solid #23312a; box-shadow: 0 6px 16px rgba(0, 0, 0, .18); background: #fff; }
+    .phone figcaption { text-align: center; font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .phones { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin: 12px 0; }
+    .phones .phone { background: var(--card); border-radius: 20px; padding: 10px; box-shadow: 0 2px 10px rgba(40, 70, 50, .07); }
+    .phones .phone h3 { margin: 6px 0 2px; font-size: 19px; color: var(--forest); text-align: center; }
+    .phones .phone p { margin: 2px 0 0; font-size: 14.5px; line-height: 1.5; }
+    .tip { background: #fff8e1; border: 2px dashed #ffd23f; border-radius: 16px; padding: 10px 14px; margin: 10px 0; }
+    .tip b { color: #8a6200; }
+    .key { display: inline-block; padding: 0 8px; border-radius: 8px; background: #eef4ff; border: 1px solid #d4def0; font-size: 15px; white-space: nowrap; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 16px; overflow: hidden; margin: 10px 0; font-size: 15.5px; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #e8f3e4; font-family: var(--display); font-weight: 400; font-size: 17px; }
+    .parent { background: #f1f6ff; border-radius: 26px; padding: 4px 14px 14px; border: 2px solid #d6e2f5; }
+    .faq details { background: var(--card); border-radius: 16px; padding: 12px 16px; margin: 8px 0; box-shadow: 0 2px 8px rgba(40, 70, 50, .06); }
+    .faq summary { cursor: pointer; font-weight: 700; }
+    .share { display: flex; gap: 18px; align-items: center; background: var(--card); border-radius: 22px; padding: 16px; flex-wrap: wrap; }
+    .share img { width: 150px; border-radius: 14px; }
+    footer { text-align: center; color: var(--muted); font-size: 14px; padding: 20px 16px 40px; }
+
+    @media (max-width: 560px) {
+      body { font-size: 16px; }
+      .step, .step.flip { grid-template-columns: 1fr; }
+      .step.flip .phone { order: 0; }
+      .step .phone { max-width: 230px; margin: 0 auto; }
+      .phones { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="crew" id="crew" aria-hidden="true"></div>
+  <h1>한숲GO 사용 설명서</h1>
+  <p>한숲시티를 걸으며 몬스터·곤충·동물·물고기를 모으고, 짝꿍을 키우며 영어도 배우는 동네 탐험 게임이에요.</p>
+  <a class="play" href="./">🎮 게임 시작하기</a>
+</header>
+
+<nav class="toc" aria-label="차례"><div class="toc-in">
+  <a href="#start">1. 시작</a><a href="#map">2. 지도</a><a href="#catch">3. 잡기</a><a href="#dex">4. 도감</a>
+  <a href="#buddy">5. 짝꿍</a><a href="#english">6. 영어</a><a href="#quest">7. 할 일·행사</a><a href="#friends">8. 친구</a>
+  <a href="#parent">9. 보호자</a><a href="#safety">10. 안전·도움말</a>
+</div></nav>
+
+<main>
+
+<!-- 1. 시작 -->
+<section id="start">
+  <div class="sec-h"><span class="no">1</span><h2>시작하기</h2></div>
+  <p class="lead">처음 열면 나오는 화면이에요. 1분이면 준비 끝!</p>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/start.jpg" alt="처음 시작 화면: 닉네임, 친구 코드, 내 색 고르기" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>닉네임과 친구 코드</h3>
+      <ol>
+        <li><b>닉네임</b>을 적어요. 친구들에게 보이는 이름이에요. (나쁜 말은 쓸 수 없어요 🙂)</li>
+        <li><b>친구 코드</b>는 같이 놀 친구·가족과 <b>똑같이</b> 적어요. 예: <span class="key">FAMILY-77</span><br>같은 코드끼리 도감 순위를 보고, 선물하고, 함께 걸을 수 있어요. 나중에 설정에서 넣어도 돼요.</li>
+        <li><b>내 색</b>을 고르고 <span class="key">GPS로 시작하기</span>를 눌러요. 위치 사용을 <b>허용</b>해 주세요.</li>
+      </ol>
+      <div class="tip">🏠 <b>집에서 먼저 해 보고 싶다면</b> <span class="key">집에서 연습하기</span>를 누르세요. 지도를 누르면 그쪽으로 걸어가요. (연습 모드에서 걸은 거리는 짝꿍 성장에 안 들어가요.)</div>
+      <div class="tip">📱 <b>앱처럼 쓰기</b> 크롬·사파리 메뉴에서 <b>"홈 화면에 추가"</b>를 누르면 바탕화면에 아이콘이 생겨요.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 지도 -->
+<section id="map">
+  <div class="sec-h"><span class="no">2</span><h2>지도 보기</h2></div>
+  <p class="lead">실제 동네 지도 위에 내 위치(파란 점)와 친구들이 나타나요.</p>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/map.jpg" alt="지도 화면: 캐릭터, 거점, 재료, 근처 목록" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>지도에서 보이는 것</h3>
+      <table>
+        <tr><th>보이는 것</th><th>하는 일</th></tr>
+        <tr><td>🐞🐱🐟 캐릭터</td><td>가까이 가서(초록 원 안) 누르면 잡기 화면이 열려요. 15분마다 새로 나와요.</td></tr>
+        <tr><td>🔷 거점</td><td>가까이 가서 누르면 <b>숲볼·간식·재료</b>를 받아요. 5분마다 다시 받을 수 있어요.</td></tr>
+        <tr><td>⭐ 남곡초등학교</td><td>특별 거점! 하루 한 번 특별한 친구가 나와요.</td></tr>
+        <tr><td>🍃🪨🌸 재료</td><td>가까이 가서 누르면 주워요. 가구 만들기에 써요.</td></tr>
+        <tr><td>📋 버튼</td><td>오늘의 할 일과 계절 행사. 받을 보상이 있으면 숫자가 떠요.</td></tr>
+        <tr><td>근처에 있어요</td><td>아래 줄에 가까운 친구들과 거리가 나와요.</td></tr>
+      </table>
+      <div class="tip">☀️🌧️ <b>날씨와 시간</b>에 따라 나오는 친구가 달라요. 밤에는 반짝반디·달빛토끼, 비 오는 날엔 연못 친구가 동네 웅덩이에도 나와요. 위쪽 날씨 칩을 누르면 설명이 나와요.</div>
+    </div>
+  </div>
+  <div class="step flip">
+    <figure class="phone"><img src="manual/img/stop.jpg" alt="연못과 공원 구역이 보이는 지도 화면" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>잘 나오는 곳</h3>
+      <ul>
+        <li>🎣 <b>한숲물빛공원 연못</b>: 물고기, 꽥꽥이(오리), 개굴돌이(개구리)</li>
+        <li>🦋 <b>산내음공원·햇빛공원</b>: 곤충, 깡총토끼, 도토리람</li>
+        <li>🏫 <b>남곡초등학교 주변</b>: 책벌레뭉, 종소리냥, 아주 드물게 전설의 한숲왕</li>
+        <li>🌙 <b>밤(저녁 7시~아침 6시)</b>: 반짝반디, 달빛토끼, 별똥이, 고슴뭉</li>
+      </ul>
+      <p>같은 시간·같은 장소에서는 친구들에게도 <b>똑같은 캐릭터</b>가 나와요. 함께 찾으러 가 보세요!</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 잡기 -->
+<section id="catch">
+  <div class="sec-h"><span class="no">3</span><h2>잡기 · 4가지 방법</h2></div>
+  <p class="lead">종류마다 잡는 방법이 달라요. 처음 만난 친구는 도감에 새로 등록돼요.</p>
+  <div class="phones">
+    <figure class="phone"><img src="manual/img/ball.jpg" alt="몬스터 잡기: 숲볼 던지기" loading="lazy" width="360" height="738">
+      <h3>👾 몬스터</h3><p><b>숲볼 던지기</b>: 아래 숲볼을 손가락으로 <b>위로 쭉 밀어</b> 던져요. 줄어드는 링이 <b>작을 때</b> 맞히면 더 잘 잡혀요.</p></figure>
+    <figure class="phone"><img src="manual/img/net.jpg" alt="곤충 잡기: 잠자리채" loading="lazy" width="360" height="738">
+      <h3>🐞 곤충</h3><p><b>잠자리채</b>: 날아다니는 곤충을 <b>톡</b> 눌러요. 한 마리에 5번까지 휘두를 수 있어요.</p></figure>
+    <figure class="phone"><img src="manual/img/snack.jpg" alt="동물 친구 만나기: 간식 주기" loading="lazy" width="360" height="738">
+      <h3>🐱 동물</h3><p><b>간식 주기</b>: 움직이는 막대가 <b>초록 칸</b>에 있을 때 <span class="key">간식 주기</span>! 하트 3개가 차면 친구가 돼요.</p></figure>
+    <figure class="phone"><img src="manual/img/fish.jpg" alt="물고기 잡기: 낚시" loading="lazy" width="360" height="738">
+      <h3>🐟 물고기</h3><p><b>낚시</b>: 버튼을 <b>꾹</b> 누르면 초록 칸이 올라가요. 물고기를 칸 안에 붙잡아 두면 낚여요.</p></figure>
+  </div>
+  <div class="tip">🪄 <b>AR 켜기</b>를 누르면 카메라 화면 위에 캐릭터가 나타나요. 갤럭시 크롬처럼 지원하는 폰에서는 <b>진짜 AR</b>로 실제 바닥 위에 세울 수도 있어요.</div>
+  <div class="tip">🍂 <b>계절 행사 중</b>에는 잡을 때마다 행사 재료(지금은 🌰도토리)를 받아요. 행사 친구는 2개!</div>
+</section>
+
+<!-- 4. 도감 -->
+<section id="dex">
+  <div class="sec-h"><span class="no">4</span><h2>도감</h2></div>
+  <p class="lead">몬스터 16, 곤충 8, 동물 8, 물고기 4 · 모두 36종을 모아 보세요.</p>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/dex.jpg" alt="도감 목록 화면" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>모은 친구 보기</h3>
+      <ul>
+        <li>못 만난 친구는 <b>그림자(???)</b>로 보여요. 눌러 보면 어디에 사는지 <b>힌트</b>가 나와요.</li>
+        <li>만난 친구를 누르면 <b>3D로 빙글빙글</b> 돌려 볼 수 있어요.</li>
+        <li><span class="key">💛 짝꿍으로 정하기</span>로 그 친구를 짝꿍으로 데려올 수 있어요.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. 짝꿍 -->
+<section id="buddy">
+  <div class="sec-h"><span class="no">5</span><h2>짝꿍 키우기</h2></div>
+  <p class="lead">아래 <b>💛 짝꿍</b> 탭. 잡은 친구 하나와 함께 지내며 키워요.</p>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/buddy.jpg" alt="짝꿍 방 화면: 밥 주기, 놀아주기, 재우기" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>돌보기</h3>
+      <ul>
+        <li>🍪 <b>밥 주기</b> · 🎾 <b>놀아주기</b> · 🌙 <b>재우기</b>로 배부름·기분·기운을 채워 줘요.</li>
+        <li>짝꿍을 <b>톡</b> 누르면 쓰다듬어요. 기뻐하는 표정을 지어요.</li>
+        <li><b>같이 걸으면</b> 쑥쑥 자라요 (10m마다 1점). 지도에서 짝꿍이 따라다녀요.</li>
+        <li>성장 점수가 쌓이면 <b>아기 → 어린이 → 어른</b>으로 진화! 동물 친구는 진화할 때마다 <b>옷이 바뀌고</b>, 어른이 되면 왕관을 써요.</li>
+        <li><span class="key">이름 짓기</span>로 짝꿍 이름을 정할 수 있어요.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="step flip">
+    <figure class="phone"><img src="manual/img/craft.jpg" alt="가구 만들기 목록" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>방 꾸미기</h3>
+      <ol>
+        <li>동네에서 주운 재료로 <span class="key">🔨 가구 만들기</span>.</li>
+        <li><span class="key">🛋️ 방 꾸미기</span>에서 빈 자리를 눌러 가구를 놓아요.</li>
+        <li>방이 <b>아늑할수록</b> 짝꿍 기분이 덜 떨어지고, 하루 한 번 성장 보너스를 받아요. 버섯 침대가 있으면 침대에서 자요.</li>
+      </ol>
+      <p>🍂 계절 행사 기간에는 그 계절에만 만들 수 있는 <b>한정 가구</b>도 나와요.</p>
+    </div>
+  </div>
+  <div class="phones">
+    <figure class="phone"><img src="manual/img/room.jpg" alt="가구를 놓아 꾸민 짝꿍 방" loading="lazy" width="360" height="738"><figcaption>꾸민 방</figcaption></figure>
+    <figure class="phone"><img src="manual/img/garden.jpg" alt="짝꿍 텃밭 화면" loading="lazy" width="360" height="738"><figcaption>🌱 텃밭 (방 ↔ 텃밭 전환)</figcaption></figure>
+    <figure class="phone"><img src="manual/img/plant.jpg" alt="텃밭에 씨앗 심기 창" loading="lazy" width="360" height="738"><figcaption>씨앗 심기</figcaption></figure>
+  </div>
+  <div class="tip">🌱 <b>텃밭</b> 거점과 동네에서 얻은 씨앗(상추·토마토·딸기·해바라기·연꽃·호박)을 심고 물을 주면 자라요. 비 오는 날엔 저절로 촉촉! 거둔 작물은 짝꿍 밥(성장 +8)과 특별 가구 재료가 돼요.</div>
+</section>
+
+<!-- 6. 영어 -->
+<section id="english">
+  <div class="sec-h"><span class="no">6</span><h2>짝꿍이랑 영어 배우기</h2></div>
+  <p class="lead">짝꿍 방의 <span class="key">💬 영어로 이야기하기</span>. 미국 초등학생이 집·학교에서 쓰는 쉬운 말로 이야기해요.</p>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/talk.jpg" alt="영어 대화 화면: 짝꿍의 영어 말풍선과 대답 선택지" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>영어로 이야기하기</h3>
+      <ul>
+        <li>짝꿍이 <b>영어로 말하고</b>(소리), <b>영어 자막과 한글 뜻</b>이 함께 나와요.</li>
+        <li>대답은 세 가지로 할 수 있어요: <b>선택지 누르기</b> · <b>직접 쓰기</b> · <b>🎤 말하기</b></li>
+        <li>위쪽 버튼: 🔊 소리 켜기/끄기 · 🐢 천천히 · <b>한글</b> 뜻 보기/숨기기</li>
+        <li>18가지 장면(좋은 아침, 학교 가는 길, 점심시간, 생일 파티…). 하루 3번까지 짝꿍이 쑥쑥 자라요.</li>
+        <li>배운 표현은 <span class="key">📘 표현 노트</span>에 모여요.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="phones">
+    <figure class="phone"><img src="manual/img/words.jpg" alt="단어 카드 모음 화면" loading="lazy" width="360" height="738">
+      <h3>🔤 단어 카드</h3><p>잡은 친구, 만든 가구, 거둔 작물, 대화 속 낱말이 <b>그림 카드 62장</b>으로 모여요. 누르면 소리와 예문!</p></figure>
+    <figure class="phone"><img src="manual/img/quiz.jpg" alt="짝꿍 퀴즈: 그림 보고 영어 고르기" loading="lazy" width="360" height="738">
+      <h3>🧩 짝꿍 퀴즈</h3><p>"What's this?" 그림을 보고 영어를 고르거나, 소리를 듣고 그림을 골라요. 한 판 5문제.</p></figure>
+    <figure class="phone"><img src="manual/img/quiz2.jpg" alt="퀴즈 정답 화면과 예문" loading="lazy" width="360" height="738">
+      <h3>⭐ 복습</h3><p>틀린 낱말·오래 안 본 낱말이 먼저 나와요. 맞힐수록 카드에 ★이 늘어요.</p></figure>
+    <figure class="phone"><img src="manual/img/pop.jpg" alt="짝꿍 방에 나온 깜짝 퀴즈 카드" loading="lazy" width="360" height="738">
+      <h3>🎁 깜짝 퀴즈</h3><p>짝꿍 방에 가끔 "퀴즈를 냈어!" 카드가 떠요. 하루 3번까지.</p></figure>
+  </div>
+</section>
+
+<!-- 7. 할 일·행사 -->
+<section id="quest">
+  <div class="sec-h"><span class="no">7</span><h2>오늘의 할 일 · 계절 행사</h2></div>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/quests.jpg" alt="오늘의 할 일 창과 도토리 줍기 행사 카드" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>📋 오늘의 할 일</h3>
+      <ul>
+        <li>지도 오른쪽 <span class="key">📋</span> 버튼. <b>날마다 할 일 3가지</b>가 바뀌어요.<br>(잡기 하나 · 짝꿍·영어 하나 · 산책·텃밭·친구 하나)</li>
+        <li>하나 끝내면 <span class="key">받기</span>로 숲볼·간식·재료를 받아요. <b>셋 다 하면 보너스!</b></li>
+      </ul>
+      <h3>🍂 계절 행사</h3>
+      <table>
+        <tr><th>기간</th><th>행사</th><th>행사 재료</th></tr>
+        <tr><td>3~5월</td><td>🌸 벚꽃 축제</td><td>💮 벚꽃잎</td></tr>
+        <tr><td>6~8월</td><td>🌙 반딧불 여름밤</td><td>💫 반딧불빛</td></tr>
+        <tr><td>9~11월</td><td>🍂 도토리 줍기</td><td>🌰 도토리</td></tr>
+        <tr><td>12~2월</td><td>⛄ 눈사람 만들기</td><td>⚪ 눈뭉치</td></tr>
+      </table>
+      <p>행사 친구 3종이 <b>3배</b> 자주 나오고, 모은 재료로 기간 한정 가구를 만들어요. 만든 가구는 계절이 지나도 그대로예요.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 친구 -->
+<section id="friends">
+  <div class="sec-h"><span class="no">8</span><h2>친구와 함께</h2></div>
+  <p class="lead">아래 <b>🧑‍🤝‍🧑 친구</b> 탭. 같은 <b>친구 코드</b>를 쓰는 사람끼리 함께 놀아요. (내 위치는 공유되지 않아요.)</p>
+  <div class="phones">
+    <figure class="phone"><img src="manual/img/family.jpg" alt="친구 도감 순위와 최근 소식" loading="lazy" width="360" height="738">
+      <h3>🏆 순위·소식</h3><p>친구들의 도감 순위와 누가 뭘 잡았는지 소식을 봐요.</p></figure>
+    <figure class="phone"><img src="manual/img/friend.jpg" alt="친구 이름을 누르면 나오는 창: 놀러 가기, 선물하기, 같이 걷기" loading="lazy" width="360" height="738">
+      <h3>👋 친구 누르기</h3><p>친구 이름을 누르면 <b>놀러 가기 · 선물하기 · 같이 걷기</b>.</p></figure>
+    <figure class="phone"><img src="manual/img/visit.jpg" alt="친구 집에 놀러 간 화면" loading="lazy" width="360" height="738">
+      <h3>🏡 놀러 가기</h3><p>친구 방과 텃밭에 내 짝꿍과 놀러 가요. 목마른 밭에 물을 주고, 방명록 스티커를 남겨요.</p></figure>
+    <figure class="phone"><img src="manual/img/gift.jpg" alt="선물 보내기 창: 개수와 쪽지 고르기" loading="lazy" width="360" height="738">
+      <h3>🎁 선물하기</h3><p>간식·재료·씨앗·작물을 하루 5번까지 보내요. 쪽지는 정해진 고운 문장 중에서 골라요.</p></figure>
+    <figure class="phone"><img src="manual/img/walk.jpg" alt="친구와 같이 걷기 중인 지도" loading="lazy" width="360" height="738">
+      <h3>🚶 같이 걷기</h3><p>1시간 동안 둘이 합쳐 1km! 성공하면 둘 다 🎀우정 리본을 받아요.</p></figure>
+    <figure class="phone"><img src="manual/img/inbox.jpg" alt="우편함: 받은 선물과 방명록" loading="lazy" width="360" height="738">
+      <h3>📬 우편함</h3><p>받은 선물과 방명록은 친구 탭 위쪽 우편함에서 열어요.</p></figure>
+  </div>
+</section>
+
+<!-- 9. 보호자 -->
+<section id="parent">
+  <div class="sec-h"><span class="no">9</span><h2>보호자 안내</h2></div>
+  <div class="parent">
+    <p class="lead" style="margin-top:12px">설정 탭 아래쪽 <b>👪 보호자</b>에 있어요. 처음에 <b>보호자 비밀번호 4자리</b>를 만들면, 설정이 비밀번호로 잠겨요.</p>
+    <div class="step">
+      <figure class="phone"><img src="manual/img/parent.jpg" alt="보호자 설정 화면" loading="lazy" width="360" height="738"></figure>
+      <div>
+        <h3>🔒 보호자 설정</h3>
+        <ul>
+          <li>⏰ <b>하루 놀이 시간</b> (30분~2시간): 화면을 보고 있는 시간만 세요.</li>
+          <li>🌙 <b>잠잘 시간</b> (밤 8·9·10시 ~ 아침 6시)</li>
+          <li>🚶 <b>걸을 때 앞 보기 알림</b>: 40초 넘게 걸으며 화면을 보면 "앞을 봐요!"</li>
+          <li>🚧 <b>캐릭터가 안 나오는 곳</b>: 큰길·주차장 입구처럼 위험한 곳을 정하면 반경 60m 안에는 캐릭터와 재료가 나오지 않아요. 지도에 빨간 점선으로 보여요.</li>
+        </ul>
+        <div class="tip">🔑 비밀번호를 잊으면 <b>'내 기록 모두 지우기'</b>로만 풀 수 있어요. 아이가 모르는 숫자로 정해 주세요.</div>
+      </div>
+    </div>
+    <div class="phones">
+      <figure class="phone"><img src="manual/img/rest.jpg" alt="놀이 시간이 끝나면 나오는 쉬는 화면" loading="lazy" width="360" height="738"><figcaption>놀이 시간을 다 쓰면 "오늘은 여기까지!" · 보호자가 비밀번호로 15분 더 허락할 수 있어요</figcaption></figure>
+      <figure class="phone"><img src="manual/img/lookup.jpg" alt="걸을 때 앞을 보라는 알림 화면" loading="lazy" width="360" height="738"><figcaption>걸으며 화면을 오래 보면 "앞을 봐요!"</figcaption></figure>
+      <figure class="phone"><img src="manual/img/zone.jpg" alt="빨간 점선으로 표시된 캐릭터가 안 나오는 곳" loading="lazy" width="360" height="738"><figcaption>🚧 캐릭터가 안 나오는 곳 (빨간 점선)</figcaption></figure>
+    </div>
+    <div class="step flip">
+      <figure class="phone"><img src="manual/img/report.jpg" alt="이번 주 리포트 화면: 걸은 거리, 놀이 시간 그래프" loading="lazy" width="360" height="738"></figure>
+      <div>
+        <h3>📊 이번 주 리포트</h3>
+        <ul>
+          <li>최근 7일 <b>걸은 거리·놀이 시간</b> 막대그래프</li>
+          <li>잡은 친구·새 친구, 영어 대화 횟수, <b>새로 배운 영어 표현·단어</b>, 퀴즈 정답률, 끝낸 할 일</li>
+          <li><span class="key">📋 리포트 복사해서 보내기</span>로 카톡에 붙여 가족에게 보낼 수 있어요.</li>
+        </ul>
+        <h3>🙂 고운 말 지킴이</h3>
+        <p>닉네임·짝꿍 이름·친구 코드에 욕설이나 나쁜 말은 쓸 수 없어요. 친구에게서 받은 이름에 나쁜 말이 섞여 있으면 '친구'로 가려서 보여 줘요.</p>
+        <p class="lead" style="margin:0">기록과 보호자 설정은 <b>이 휴대폰에만</b> 저장돼요. 친구에게 공유되는 것은 닉네임·도감 기록·짝꿍·방 모습뿐이고, <b>위치는 공유되지 않아요</b>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. 안전·도움말 -->
+<section id="safety">
+  <div class="sec-h"><span class="no">10</span><h2>안전 수칙 · 자주 묻는 질문</h2></div>
+  <div class="step">
+    <figure class="phone"><img src="manual/img/settings.jpg" alt="설정 화면" loading="lazy" width="360" height="738"></figure>
+    <div>
+      <h3>🚸 꼭 지켜요</h3>
+      <ul>
+        <li>걸으면서 화면만 보지 않아요. 길을 건널 때는 <b>휴대폰을 내려 두어요</b>.</li>
+        <li>어린이는 <b>보호자와 함께</b>, 단지 안에서 놀아요.</li>
+        <li>찻길·주차장에는 들어가지 않아요. 캐릭터가 거기 있어도 다음에 잡아요!</li>
+        <li>모르는 사람에게 친구 코드를 알려 주지 않아요.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="faq">
+    <details><summary>📍 내 위치가 안 나와요</summary><p>휴대폰 설정에서 <b>위치 서비스</b>를 켜고, 브라우저(크롬·사파리)의 위치 권한을 <b>허용</b>해 주세요. 실내에서는 위치가 덜 정확할 수 있어요. 집에서는 설정 → <b>산책 연습 모드</b>로 놀 수 있어요.</p></details>
+    <details><summary>🔇 짝꿍 영어 소리가 안 나요</summary><p>휴대폰 <b>무음 모드</b>를 끄고 소리를 키워 주세요. 영어 대화 화면 위쪽 🔊 버튼이 켜져 있는지도 확인해 주세요. 목소리는 휴대폰에 들어 있는 음성을 써서 폰마다 조금 달라요.</p></details>
+    <details><summary>🐢 3D가 느리거나 버벅여요</summary><p>설정 → <b>3D 화질</b>을 <b>"낮음"</b>으로 바꿔 보세요. 3D를 쓸 수 없는 폰에서는 자동으로 그림(2D)으로 보여 줘요.</p></details>
+    <details><summary>👫 친구가 안 보여요</summary><p>둘 다 설정에서 <b>친구 코드</b>를 똑같이(대소문자 상관없이) 적었는지 확인해 주세요. 인터넷이 연결되어 있어야 해요.</p></details>
+    <details><summary>💾 휴대폰을 바꾸면 기록이 옮겨지나요?</summary><p>기록은 지금 쓰는 휴대폰(브라우저)에 저장돼요. 다른 휴대폰이나 다른 브라우저에서는 새로 시작해요. 브라우저의 방문 기록·사이트 데이터를 지우면 기록도 지워지니 조심해 주세요.</p></details>
+    <details><summary>💰 돈이 드나요?</summary><p>아니요. 한숲GO는 무료이고 광고나 결제가 없어요.</p></details>
+  </div>
+  <div class="share" style="margin-top:18px">
+    <img src="manual/img/qr.png" alt="한숲GO 주소 QR 코드" width="150" height="150" loading="lazy">
+    <div>
+      <h3 style="margin:0 0 4px;font-size:22px;color:var(--forest)">친구에게 알려 주기</h3>
+      <p style="margin:0">휴대폰 카메라로 QR 코드를 찍거나 주소를 보내 주세요.<br><b style="font-size:20px">hansupgo.github.io</b></p>
+      <p style="margin:6px 0 0"><a href="./">🎮 게임 하러 가기</a></p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>한숲GO · 한숲시티와 남곡초 주변을 걸으며 노는 동네 탐험 게임</footer>
+
+<script type="module">
+  // 맨 위에 게임 캐릭터 그림 (게임과 같은 그림)
+  import { monsterSVG } from './js/monsters.js';
+  document.getElementById('crew').innerHTML = ['chijeunyang', 'sumbbong', 'kkangchongtokki', 'kkwakkwagi'].map(id => monsterSVG(id, { size: 110 })).join('');
+</script>
+</body>
+</html>
