@@ -7,8 +7,8 @@ import { buildModel as buildRaw } from './model3d.js';
 import { stylize, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
 import { createParticles, ambientFor, ambientPos, makeFood, makeToyBall, makeGlow, makeEvolveFx, flashWhite, trickFor, trickPose } from './fx3d.js';
 
-// 캐릭터 = 기본 모델 + 툰 그림체·외곽선
-function buildModel(T, sp) { return stylize(T, buildRaw(T, sp)); }
+// 캐릭터 = 마을풍 기본 모델 (부드러운 무광 재질, 외곽선 없음)
+function buildModel(T, sp) { return buildRaw(T, sp); }
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 let THREE = null;
@@ -509,6 +509,16 @@ export async function createViewer(el, sp) {
 function addAccessories(model, stage) {
   const old = model.getObjectByName('acc');
   if (old) { model.remove(old); disposeTree(old); }
+  // 진화 단계마다 옷이 바뀜 (동물 친구들)
+  const of = model.userData.outfit;
+  if (of) {
+    const [shirt, trim] = of.looks[Math.min(stage, of.looks.length - 1)];
+    for (const [m, c] of [[of.shirt, shirt], [of.trim, trim]]) {
+      m.color.set(c);
+      m.emissive.set(c);
+      if (m.userData.baseEmissive != null) m.userData.baseEmissive = m.color.getHex(); // 진화 반짝임이 끝나도 새 옷 색으로
+    }
+  }
   if (stage < 1) return;
   const acc = new THREE.Group();
   acc.name = 'acc';
@@ -531,7 +541,8 @@ function addAccessories(model, stage) {
     badge.add(wing);
   }
   badge.add(knot);
-  badge.position.set(0, top * 0.3, front - 0.02);
+  const chest = model.userData.chest;
+  badge.position.set(0, chest ? chest.y : top * 0.3, chest ? chest.z + 0.02 : front - 0.02);
   acc.add(badge);
   if (stage >= 2) {
     const crown = new THREE.Group();
