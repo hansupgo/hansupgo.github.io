@@ -4,7 +4,7 @@
 // three.js를 불러오지 못하면 null을 돌려주고, 게임은 2D 그림으로 동작합니다.
 
 import { buildModel as buildRaw } from './model3d.js';
-import { stylize, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
+import { stylize, soften, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
 import { createParticles, ambientFor, ambientPos, makeFood, makeToyBall, makeGlow, makeEvolveFx, flashWhite, trickFor, trickPose } from './fx3d.js';
 
 // 캐릭터 = 마을풍 기본 모델 (부드러운 무광 재질, 외곽선 없음)
@@ -670,7 +670,7 @@ export async function createBuddyView(el, sp, {
     const k = `${r.wall}|${r.floor}`;
     if (k !== roomKey) {
       if (roomGroup) { roomRoot.remove(roomGroup); roomGroup.userData.dispose?.(); disposeTree(roomGroup); }
-      roomGroup = stylize(THREE, roomMod.buildRoom(THREE, r), { outline: false });
+      roomGroup = soften(THREE, roomMod.buildRoom(THREE, r));
       if (shadows) roomGroup.children[0].receiveShadow = true; // 바닥
       roomRoot.add(roomGroup);
       roomKey = k;
@@ -681,7 +681,7 @@ export async function createBuddyView(el, sp, {
       if (have && have.id === want) continue;
       if (have) { roomRoot.remove(have.obj); disposeTree(have.obj); furn.delete(sl.id); }
       if (!want) continue;
-      const obj = stylize(THREE, roomMod.buildFurniture(THREE, want), { width: 0.01 });
+      const obj = soften(THREE, roomMod.buildFurniture(THREE, want));
       obj.position.copy(slotPos(sl));
       if (sl.where === 'floor') obj.rotation.y = Math.atan2(-sl.x, 1.4 - sl.z) * 0.6; // 방 가운데 쪽으로 살짝
       obj.traverse(o => { o.userData.slot = sl.id; });
@@ -749,7 +749,7 @@ export async function createBuddyView(el, sp, {
   async function initGarden() {
     if (gardenMod) return;
     gardenMod = await import('./garden3d.js');
-    gardenGroup = stylize(THREE, gardenMod.buildGarden(THREE), { width: 0.012 });
+    gardenGroup = soften(THREE, gardenMod.buildGarden(THREE));
     castAll(gardenGroup, true);
     if (shadows) gardenGroup.children[0].castShadow = false;
     gardenRoot.add(gardenGroup);
@@ -766,7 +766,7 @@ export async function createBuddyView(el, sp, {
       if (!cur && v) {
         const obj = new THREE.Group();
         obj.position.set(p.x, gardenMod.BED_TOP, p.z);
-        const plant = stylize(THREE, gardenMod.buildPlant(THREE, v.crop, v.stage), { width: 0.008 });
+        const plant = soften(THREE, gardenMod.buildPlant(THREE, v.crop, v.stage));
         castAll(plant);
         obj.add(plant);
         const drop = gardenMod.buildDrop(THREE);
