@@ -283,7 +283,7 @@ function monsterFace(s) {
   if (s.mask) {
     out += `<path d="M30 64 Q46 52 60 62 Q74 52 90 64 Q84 76 72 72 Q60 66 48 72 Q36 76 30 64Z" fill="${s.accent}" opacity=".85"/>`;
   }
-  out += eyes(47, 73, 66);
+  out += eyes(46, 74, 66, 1.15);
   if (s.glasses) {
     out += `<g fill="none" stroke="#5b4636" stroke-width="2.5"><circle cx="47" cy="66" r="10"/><circle cx="73" cy="66" r="10"/><path d="M57 66 h6"/></g>`;
   }
@@ -300,7 +300,11 @@ function drawMonster(s, silhouette) {
   const glow = s.glow && !silhouette ? `<circle cx="60" cy="96" r="30" fill="${s.accent}" opacity=".25"/>` : '';
   const feet = s.shape === 'cloud' ? ''
     : `<ellipse cx="45" cy="105" rx="9" ry="5" fill="${s.accent}"/><ellipse cx="75" cy="105" rx="9" ry="5" fill="${s.accent}"/>`;
-  return `${glow}${tail(s)}${topBack(s)}${BODY[s.shape](s)}${BELLY[s.shape](s)}${feet}${topFront(s)}${monsterFace(s)}`;
+  // 짧은 팔 (몸 옆으로 살짝 나옴)
+  const edge = { round: 22, tall: 31, drop: 23, pear: 28, cloud: 19 }[s.shape];
+  const arms = `<ellipse cx="${edge + 1}" cy="84" rx="7" ry="10" transform="rotate(35 ${edge + 1} 84)" fill="${s.body}"/>
+    <ellipse cx="${119 - edge}" cy="84" rx="7" ry="10" transform="rotate(-35 ${119 - edge} 84)" fill="${s.body}"/>`;
+  return `${glow}${tail(s)}${topBack(s)}${arms}${BODY[s.shape](s)}${BELLY[s.shape](s)}${feet}${topFront(s)}${monsterFace(s)}`;
 }
 
 // ---------- 곤충 ----------
@@ -387,112 +391,124 @@ const INSECT = {
     ${eyes(50, 70, 54, 0.9)}${blush(41, 79, 64, 0.7)}${smile(60, 63, 4)}`,
 };
 
-// ---------- 동물 ----------
+// ---------- 동물 (마을풍: 큰 머리 + 두 발로 서서 옷을 입음) ----------
+
+/** 동물 친구들의 옷: looks[진화 단계] = [옷 색, 무늬 색] */
+export const OUTFITS = {
+  cat: { looks: [['#8fd3c3', '#ffffff'], ['#ffd27a', '#e8873a'], ['#7a6ff0', '#ffd23f']], pattern: 'stripe' },
+  dog: { looks: [['#ef6f6c', '#ffffff'], ['#5fa8e8', '#ffffff'], ['#2f8f6a', '#ffd23f']], pattern: 'buttons' },
+  rabbit: { looks: [['#c8b6f0', '#fff6c9'], ['#ffb3c7', '#ffffff'], ['#5b8def', '#ffd23f']], pattern: 'pocket' },
+  hedgehog: { looks: [['#f2c14e', '#8a5a2b'], ['#9bd27a', '#4f7a2e'], ['#c0392b', '#ffd23f']], pattern: 'buttons' },
+  frog: { looks: [['#ffb3c7', '#ffffff'], ['#ffe066', '#ff9f43'], ['#3d5a99', '#ffd23f']], pattern: 'stripe' },
+  duck: { looks: [['#7fb7f0', '#ffffff'], ['#ff9fb2', '#ffffff'], ['#6c4fd8', '#ffd23f']], pattern: 'pocket' },
+  sparrow: { looks: [['#9cc96b', '#ffffff'], ['#f6a35c', '#ffffff'], ['#3a6fb8', '#ffd23f']], pattern: 'stripe' },
+  magpie: { looks: [['#e8eef8', '#3f6fd2'], ['#ffe08a', '#3f6fd2'], ['#3f6fd2', '#ffd23f']], pattern: 'buttons' },
+};
+
+// 옷 입은 몸 + 팔다리 (머리보다 먼저 그림)
+function villagerBody(s, { fur = s.body, foot = fur, wing = false } = {}) {
+  const o = OUTFITS[s.draw];
+  const [shirt, trim] = o.looks[0];
+  const pattern = o.pattern === 'stripe' ? `<path d="M42 91 h36 M44 98 h32" stroke="${trim}" stroke-width="3"/>`
+    : o.pattern === 'buttons' ? `<circle cx="60" cy="88" r="2" fill="${trim}"/><circle cx="60" cy="95" r="2" fill="${trim}"/>`
+    : `<rect x="63" y="89" width="9" height="7" rx="2" fill="${trim}"/>`;
+  const arms = wing
+    ? `<ellipse cx="39" cy="91" rx="6" ry="11" transform="rotate(30 39 91)" fill="${fur}"/><ellipse cx="81" cy="91" rx="6" ry="11" transform="rotate(-30 81 91)" fill="${fur}"/>`
+    : `<ellipse cx="41" cy="88" rx="6" ry="9" transform="rotate(38 41 88)" fill="${shirt}"/><ellipse cx="79" cy="88" rx="6" ry="9" transform="rotate(-38 79 88)" fill="${shirt}"/>
+       <circle cx="36" cy="95" r="5" fill="${fur}"/><circle cx="84" cy="95" r="5" fill="${fur}"/>`;
+  return `<ellipse cx="51" cy="106" rx="8" ry="5" fill="${foot}"/><ellipse cx="69" cy="106" rx="8" ry="5" fill="${foot}"/>
+    ${arms}
+    <ellipse cx="60" cy="91" rx="19" ry="15" fill="${shirt}"/>${pattern}
+    <path d="M48 79 Q60 85 72 79" stroke="${trim}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+}
 
 const ANIMAL = {
   cat: (s) => `
-    <path d="M84 100 C108 98 112 72 100 64" stroke="${s.body}" stroke-width="10" fill="none" stroke-linecap="round"/>
-    <path d="M104 74 l7 -2 M106 84 l7 1" stroke="${s.accent}" stroke-width="3" stroke-linecap="round"/>
-    <ellipse cx="60" cy="98" rx="26" ry="12" fill="${s.body}"/>
-    <path d="M28 54 L26 20 L54 38Z M92 54 L94 20 L66 38Z" fill="${s.body}"/>
-    <path d="M32 46 L31 28 L46 38Z M88 46 L89 28 L74 38Z" fill="#ffb3c1"/>
-    <ellipse cx="60" cy="62" rx="38" ry="31" fill="${s.body}"/>
-    <path d="M52 34 l2 8 M60 32 v9 M68 34 l-2 8" stroke="${s.accent}" stroke-width="3" stroke-linecap="round"/>
-    <ellipse cx="60" cy="76" rx="15" ry="10" fill="${s.belly}"/>
-    ${eyes(45, 75, 62, 0.95)}
-    <path d="M57 70 h6 l-3 3Z" fill="#ff8fa3"/>${catMouth(60, 74)}
-    <g stroke="${s.accent}" stroke-width="1.5" opacity=".6"><path d="M28 70 h12 M28 76 l12 -2 M92 70 h-12 M92 76 l-12 -2"/></g>
-    ${blush(36, 84, 72, 0.8)}
-    <ellipse cx="48" cy="106" rx="8" ry="5" fill="${s.belly}"/><ellipse cx="72" cy="106" rx="8" ry="5" fill="${s.belly}"/>`,
+    <path d="M76 100 C94 100 98 80 90 72" stroke="${s.body}" stroke-width="7" fill="none" stroke-linecap="round"/>
+    ${villagerBody(s)}
+    <path d="M30 36 L28 8 L52 24Z M90 36 L92 8 L68 24Z" fill="${s.body}"/>
+    <path d="M34 30 L33 15 L46 24Z M86 30 L87 15 L74 24Z" fill="#ffb3c1"/>
+    <ellipse cx="60" cy="48" rx="34" ry="29" fill="${s.body}"/>
+    <path d="M53 22 l2 7 M60 21 v8 M67 22 l-2 7" stroke="${s.accent}" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="60" cy="62" rx="12" ry="8" fill="${s.belly}"/>
+    ${eyes(47, 73, 49, 1.05)}
+    <path d="M57.5 57 h5 l-2.5 3Z" fill="#ff8fa3"/>${catMouth(60, 62)}
+    ${blush(36, 84, 60, 0.8)}`,
 
   dog: (s) => `
-    <ellipse cx="60" cy="98" rx="26" ry="12" fill="${s.body}"/>
-    <ellipse cx="60" cy="62" rx="36" ry="32" fill="${s.body}"/>
-    <ellipse cx="74" cy="56" rx="11" ry="10" fill="${s.accent}" opacity=".45"/>
-    <ellipse cx="27" cy="62" rx="11" ry="23" transform="rotate(18 27 62)" fill="${s.accent}"/>
-    <ellipse cx="93" cy="62" rx="11" ry="23" transform="rotate(-18 93 62)" fill="${s.accent}"/>
-    <ellipse cx="60" cy="77" rx="17" ry="12" fill="${s.belly}"/>
-    ${eyes(46, 74, 58, 0.9)}
-    <ellipse cx="60" cy="71" rx="6.5" ry="5" fill="#2b2b33"/><circle cx="58" cy="69.5" r="1.6" fill="#fff"/>
-    <path d="M54 78 Q60 83 66 78" stroke="#2b2b33" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M57 80 q3 9 6 0Z" fill="#ff8fa3"/>
-    ${blush(36, 84, 72, 0.8)}
-    <path d="M40 90 Q60 98 80 90" stroke="#e8532b" stroke-width="5" fill="none"/><circle cx="60" cy="97" r="4.5" fill="#ffd23f"/>`,
+    <path d="M60 96 q6 -4 8 -12" stroke="${s.body}" stroke-width="6" fill="none" stroke-linecap="round"/>
+    ${villagerBody(s)}
+    <ellipse cx="60" cy="48" rx="34" ry="29" fill="${s.body}"/>
+    <ellipse cx="72" cy="40" rx="10" ry="9" fill="${s.accent}" opacity=".45"/>
+    <ellipse cx="27" cy="48" rx="10" ry="20" transform="rotate(16 27 48)" fill="${s.accent}"/>
+    <ellipse cx="93" cy="48" rx="10" ry="20" transform="rotate(-16 93 48)" fill="${s.accent}"/>
+    <ellipse cx="60" cy="61" rx="14" ry="10" fill="${s.belly}"/>
+    ${eyes(46, 74, 47, 1.05)}
+    <ellipse cx="60" cy="56" rx="5.5" ry="4" fill="#2b2b33"/><circle cx="58.3" cy="54.8" r="1.4" fill="#fff"/>
+    ${smile(60, 62, 4)}
+    ${blush(35, 85, 59, 0.8)}`,
 
   sparrow: (s) => `
-    <path d="M86 84 L104 90 L100 80Z" fill="${s.accent}"/>
-    <ellipse cx="60" cy="72" rx="36" ry="32" fill="${s.body}"/>
-    <ellipse cx="28" cy="78" rx="8" ry="15" transform="rotate(20 28 78)" fill="${s.accent}"/>
-    <ellipse cx="92" cy="78" rx="8" ry="15" transform="rotate(-20 92 78)" fill="${s.accent}"/>
-    <ellipse cx="60" cy="86" rx="24" ry="17" fill="${s.belly}"/>
-    <path d="M27 62 C30 36 90 36 93 62 C80 50 40 50 27 62Z" fill="${s.accent}"/>
-    <ellipse cx="38" cy="70" rx="7" ry="5" fill="#fff" opacity=".8"/><ellipse cx="82" cy="70" rx="7" ry="5" fill="#fff" opacity=".8"/>
-    ${eyes(46, 74, 62, 0.8)}
-    <path d="M54 70 L66 70 L60 78Z" fill="#f2a13b"/>
-    ${blush(40, 80, 76, 0.7)}
-    <path d="M50 104 v6 M70 104 v6 M47 110 h6 M67 110 h6" stroke="#f2a13b" stroke-width="2.5" stroke-linecap="round"/>`,
+    ${villagerBody(s, { foot: '#f2a13b', wing: true })}
+    <ellipse cx="60" cy="48" rx="34" ry="29" fill="${s.belly}"/>
+    <path d="M27 44 C28 14 92 14 93 44 C80 34 40 34 27 44Z" fill="${s.accent}"/>
+    <ellipse cx="34" cy="58" rx="7" ry="5" fill="#fff" opacity=".85"/><ellipse cx="86" cy="58" rx="7" ry="5" fill="#fff" opacity=".85"/>
+    ${eyes(47, 73, 50, 1)}
+    <path d="M54 58 L66 58 L60 66Z" fill="#f2a13b"/>
+    ${blush(40, 80, 64, 0.6)}`,
 
   magpie: (s) => `
-    <path d="M80 90 L112 106 L108 96 L84 80Z" fill="${s.accent}"/>
-    <ellipse cx="60" cy="72" rx="34" ry="32" fill="${s.body}"/>
-    <ellipse cx="28" cy="80" rx="9" ry="17" transform="rotate(18 28 80)" fill="${s.accent}"/>
-    <ellipse cx="92" cy="80" rx="9" ry="17" transform="rotate(-18 92 80)" fill="${s.accent}"/>
-    <ellipse cx="29" cy="74" rx="4" ry="7" transform="rotate(18 29 74)" fill="#fff"/><ellipse cx="91" cy="74" rx="4" ry="7" transform="rotate(-18 91 74)" fill="#fff"/>
-    <ellipse cx="60" cy="88" rx="20" ry="16" fill="${s.belly}"/>
-    ${whiteEyes(47, 73, 60, 7)}
-    <path d="M55 68 L65 68 L60 76Z" fill="#444"/>
-    ${blush(40, 80, 74, 0.7)}
-    <path d="M50 104 v6 M70 104 v6" stroke="#444" stroke-width="2.5" stroke-linecap="round"/>`,
+    <path d="M70 96 L102 112 L98 102 L74 88Z" fill="${s.accent}"/>
+    ${villagerBody(s, { fur: s.body, foot: '#444', wing: true })}
+    <ellipse cx="60" cy="48" rx="34" ry="29" fill="${s.body}"/>
+    ${whiteEyes(47, 73, 48, 8)}
+    <path d="M55 57 L65 57 L60 65Z" fill="#555"/>
+    ${blush(36, 84, 60, 0.7)}`,
 
   duck: (s) => `
-    <ellipse cx="60" cy="74" rx="36" ry="32" fill="${s.body}"/>
-    <ellipse cx="27" cy="80" rx="8" ry="13" transform="rotate(25 27 80)" fill="#ffd23f"/>
-    <ellipse cx="93" cy="80" rx="8" ry="13" transform="rotate(-25 93 80)" fill="#ffd23f"/>
-    <ellipse cx="60" cy="88" rx="22" ry="14" fill="${s.belly}"/>
-    <path d="M56 42 Q54 30 60 28 M60 42 Q62 30 68 31 M58 42 Q50 34 50 38" stroke="#ffd23f" stroke-width="3" fill="none" stroke-linecap="round"/>
-    ${eyes(46, 74, 64, 0.85)}
-    <ellipse cx="60" cy="76" rx="13" ry="6" fill="${s.accent}"/><path d="M48 76 h24" stroke="#d9771f" stroke-width="1.5"/>
-    ${blush(36, 84, 76, 0.7)}
-    <ellipse cx="46" cy="106" rx="9" ry="4" fill="${s.accent}"/><ellipse cx="74" cy="106" rx="9" ry="4" fill="${s.accent}"/>`,
+    ${villagerBody(s, { foot: s.accent, wing: true })}
+    <ellipse cx="60" cy="48" rx="33" ry="29" fill="${s.body}"/>
+    <path d="M56 21 Q54 9 60 7 M60 21 Q62 9 68 10 M58 21 Q50 13 50 17" stroke="${s.body}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    ${eyes(46, 74, 47, 1)}
+    <ellipse cx="60" cy="60" rx="14" ry="6" fill="${s.accent}"/><path d="M47 60 h26" stroke="#d9771f" stroke-width="1.5"/>
+    ${blush(34, 86, 58, 0.7)}`,
 
   rabbit: (s) => `
-    <ellipse cx="45" cy="28" rx="9" ry="26" transform="rotate(-10 45 28)" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
-    <ellipse cx="75" cy="28" rx="9" ry="26" transform="rotate(10 75 28)" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
-    <ellipse cx="45" cy="26" rx="4.5" ry="18" transform="rotate(-10 45 26)" fill="${s.accent}"/>
-    <ellipse cx="75" cy="26" rx="4.5" ry="18" transform="rotate(10 75 26)" fill="${s.accent}"/>
-    <ellipse cx="60" cy="98" rx="26" ry="12" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
-    <ellipse cx="60" cy="68" rx="34" ry="29" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
-    ${eyes(47, 73, 64, 0.9)}
-    <ellipse cx="60" cy="74" rx="4" ry="3" fill="#ff8fa3"/>
-    <path d="M60 77 v4 M56 82 Q60 86 64 82" stroke="#2b2b33" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <rect x="57.5" y="82" width="5" height="5" rx="1" fill="#fff" stroke="#ccc" stroke-width="1"/>
-    ${blush(38, 82, 76, 0.8)}`,
+    <circle cx="78" cy="100" r="6" fill="#fff"/>
+    ${villagerBody(s)}
+    <ellipse cx="46" cy="19" rx="8" ry="17" transform="rotate(-8 46 19)" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
+    <ellipse cx="74" cy="19" rx="8" ry="17" transform="rotate(8 74 19)" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
+    <ellipse cx="46" cy="18" rx="4" ry="12" transform="rotate(-8 46 18)" fill="${s.accent}"/>
+    <ellipse cx="74" cy="18" rx="4" ry="12" transform="rotate(8 74 18)" fill="${s.accent}"/>
+    <ellipse cx="60" cy="48" rx="34" ry="29" fill="${s.body}" stroke="#e2dcd6" stroke-width="2"/>
+    ${eyes(47, 73, 48, 1.05)}
+    <ellipse cx="60" cy="57" rx="3.5" ry="2.6" fill="#ff8fa3"/>${catMouth(60, 61)}
+    ${blush(36, 84, 59, 0.8)}`,
 
   hedgehog: (s) => {
-    let spikes = 'M16 86 ';
+    let spikes = 'M22 52 ';
     for (let i = 0; i <= 12; i++) {
       const a = Math.PI + (i / 12) * Math.PI;
-      const r = i % 2 ? 44 : 34;
-      spikes += `L${(60 + r * Math.cos(a)).toFixed(1)} ${(80 + r * Math.sin(a) * 0.95).toFixed(1)} `;
+      const r = i % 2 ? 44 : 35;
+      spikes += `L${(60 + r * Math.cos(a)).toFixed(1)} ${(52 + r * Math.sin(a) * 0.95).toFixed(1)} `;
     }
-    spikes += 'L104 86 Z';
-    return `<path d="${spikes}" fill="${s.accent}"/>
-      <ellipse cx="60" cy="82" rx="38" ry="28" fill="${s.body}"/>
-      <ellipse cx="60" cy="86" rx="28" ry="22" fill="${s.belly}"/>
-      ${eyes(49, 71, 80, 0.8)}
-      <circle cx="60" cy="90" r="4" fill="#2b2b33"/>${smile(60, 95, 3)}
-      ${blush(42, 78, 92, 0.7)}
-      <ellipse cx="46" cy="108" rx="7" ry="4" fill="${s.accent}"/><ellipse cx="74" cy="108" rx="7" ry="4" fill="${s.accent}"/>`;
+    spikes += 'L98 52 Z';
+    return `${villagerBody(s, { fur: s.belly })}
+      <path d="${spikes}" fill="${s.accent}"/>
+      <ellipse cx="60" cy="50" rx="34" ry="28" fill="${s.belly}"/>
+      <path d="M26 44 C30 22 90 22 94 44 C80 34 40 34 26 44Z" fill="${s.body}"/>
+      ${eyes(48, 72, 50, 0.95)}
+      <circle cx="60" cy="59" r="3.8" fill="#2b2b33"/>${smile(60, 64, 3.5)}
+      ${blush(38, 82, 60, 0.7)}`;
   },
 
   frog: (s) => `
-    <ellipse cx="34" cy="104" rx="14" ry="6" fill="${s.accent}"/><ellipse cx="86" cy="104" rx="14" ry="6" fill="${s.accent}"/>
-    <circle cx="38" cy="48" r="14" fill="${s.body}"/><circle cx="82" cy="48" r="14" fill="${s.body}"/>
-    <ellipse cx="60" cy="76" rx="42" ry="29" fill="${s.body}"/>
-    <ellipse cx="60" cy="90" rx="26" ry="13" fill="${s.belly}"/>
-    ${whiteEyes(38, 82, 46, 9)}
-    <path d="M40 76 Q60 92 80 76" stroke="#2b2b33" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    ${blush(30, 90, 72, 0.9)}`,
+    ${villagerBody(s)}
+    <circle cx="40" cy="30" r="14" fill="${s.body}"/><circle cx="80" cy="30" r="14" fill="${s.body}"/>
+    <ellipse cx="60" cy="54" rx="38" ry="25" fill="${s.body}"/>
+    ${whiteEyes(40, 80, 29, 9)}
+    <path d="M42 56 Q60 70 78 56" stroke="#2b2b33" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    ${blush(32, 88, 54, 0.85)}`,
 };
 
 // ---------- 물고기 ----------

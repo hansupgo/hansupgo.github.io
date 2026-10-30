@@ -2,6 +2,10 @@
 // 모든 모델은 높이 약 1, 발바닥이 y=0, 얼굴이 +z(카메라 쪽)를 바라봅니다.
 // userData에 애니메이션용 부품(눈, 날개, 꼬리)을 담아 돌려줍니다.
 
+import { OUTFITS } from './monsters.js';
+
+const LIFT = 0.16; // 재질 밝기 보정 (자체 발광 비율)
+
 export function buildModel(THREE, sp) {
   const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
   const SPH = new THREE.SphereGeometry(1, 32, 24);
@@ -14,7 +18,7 @@ export function buildModel(THREE, sp) {
     if (matCache.has(key)) return matCache.get(key);
     const m = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
-      roughness: o.rough ?? 0.55,
+      roughness: o.rough ?? 0.85, // 펠트 인형 같은 무광
       metalness: o.metal ?? 0,
       emissive: o.glow ? new THREE.Color(color) : new THREE.Color(0x000000),
       emissiveIntensity: o.glow || 0,
@@ -281,7 +285,16 @@ export function buildModel(THREE, sp) {
         body.add(m);
       }
     }
-    makeFace(body, b, { ey, ex: b.rx * 0.32, es: 0.085, mouth: s.top === 'cat' ? 'cat' : 'smile' });
+    makeFace(body, b, { ey, ex: b.rx * 0.34, es: 0.095, mouth: s.top === 'cat' ? 'cat' : 'smile' });
+    // 짧은 팔 (살랑살랑)
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Group();
+      arm.position.set(sx * b.rx * 0.93, b.cy - b.ry * 0.2, b.rz * 0.2);
+      arm.rotation.z = sx * 0.65;
+      ball(arm, s.body, [0, -0.07, 0], [0.065, 0.1, 0.065]);
+      body.add(arm);
+      tails.push({ obj: arm, axis: 'z', amp: 0.08 * sx, speed: 2.2 });
+    }
     if (s.glasses) {
       for (const sx of [-1, 1]) {
         const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 24), mat('#5b4636'));
@@ -460,168 +473,190 @@ export function buildModel(THREE, sp) {
     }
   }
 
-  // ---------- 동물 ----------
+  // ---------- 동물 (마을풍: 큰 머리 + 두 발로 선 몸 + 옷) ----------
+  const H = { cx: 0, cy: 0.66, cz: 0.02, rx: 0.34, ry: 0.29, rz: 0.3 }; // 머리
+  let outfit = null;
+
+  // 옷 입은 몸통 + 짧은 팔다리. 팔은 { fur, wing } 중 하나
+  function torso(s, { fur = s.body, leg = fur, foot = fur, wingArms = false } = {}) {
+    const o = OUTFITS[s.draw];
+    const shirt = new THREE.MeshStandardMaterial({ color: o.looks[0][0], roughness: 0.9 });
+    const trim = new THREE.MeshStandardMaterial({ color: o.looks[0][1], roughness: 0.9 });
+    outfit = { shirt, trim, looks: o.looks };
+    const T = { cx: 0, cy: 0.25, cz: 0, rx: 0.2, ry: 0.17, rz: 0.17 };
+    const t = new THREE.Mesh(SPH, shirt);
+    t.position.set(0, 0.25, 0); t.scale.set(0.2, 0.17, 0.17);
+    body.add(t);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.022, 10, 28), trim);
+    collar.position.set(0, 0.39, 0); collar.rotation.x = Math.PI / 2;
+    body.add(collar);
+    if (o.pattern === 'stripe') {
+      for (const y of [0.2, 0.28]) {
+        const r = 0.195 * Math.sqrt(1 - ((y - 0.25) / 0.17) ** 2) + 0.004;
+        const st = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 8, 40), trim);
+        st.position.set(0, y, 0); st.scale.set(1, 1, 0.86); st.rotation.x = Math.PI / 2;
+        body.add(st);
+      }
+    } else if (o.pattern === 'buttons') {
+      for (const y of [0.3, 0.22]) { const bt = new THREE.Mesh(SPH, trim); bt.scale.set(0.018, 0.018, 0.01); placeOn(T, bt, 0, y, 0.002); body.add(bt); }
+    } else {
+      const p = new THREE.Mesh(SPH, trim); p.scale.set(0.05, 0.035, 0.012); placeOn(T, p, 0.07, 0.24, 0.002); body.add(p);
+    }
+    for (const sx of [-1, 1]) {
+      add(body, new THREE.CapsuleGeometry(0.06, 0.06, 6, 16), leg, [sx * 0.085, 0.085, 0]);
+      ball(body, foot, [sx * 0.09, 0.035, 0.03], [0.07, 0.04, 0.085]);
+      const arm = new THREE.Group();
+      arm.position.set(sx * 0.17, 0.35, 0);
+      arm.rotation.z = sx * 0.55;
+      if (wingArms) {
+        ball(arm, fur, [0, -0.07, -0.01], [0.05, 0.11, 0.08]);
+        wings.push({ obj: arm, axis: 'z', amp: 0.12 * sx, speed: 5 });
+      } else {
+        const sl = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.04, 6, 16), shirt);
+        sl.position.set(0, -0.04, 0);
+        arm.add(sl);
+        ball(arm, fur, [0, -0.11, 0], 0.05);
+        tails.push({ obj: arm, axis: 'z', amp: 0.06 * sx, speed: 2.2 });
+      }
+      body.add(arm);
+    }
+  }
+  function nose(color, sc, y, out) {
+    const n = new THREE.Mesh(SPH, mat(color, { rough: 0.35 }));
+    n.scale.set(...sc);
+    placeOn(H, n, 0, y, out);
+    body.add(n);
+    return n;
+  }
+  function tailTube(color, pts, r, pos, amp, speed) {
+    const t = new THREE.Group();
+    tube(t, color, pts, r);
+    t.position.set(...pos);
+    body.add(t);
+    tails.push({ obj: t, axis: 'z', amp, speed });
+  }
+
   function animal(s) {
+    const head = (c = s.body, k = [1, 1, 1]) => ball(body, c, [0, H.cy, H.cz], [H.rx * k[0], H.ry * k[1], H.rz * k[2]]);
     switch (s.draw) {
-      case 'cat':
-      case 'dog': {
-        const isCat = s.draw === 'cat';
-        ball(body, s.body, [0, 0.24, -0.05], [0.32, 0.24, 0.3]);
-        for (const sx of [-1, 1]) ball(body, s.belly, [sx * 0.14, 0.05, 0.2], [0.09, 0.06, 0.11]);
-        const h = { cx: 0, cy: 0.66, cz: 0.05, rx: 0.4, ry: 0.33, rz: 0.34 };
-        ball(body, s.body, [0, 0.66, 0.05], [0.4, 0.33, 0.34]);
-        if (isCat) {
-          for (const sx of [-1, 1]) {
-            cone(body, s.body, [sx * 0.26, 0.98, 0.02], 0.13, 0.26, [0, 0, -sx * 0.3]);
-            cone(body, '#ffb3c1', [sx * 0.25, 0.97, 0.07], 0.07, 0.16, [0, 0, -sx * 0.3]);
-          }
-          for (const x of [-0.07, 0, 0.07]) {
-            const st = new THREE.Mesh(SPH, mat(s.accent));
-            st.scale.set(0.022, 0.06, 0.02);
-            placeOn(h, st, x, 0.9, 0);
-            body.add(st);
-          }
-          const t = new THREE.Group();
-          tube(t, s.body, [[0, 0, 0], [0.18, 0.05, -0.05], [0.3, 0.25, -0.05], [0.26, 0.48, 0]], 0.06);
-          t.position.set(0.22, 0.12, -0.25);
-          body.add(t);
-          tails.push({ obj: t, axis: 'z', amp: 0.25, speed: 2.5 });
-        } else {
-          for (const sx of [-1, 1]) {
-            const e = ball(body, s.accent, [sx * 0.4, 0.68, 0.04], [0.11, 0.24, 0.08], {}, [0, 0, sx * 0.3]);
-            tails.push({ obj: e, axis: 'z', amp: 0.06 * sx, speed: 3 });
-          }
-          ball(body, s.accent, [0.18, 0.78, 0.3], [0.1, 0.09, 0.05], { opacity: 0.6 });
-          const t = new THREE.Group();
-          tube(t, s.body, [[0, 0, 0], [0.05, 0.12, -0.08], [0.08, 0.26, -0.1]], 0.05);
-          t.position.set(0, 0.3, -0.3);
-          body.add(t);
-          tails.push({ obj: t, axis: 'z', amp: 0.6, speed: 9 });
-          torus(body, '#e8532b', [0, 0.4, 0.02], 0.27, 0.035, null, [Math.PI / 2, 0, 0]);
-          ball(body, '#ffd23f', [0, 0.36, 0.3], 0.05, { metal: 0.5, rough: 0.3 });
+      case 'cat': {
+        torso(s);
+        head();
+        for (const sx of [-1, 1]) {
+          cone(body, s.body, [sx * 0.21, 0.92, 0], 0.11, 0.2, [0, 0, -sx * 0.32]);
+          cone(body, '#ffc2cc', [sx * 0.205, 0.905, 0.05], 0.06, 0.13, [0, 0, -sx * 0.32]);
         }
-        const muzzle = new THREE.Mesh(SPH, mat(s.belly));
-        muzzle.scale.set(0.15, 0.1, 0.08);
-        placeOn(h, muzzle, 0, 0.56, -0.03);
-        body.add(muzzle);
-        const nose = new THREE.Mesh(SPH, mat(isCat ? '#ff8fa3' : '#2b2b33', { rough: 0.2 }));
-        nose.scale.set(isCat ? 0.03 : 0.055, isCat ? 0.025 : 0.04, 0.03);
-        placeOn(h, nose, 0, 0.6, 0.045);
-        body.add(nose);
-        makeFace(body, h, { ey: 0.7, ex: 0.15, es: 0.075, mouth: isCat ? 'cat' : 'smile', my: 0.53 });
+        for (const x of [-0.06, 0, 0.06]) { const st = new THREE.Mesh(SPH, mat(s.accent)); st.scale.set(0.02, 0.055, 0.015); placeOn(H, st, x, 0.89, 0); body.add(st); }
+        const mz = new THREE.Mesh(SPH, mat(s.belly)); mz.scale.set(0.13, 0.08, 0.06); placeOn(H, mz, 0, 0.58, -0.02); body.add(mz);
+        nose('#ff8fa3', [0.025, 0.018, 0.02], 0.6, 0.03);
+        tailTube(s.body, [[0, 0, 0], [0.12, 0.04, -0.04], [0.2, 0.2, -0.04], [0.16, 0.36, 0]], 0.04, [0.08, 0.14, -0.15], 0.25, 2.5);
+        makeFace(body, H, { ey: 0.69, ex: 0.135, es: 0.074, mouth: 'cat', my: 0.545 });
         break;
       }
-      case 'sparrow':
-      case 'magpie':
-      case 'duck': {
-        const b = { cx: 0, cy: 0.42, cz: 0, rx: 0.42, ry: 0.4, rz: 0.4 };
-        ball(body, s.body, [0, 0.42, 0], [0.42, 0.4, 0.4]);
-        ball(body, s.belly, [0, 0.3, 0.2], [0.3, 0.26, 0.24]);
+      case 'dog': {
+        torso(s);
+        head();
         for (const sx of [-1, 1]) {
-          const wg = ball(body, s.draw === 'duck' ? '#ffd23f' : s.accent, [sx * 0.4, 0.4, -0.02], [0.08, 0.2, 0.2], {}, [0, 0, sx * 0.25]);
-          wings.push({ obj: wg, axis: 'z', amp: 0.15 * sx, speed: 6 });
-          if (s.draw !== 'duck') cyl(body, '#f2a13b', [sx * 0.1, 0.03, 0.05], 0.015, 0.015, 0.08);
+          const e = ball(body, s.accent, [sx * 0.31, 0.66, 0.02], [0.09, 0.2, 0.08], {}, [0, 0, sx * 0.25]);
+          tails.push({ obj: e, axis: 'z', amp: 0.06 * sx, speed: 3 });
         }
-        if (s.draw === 'sparrow') add(body, HEMI, s.accent, [0, 0.5, -0.01], [0.43, 0.34, 0.41]);
-        if (s.draw === 'magpie') {
-          const t = new THREE.Group();
-          add(t, new THREE.BoxGeometry(0.12, 0.02, 0.5), s.accent, [0, 0, -0.25], 1, [0, 0, 0], { metal: 0.3, rough: 0.3 });
-          t.position.set(0, 0.25, -0.3);
-          t.rotation.x = 0.5;
-          body.add(t);
-          tails.push({ obj: t, axis: 'x', amp: 0.12, speed: 3 });
-        } else if (s.draw === 'sparrow') {
-          const t = new THREE.Group();
-          add(t, new THREE.BoxGeometry(0.16, 0.02, 0.2), s.accent, [0, 0, -0.1]);
-          t.position.set(0, 0.3, -0.36);
-          t.rotation.x = 0.4;
-          body.add(t);
-          tails.push({ obj: t, axis: 'x', amp: 0.2, speed: 5 });
-        } else {
-          for (const [x, rz] of [[-0.03, 0.4], [0.03, -0.4], [0, 0]]) {
-            ball(body, '#ffd23f', [x * 3, 0.87, 0], [0.025, 0.08, 0.025], {}, [0, 0, rz]);
-          }
-          for (const sx of [-1, 1]) ball(body, s.accent, [sx * 0.15, 0.03, 0.12], [0.11, 0.03, 0.14]);
-        }
-        const beak = s.draw === 'duck'
-          ? ball(body, s.accent, [0, 0.4, 0.42], [0.13, 0.05, 0.1])
-          : cone(body, s.draw === 'magpie' ? '#444444' : '#f2a13b', [0, 0.42, 0.44], 0.06, 0.14, [Math.PI / 2, 0, 0]);
-        beak.userData.beak = true;
-        makeFace(body, b, { ey: 0.54, ex: 0.15, es: 0.07, white: s.draw === 'magpie', mouth: 'none' });
+        ball(body, s.accent, [-0.15, 0.76, 0.24], [0.1, 0.09, 0.05], { opacity: 0.7 });
+        const mz = new THREE.Mesh(SPH, mat(s.belly)); mz.scale.set(0.15, 0.1, 0.09); placeOn(H, mz, 0, 0.58, -0.04); body.add(mz);
+        nose('#2b2b33', [0.045, 0.032, 0.03], 0.6, 0.05);
+        tailTube(s.body, [[0, 0, 0], [0.03, 0.08, -0.06], [0.06, 0.18, -0.08]], 0.04, [0, 0.16, -0.15], 0.6, 9);
+        makeFace(body, H, { ey: 0.7, ex: 0.145, es: 0.074, my: 0.53 });
         break;
       }
       case 'rabbit': {
-        ball(body, s.body, [0, 0.24, -0.05], [0.3, 0.24, 0.28]);
-        ball(body, '#ffffff', [0, 0.2, -0.34], 0.09);
-        const h = { cx: 0, cy: 0.62, cz: 0.04, rx: 0.34, ry: 0.3, rz: 0.3 };
-        ball(body, s.body, [0, 0.62, 0.04], [0.34, 0.3, 0.3]);
+        torso(s);
+        head();
         for (const sx of [-1, 1]) {
-          const ear = new THREE.Group();
-          ball(ear, s.body, [0, 0.25, 0], [0.08, 0.27, 0.06]);
-          ball(ear, s.accent, [0, 0.26, 0.04], [0.04, 0.2, 0.03]);
-          ear.position.set(sx * 0.13, 0.82, 0);
-          ear.rotation.z = -sx * 0.18;
-          body.add(ear);
-          tails.push({ obj: ear, axis: 'z', amp: 0.06 * sx, speed: 2 });
+          const e = new THREE.Group();
+          ball(e, s.body, [0, 0.2, 0], [0.075, 0.22, 0.055]);
+          ball(e, s.accent, [0, 0.21, 0.035], [0.038, 0.16, 0.03]);
+          e.position.set(sx * 0.12, 0.86, 0);
+          e.rotation.z = -sx * 0.15;
+          body.add(e);
+          tails.push({ obj: e, axis: 'z', amp: 0.06 * sx, speed: 2 });
         }
-        const nose = new THREE.Mesh(SPH, mat('#ff8fa3'));
-        nose.scale.set(0.035, 0.025, 0.03);
-        placeOn(h, nose, 0, 0.58, 0.02);
-        body.add(nose);
-        makeFace(body, h, { ey: 0.66, ex: 0.13, es: 0.07, my: 0.53 });
+        nose('#ff8fa3', [0.028, 0.02, 0.02], 0.6, 0.012);
+        ball(body, '#ffffff', [0, 0.17, -0.18], 0.07);
+        makeFace(body, H, { ey: 0.68, ex: 0.135, es: 0.074, mouth: 'cat', my: 0.545 });
         break;
       }
       case 'hedgehog': {
-        const b = { cx: 0, cy: 0.3, cz: 0, rx: 0.4, ry: 0.3, rz: 0.42 };
-        ball(body, s.body, [0, 0.3, 0], [0.4, 0.3, 0.42]);
-        const spikeGeo = new THREE.ConeGeometry(0.045, 0.2, 8);
-        for (let i = 0; i < 70; i++) {
-          const u = Math.random();
-          const v = Math.random();
-          const th = u * Math.PI * 2;
-          const ph = Math.acos(1 - v);
+        torso(s, { fur: s.belly });
+        head(s.belly);
+        const spike = new THREE.ConeGeometry(0.05, 0.16, 10);
+        for (let i = 0; i < 46; i++) {
+          const th = (i * 2.399) % (Math.PI * 2), ph = Math.acos(1 - (i + 0.5) / 46 * 1.3);
           const n = V(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th));
-          if (n.z > 0.45 && n.y < 0.7) continue;
-          const sp2 = new THREE.Mesh(spikeGeo, mat(s.accent));
-          sp2.position.set(n.x * 0.4, 0.3 + n.y * 0.3, n.z * 0.42);
+          if (n.z > 0.15 && n.y < 0.75) continue;
+          const sp2 = new THREE.Mesh(spike, mat(i % 3 ? s.accent : s.body));
+          sp2.position.set(n.x * H.rx, H.cy + n.y * H.ry, H.cz + n.z * H.rz);
           sp2.quaternion.setFromUnitVectors(V(0, 1, 0), n);
-          sp2.position.addScaledVector(n, 0.06);
+          sp2.position.addScaledVector(n, 0.03);
           body.add(sp2);
         }
-        const f = { cx: 0, cy: 0.26, cz: 0.22, rx: 0.26, ry: 0.2, rz: 0.22 };
-        ball(body, s.belly, [0, 0.26, 0.22], [0.26, 0.2, 0.22]);
-        const nose = new THREE.Mesh(SPH, mat('#2b2b33', { rough: 0.2 }));
-        nose.scale.set(0.045, 0.04, 0.04);
-        placeOn(f, nose, 0, 0.22, 0.02);
-        body.add(nose);
-        makeFace(body, f, { ey: 0.31, ex: 0.09, es: 0.055, my: 0.16 });
+        ball(body, s.body, [0, H.cy + 0.06, H.cz - 0.02], [H.rx * 1.01, H.ry * 0.9, H.rz * 0.98]);
+        nose('#2b2b33', [0.035, 0.028, 0.03], 0.585, 0.04);
+        makeFace(body, H, { ey: 0.65, ex: 0.125, es: 0.07, my: 0.535 });
         break;
       }
       case 'frog': {
-        const b = { cx: 0, cy: 0.33, cz: 0, rx: 0.5, ry: 0.32, rz: 0.4 };
-        ball(body, s.body, [0, 0.33, 0], [0.5, 0.32, 0.4]);
-        ball(body, s.belly, [0, 0.22, 0.2], [0.34, 0.18, 0.22]);
+        torso(s);
+        const F = { cx: 0, cy: 0.62, cz: 0.02, rx: 0.37, ry: 0.24, rz: 0.3 };
+        ball(body, s.body, [0, F.cy, F.cz], [F.rx, F.ry, F.rz]);
         for (const sx of [-1, 1]) {
-          ball(body, s.accent, [sx * 0.34, 0.05, 0.18], [0.16, 0.04, 0.14]);
-          ball(body, s.body, [sx * 0.24, 0.62, 0.1], 0.14);
+          ball(body, s.body, [sx * 0.19, 0.83, 0.05], 0.12);
           const g = new THREE.Group();
-          ball(g, '#ffffff', [0, 0, 0], [0.1, 0.1, 0.06]);
-          ball(g, '#2b2b33', [0, 0, 0.04], [0.05, 0.06, 0.03]);
-          ball(g, '#ffffff', [0.015, 0.025, 0.065], 0.015, { glow: 0.4 });
-          g.position.set(sx * 0.24, 0.64, 0.2);
+          ball(g, '#ffffff', [0, 0, 0], [0.085, 0.085, 0.05]);
+          ball(g, '#2b2b33', [0, -0.005, 0.035], [0.045, 0.055, 0.025], { rough: 0.25 });
+          ball(g, '#ffffff', [0.014, 0.022, 0.058], 0.014, { glow: 0.4 });
+          g.position.set(sx * 0.19, 0.84, 0.15);
+          g.userData.noOutline = true;
           body.add(g);
-          eyes.push(g); g.userData.noOutline = true;
-        }
-        const m = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.02, 8, 24, Math.PI), mat('#2b2b33'));
-        placeOn(b, m, 0, 0.36, 0.005);
-        m.rotateZ(Math.PI);
-        body.add(m);
-        for (const sx of [-1, 1]) {
-          const bl = new THREE.Mesh(SPH, mat('#ff8fa3', { opacity: 0.6 }));
-          bl.scale.set(0.08, 0.045, 0.01);
-          placeOn(b, bl, sx * 0.33, 0.36, 0.004);
+          eyes.push(g);
+          const bl = new THREE.Mesh(SPH, new THREE.MeshStandardMaterial({ color: '#ff8fa3', transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.6 }));
+          bl.scale.set(0.06, 0.035, 0.01);
+          placeOn(F, bl, sx * 0.24, 0.6, 0.003);
           body.add(bl);
+          face.blush.push(bl);
         }
+        const m = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.012, 8, 30, Math.PI), mat('#2b2b33'));
+        placeOn(F, m, 0, 0.6, 0.004);
+        m.rotateZ(Math.PI);
+        m.userData.baseQ = m.quaternion.clone();
+        body.add(m);
+        face.mouths.push(m);
+        break;
+      }
+      case 'duck':
+      case 'sparrow':
+      case 'magpie': {
+        const feet = s.draw === 'magpie' ? '#444444' : s.draw === 'duck' ? s.accent : '#f2a13b';
+        torso(s, { leg: feet, foot: feet, wingArms: true });
+        head(s.draw === 'sparrow' ? s.belly : s.body); // 참새는 밝은 얼굴 + 갈색 모자
+        if (s.draw === 'duck') {
+          for (const [x, rz] of [[-0.04, 0.4], [0.04, -0.4], [0, 0]]) ball(body, s.body, [x, 0.97, 0], [0.025, 0.07, 0.025], {}, [0, 0, rz]);
+          const bk = ball(body, s.accent, [0, 0.6, 0.31], [0.13, 0.04, 0.1]);
+          ball(body, s.accent, [0, 0.575, 0.3], [0.11, 0.025, 0.085]);
+          bk.userData.beak = true;
+        } else {
+          if (s.draw === 'sparrow') {
+            add(body, HEMI, s.accent, [0, H.cy + 0.09, H.cz - 0.02], [H.rx * 0.97, H.ry * 0.72, H.rz * 0.95]); // 갈색 모자 머리
+            for (const sx of [-1, 1]) { const c = new THREE.Mesh(SPH, mat('#ffffff')); c.scale.set(0.07, 0.05, 0.02); placeOn(H, c, sx * 0.2, 0.6, 0.002); body.add(c); }
+          } else {
+            const t = new THREE.Group();
+            add(t, new THREE.BoxGeometry(0.1, 0.02, 0.36), s.accent, [0, 0, -0.18], 1, [0, 0, 0], { metal: 0.2, rough: 0.4 });
+            t.position.set(0, 0.2, -0.14); t.rotation.x = 0.6;
+            body.add(t);
+            tails.push({ obj: t, axis: 'x', amp: 0.12, speed: 3 });
+          }
+          const bk = cone(body, s.draw === 'magpie' ? '#444444' : '#f2a13b', [0, 0.6, 0.35], 0.045, 0.12, [Math.PI / 2, 0, 0]);
+          bk.userData.beak = true;
+        }
+        makeFace(body, H, { ey: 0.7, ex: 0.135, es: 0.072, white: s.draw === 'magpie', mouth: 'none' });
         break;
       }
       default:
@@ -698,7 +733,18 @@ export function buildModel(THREE, sp) {
   else if (sp.kind === 'fish') fish(sp);
   else monster(sp);
 
-  root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
-  root.userData = { eyes, wings, tails, flyer, swimmer, height: 1, face };
+  // 은은하게 스스로 밝게: 그늘·밤에도 칙칙하지 않은 펠트 인형 느낌
+  const lifted = new Set();
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = false; o.receiveShadow = false;
+    const m = o.material;
+    if (m.isMeshStandardMaterial && !m.emissiveIntensity && !lifted.has(m)) {
+      lifted.add(m);
+      m.emissive.copy(m.color);
+      m.emissiveIntensity = LIFT;
+    }
+  });
+  root.userData = { eyes, wings, tails, flyer, swimmer, height: 1, face, outfit, chest: outfit ? { y: 0.3, z: 0.17 } : null };
   return root;
 }
