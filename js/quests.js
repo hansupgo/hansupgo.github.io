@@ -135,16 +135,18 @@ export function track(on, info = {}) {
   record(on, info); // 보호자 리포트용 날마다 기록
   const Q = quests();
   const finished = [];
+  let moved = false;
   for (const q of Q.list) {
     const def = poolById[q.id];
     if (def.on !== on || questDone(q)) continue;
     if (def.kind && info.sp?.kind !== def.kind) continue;
     if (def.place && info.place !== def.place) continue;
     q.prog = Math.min(def.goal, q.prog + (on === 'walk' ? info.m || 0 : 1));
+    moved = true;
     if (questDone(q)) finished.push(def);
   }
   if (finished.length) record('questDone', { n: finished.length });
-  if (finished.length || on === 'walk') store.save();
+  if (moved || on === 'walk') store.save(); // 조금이라도 진행되면 저장 (새로고침해도 유지)
   for (const def of finished) progressFn(def);
   return finished;
 }
