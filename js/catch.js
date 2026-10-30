@@ -256,7 +256,7 @@ async function succeed(extraMsg = '') {
   stopLoop();
   const { gained, isNew } = store.recordCatch(cur);
   const ev = eventCatchGain(sp); // 계절 행사 재료
-  track('catch', { sp, place: placeFor(cur) });
+  track('catch', { sp, place: placeFor(cur), isNew });
   const verb = KINDS[sp.kind].done;
   const who = sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를');
   setMsg(`${extraMsg}${who} ${verb}! +${gained} XP${isNew ? ' · 새로 등록!' : ''} · ${ev.icon}${ev.name} +${ev.n}`, 'good');

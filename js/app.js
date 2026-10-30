@@ -12,6 +12,8 @@ import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText 
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
+import { initParentUI, walkedStep } from './parent-ui.js';
+import { inNoZone, zones } from './parent.js';
 import { track } from './quests.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
 
@@ -223,6 +225,7 @@ function countWalk(lat, lng, acc) {
   buddyWalked(d);
   onWalk(d); // 친구와 같이 걷는 중이면 보너스
   track('walk', { m: d });
+  walkedStep(); // 오래 걸으며 화면을 보면 '앞을 봐요!'
 }
 
 function updateBuddyMarker() {
@@ -252,7 +255,7 @@ function refreshWorld() {
   if (!me || encounterActive()) return;
   const now = Date.now();
   const list = spawnsAround(me, CONFIG.visibleRadius, now)
-    .filter(s => !store.state.caughtSpawns[s.id]);
+    .filter(s => !store.state.caughtSpawns[s.id] && !inNoZone(s)); // 보호자가 정한 '피할 곳'엔 안 나옴
   const keep = new Set();
   for (const s of list) {
     keep.add(s.id);
@@ -280,10 +283,19 @@ function refreshWorld() {
   renderNearby(list);
 }
 
+// 보호자가 정한 '캐릭터가 안 나오는 곳' 표시
+let zoneLayers = [];
+function drawZones() {
+  for (const l of zoneLayers) map.removeLayer(l);
+  zoneLayers = zones().map(z => L.circle([z.lat, z.lng], { radius: z.r, color: '#e8534a', weight: 2, dashArray: '6 6', fillColor: '#e8534a', fillOpacity: 0.08, interactive: false })
+    .bindTooltip(`🚧 ${z.name}`, { permanent: false }).addTo(map));
+}
+
 // 동네에 떨어진 재료
 function refreshMaterials() {
   const keep = new Set();
   for (const m of materialsAround(me)) {
+    if (inNoZone(m)) continue;
     keep.add(m.id);
     const near = distanceM(me, m) <= CONFIG.catchRadius;
     const existing = matMarkers.get(m.id);
@@ -762,6 +774,14 @@ async function main() {
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
   initFriends({ toast, onChange: () => { renderHud(); if (document.body.dataset.tab === 'family') renderFamily(); } });
   initQuestUI({ toast, onChange: renderHud });
+  initParentUI({
+    toast,
+    center: () => map.getCenter(),
+    me: () => me,
+    onZones: () => { drawZones(); refreshWorld(); },
+    onboarded: () => Boolean(store.state.name),
+  });
+  drawZones();
   bindSettings();
   bindOnboarding();
   renderHud();
