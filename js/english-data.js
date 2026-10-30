@@ -77,7 +77,7 @@ export const SCENES = [
         say: ['Can I sit next to you?', '네 옆에 앉아도 돼?'],
         options: [
           { en: 'Sure! Sit here.', ko: '그럼! 여기 앉아.', accept: ['sure', 'yes', 'okay', 'ok', 'here', 'of course'], reply: ['Yay! Thanks!', '야호! 고마워!'] },
-          { en: "Sorry, someone's sitting here. How about over there?", ko: '미안, 여기 누가 앉아. 저기는 어때?', accept: ['sorry', 'someone', 'there'], reply: ['Oh, okay! No problem.', '아, 알았어! 괜찮아.'] },
+          { en: "Someone's sitting here, but let's eat lunch together!", ko: '여긴 자리가 있는데, 점심 같이 먹자!', accept: ['someone', 'lunch', 'together'], reply: ["Yay! I'd love that!", '야호! 너무 좋아!'] },
         ],
       },
       {
@@ -92,10 +92,10 @@ export const SCENES = [
   },
   {
     id: 'recess', icon: '🛝', title: '쉬는 시간', where: '운동장', time: [10, 13], level: 1,
-    learn: [['Wanna play tag?', '술래잡기 할래?'], ["You're it!", '네가 술래야!'], ['My turn!', '내 차례!']],
+    learn: [['Do you want to play tag?', '술래잡기 할래?'], ["You're it!", '네가 술래야!'], ['My turn!', '내 차례!']],
     turns: [
       {
-        say: ["It's recess! Wanna play tag?", '쉬는 시간이다! 술래잡기 할래?'],
+        say: ["It's recess! Do you want to play tag?", '쉬는 시간이다! 술래잡기 할래?'],
         options: [
           { en: "Yeah! Let's play!", ko: '좋아! 하자!', accept: ['yes', 'yeah', 'play', 'sure', 'ok', 'okay'], reply: ["Okay! You're it! Ha ha!", '좋아! 네가 술래야! 하하!'] },
           { en: "Let's go on the swings instead.", ko: '대신 그네 타자.', accept: ['swing', 'swings', 'slide', 'instead'], reply: ['Good idea! Push me, please!', '좋은 생각! 밀어 줘!'] },
@@ -147,10 +147,10 @@ export const SCENES = [
   },
   {
     id: 'art', icon: '🖍️', title: '미술 시간', where: '교실', time: [9, 15], level: 1,
-    learn: [['Can I borrow your crayon?', '크레파스 빌려줘도 돼?'], ['Here you go.', '여기 있어.'], ['That looks awesome!', '그거 멋지다!']],
+    learn: [['Can I borrow your crayon?', '크레용 빌려도 돼?'], ['Here you go.', '여기 있어.'], ['That looks awesome!', '그거 멋지다!']],
     turns: [
       {
-        say: ['Can I borrow your red crayon?', '빨간 크레파스 빌려도 돼?'],
+        say: ['Can I borrow your red crayon?', '빨간 크레용 빌려도 돼?'],
         options: [
           { en: 'Sure! Here you go.', ko: '그럼! 여기 있어.', accept: ['sure', 'here', 'yes', 'okay', 'ok'], reply: ['Thanks! I\'ll give it back.', '고마워! 돌려줄게.'] },
           { en: "I'm using it right now. Can you wait?", ko: '지금 쓰고 있어. 기다려 줄래?', accept: ['using', 'wait', 'now'], reply: ['Okay, I can wait!', '응, 기다릴 수 있어!'] },
@@ -167,7 +167,7 @@ export const SCENES = [
         say: ['What are you drawing?', '너는 뭐 그려?'],
         options: [
           { en: 'I\'m drawing my family.', ko: '우리 가족 그리고 있어.', accept: ['family', 'mom', 'dad'], reply: ['Aww, that\'s so sweet!', '와, 정말 따뜻하다!'] },
-          { en: "I'm drawing you!", ko: '너를 그리고 있어!', accept: ['you'], reply: ['Me? Make me look cute, okay?', '나? 귀엽게 그려 줘야 해?'] },
+          { en: "I'm drawing you!", ko: '너를 그리고 있어!', accept: ['you'], reply: ['Me? Make me look cute, okay?', '나? 귀엽게 그려 줘, 알았지?'] },
         ],
       },
     ],
@@ -194,7 +194,7 @@ export const SCENES = [
         say: ['Careful! There\'s an ant. Don\'t step on it!', '조심! 개미 있어. 밟지 마!'],
         options: [
           { en: 'Oops! Thanks for telling me.', ko: '앗! 알려 줘서 고마워.', accept: ['oops', 'thanks', 'thank'], reply: ['The ant says thank you too!', '개미도 고맙대!'] },
-          { en: 'Where is it going?', ko: '어디 가는 걸까?', accept: ['where', 'going'], reply: ['Maybe it\'s going home to its family.', '가족한테 집에 가는 걸지도.'] },
+          { en: 'Where is it going?', ko: '어디 가는 걸까?', accept: ['where', 'going'], reply: ['Maybe it\'s going home to its family.', '가족이 있는 집에 가나 봐.'] },
         ],
       },
     ],
@@ -338,7 +338,7 @@ export const SCENES = [
         say: ['You look a little sad. What\'s wrong?', '너 좀 슬퍼 보여. 무슨 일 있어?'],
         options: [
           { en: 'I lost my favorite pencil.', ko: '제일 좋아하는 연필을 잃어버렸어.', accept: ['lost', 'pencil', 'lose'], reply: ['Oh no! Let\'s look for it together.', '저런! 같이 찾아보자.'] },
-          { en: 'My friend was mean to me.', ko: '친구가 나한테 못되게 굴었어.', accept: ['mean', 'friend', 'fight'], reply: ['That\'s not nice. I\'m here for you.', '그건 나빠. 내가 네 곁에 있을게.'] },
+          { en: 'My friend was mean to me.', ko: '친구가 나한테 못되게 굴었어.', accept: ['mean', 'friend', 'fight'], reply: ['That\'s not nice. I\'m here for you. Let\'s tell a teacher, okay?', '그건 나빠. 내가 네 곁에 있을게. 선생님께도 말씀드리자, 알았지?'] },
           { en: "I'm okay. I'm just tired.", ko: '괜찮아. 그냥 피곤해.', accept: ['okay', 'ok', 'tired', 'fine'], reply: ['Want a big hug?', '꼭 안아 줄까?'] },
         ],
       },
@@ -373,7 +373,7 @@ export const SCENES = [
         say: ['Time to blow out the candles!', '촛불 끌 시간이야!'],
         options: [
           { en: 'Make a wish first!', ko: '먼저 소원 빌어!', accept: ['wish'], reply: ['Okay... I wish... it\'s a secret! Whoosh!', '응... 내 소원은... 비밀이야! 후!'] },
-          { en: "Let's sing the birthday song!", ko: '생일 노래 부르자!', accept: ['sing', 'song'], reply: ['Happy birthday to me! La la la!', '생일 축하합니다~ 랄랄라!'] },
+          { en: "Let's sing the birthday song!", ko: '생일 노래 부르자!', accept: ['sing', 'song'], reply: ['Happy birthday to me! La la la!', '나한테 생일 축하해! 랄랄라!'] },
         ],
       },
       {
@@ -434,7 +434,7 @@ export const SCENES = [
       {
         say: ['I can\'t wait for the weekend!', '주말 너무 기대된다!'],
         options: [
-          { en: "Me neither! It's going to be awesome!", ko: '나도! 진짜 신날 거야!', accept: ['me', 'neither', 'too', 'awesome', 'fun'], reply: ['Woohoo!', '우후!'] },
+          { en: "Me too! It's going to be awesome!", ko: '나도! 진짜 신날 거야!', accept: ['me', 'too', 'neither', 'awesome', 'fun'], reply: ['Woohoo!', '우후!'] },
           { en: 'Only two more days!', ko: '이틀만 더!', accept: ['two', 'days', 'more'], reply: ['Let\'s count down together!', '같이 세어 보자!'] },
         ],
       },

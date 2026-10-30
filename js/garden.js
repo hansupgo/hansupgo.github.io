@@ -22,7 +22,7 @@ export const STAGE_NAMES = ['씨앗', '새싹', '자라는 중', '다 자랐어!
 // 짝꿍이 먹을 수 있는 것 (h: 배부름, m: 기분)
 export const FOODS = {
   lettuce: { h: 25, m: 6, line: ['아삭아삭! 신선하다!', 'Crunchy! (아삭해!)'] },
-  tomato: { h: 30, m: 8, line: ['새콤달콤 토마토!', 'So juicy! (엄청 촉촉해!)'] },
+  tomato: { h: 30, m: 8, line: ['새콤달콤 토마토!', 'So juicy! (과즙이 가득해!)'] },
   strawberry: { h: 30, m: 18, line: ['딸기다!! 내가 제일 좋아하는 거야!', 'Strawberries are my favorite! (딸기 제일 좋아!)'] },
   pumpkin: { h: 50, m: 12, line: ['호박 수프 같아! 배 든든해!', 'Yummy pumpkin! (맛있는 호박!)'] },
 };
