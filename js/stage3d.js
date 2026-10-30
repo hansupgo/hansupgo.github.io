@@ -4,7 +4,7 @@
 // three.js를 불러오지 못하면 null을 돌려주고, 게임은 2D 그림으로 동작합니다.
 
 import { buildModel as buildRaw } from './model3d.js';
-import { stylize, soften, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
+import { soften, applyFace, flashExpression, setBaseExpression, pixelRatioFor, gfxLevel } from './charfx.js';
 import { createParticles, ambientFor, ambientPos, makeFood, makeToyBall, makeGlow, makeEvolveFx, flashWhite, trickFor, trickPose } from './fx3d.js';
 
 // 캐릭터 = 마을풍 기본 모델 (부드러운 무광 재질, 외곽선 없음)
@@ -398,7 +398,7 @@ export async function createStage(container) {
       todLight = 'day';
       applyLights();
       if (!kind) return;
-      backdrop = stylize(THREE, mod.buildBackdrop(THREE, kind, opts), { outline: false }); // 배경은 선 없이 (가볍게)
+      backdrop = soften(THREE, mod.buildBackdrop(THREE, kind, opts), { lift: opts.tod === 'night' ? 0.04 : 0.1 }); // 마을풍: 선 없이 부드럽게 (밤엔 덜 밝게)
       backdrop.visible = backdropWanted && !renderer.xr.isPresenting;
       scene.add(backdrop);
       // 밤·노을엔 캐릭터 조명도 맞춤

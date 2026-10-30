@@ -2,22 +2,7 @@
 // 가구는 바닥 가운데가 원점, 앞쪽이 +z. 벽 가구는 뒷면이 z=0.
 // 움직이는 부품은 userData.tick(t)로 애니메이션합니다.
 
-// 모서리가 둥근 상자 (마을풍 가구). 아주 얇은 판은 그냥 상자.
-function roundedBox(THREE, w, h, d) {
-  const r = Math.min(0.035, Math.min(w, h, d) * 0.22);
-  if (r < 0.006) return new THREE.BoxGeometry(w, h, d);
-  const x = w / 2 - r, y = h / 2 - r;
-  const shape = new THREE.Shape();
-  shape.moveTo(-x, -h / 2);
-  shape.lineTo(x, -h / 2); shape.quadraticCurveTo(w / 2, -h / 2, w / 2, -y);
-  shape.lineTo(w / 2, y); shape.quadraticCurveTo(w / 2, h / 2, x, h / 2);
-  shape.lineTo(-x, h / 2); shape.quadraticCurveTo(-w / 2, h / 2, -w / 2, y);
-  shape.lineTo(-w / 2, -y); shape.quadraticCurveTo(-w / 2, -h / 2, -x, -h / 2);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r * 0.999, bevelOffset: -r, bevelSegments: 3, curveSegments: 4 });
-  geo.translate(0, 0, -(d - 2 * r) / 2);
-  geo.computeVertexNormals();
-  return geo;
-}
+import { roundedBox } from './charfx.js';
 
 export function buildFurniture(THREE, id) {
   const g = new THREE.Group();
