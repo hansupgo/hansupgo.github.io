@@ -692,7 +692,7 @@ body.in-encounter .toast { bottom: calc(140px + var(--safe-b)); }
 .msg.buddy .msg-bubble { border-bottom-left-radius: 6px; }
 .msg.me .msg-bubble { background: #4f8ef7; color: #fff; border-bottom-right-radius: 6px; padding-right: 14px; }
 .msg .en { margin: 0; font-size: 19px; line-height: 1.4; font-weight: 700; }
-.msg .ko { margin: 3px 0 0; font-size: 14px; color: var(--muted); }
+.msg .ko { margin: 3px 0 0; font-size: 15px; color: #4d5c55; } /* 영어를 몰라도 읽기 쉽게 조금 크고 진하게 */
 .msg.me .ko { color: rgba(255,255,255,.85); }
 .msg.small .en { font-size: 16px; }
 .msg .en span.lit { background: #ffe066; border-radius: 4px; color: var(--ink); }
@@ -710,7 +710,7 @@ body.in-encounter .toast { bottom: calc(140px + var(--safe-b)); }
   border-radius: 14px; border: 2px solid #c9d9f5; background: #fff;
 }
 .talk-opt .en { font-size: 17px; font-weight: 700; color: #2a4fa8; }
-.talk-opt .ko { font-size: 13px; color: var(--muted); }
+.talk-opt .ko { font-size: 14px; color: #4d5c55; }
 .talk-opt:active { background: #eef4ff; }
 .talk-form { display: flex; gap: 6px; }
 .talk-form input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid #c9d9f5; font-size: 16px; }
@@ -1075,3 +1075,12 @@ body.talking .tabs { display: none; }
 .ch-stamps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .ch-stamps span { aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; border: 2px dashed #e2c78e; color: #c9ad7a; font-size: 14px; background: #fff; }
 .ch-stamps span.on { border-style: solid; border-color: #e8b14a; background: #fff3d6; font-size: 24px; }
+
+/* 영어 목소리 고르기 · 한글 뜻 */
+.voice-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.voice-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; background: #fff; border-radius: 14px; padding: 8px 10px; border: 1px solid #dbe6f5; }
+.voice-list li.on { border-color: #4f8ef7; background: #eef4ff; }
+.voice-list .btn { margin: 0; padding: 6px 10px; min-height: 36px; font-size: 13px; }
+.voice-list small { color: var(--muted); }
+.tip-box { background: #fff8e1; border: 1px dashed #ffd23f; border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6; margin-top: 10px; }
+.msg .tip .ko { display: block; margin-top: 2px; }

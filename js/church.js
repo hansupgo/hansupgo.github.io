@@ -92,20 +92,25 @@ export const hasCard = (ref) => Boolean(C().cards[ref]);
 
 const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
 let koVoice = null;
+// 깨끗한 한국어 목소리 먼저 (자연스러운·고급·구글 목소리)
 function pickVoice() {
-  const vs = synth?.getVoices() || [];
-  koVoice = vs.find(v => /ko[-_]KR/i.test(v.lang)) || null;
+  const score = (v) => (/natural|neural|enhanced|premium|siri/i.test(v.name) ? 6 : 0) + (/google/i.test(v.name) ? 4 : 0) + (/yuna|sunhi|injoon|heami/i.test(v.name) ? 2 : 0);
+  koVoice = (synth?.getVoices() || []).filter(v => /^ko/i.test(v.lang)).sort((x, y) => score(y) - score(x))[0] || null;
 }
 if (synth) { pickVoice(); synth.addEventListener?.('voiceschanged', pickVoice); }
 function speakKo(text) {
   if (!synth) return;
   try {
-    synth.cancel();
+    const busyNow = synth.speaking || synth.pending;
+    if (busyNow) synth.cancel();
+    if (!koVoice) pickVoice();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ko-KR';
     if (koVoice) u.voice = koVoice;
     u.rate = 0.9;
-    synth.speak(u);
+    u.pitch = 1;
+    // 앞 소리를 끊자마자 말하면 소리가 튀는 기기가 있어 살짝 쉬었다가
+    setTimeout(() => synth.speak(u), busyNow ? 120 : 0);
   } catch { /* 소리를 못 내는 환경 */ }
 }
 const stopSpeak = () => { try { synth?.cancel(); } catch { /* 무시 */ } };
