@@ -199,16 +199,16 @@ export function englishReward(todayCount) {
 }
 
 /** 영어 퀴즈 한 판: 맞힌 만큼 경험치, 하루 3판까지 성장 (+2씩) */
-export function quizReward(right, canGrow) {
+export function quizReward(right, canGrow, per = 2) {
   const b = buddy();
   const xp = right * 10;
   store.state.xp += xp;
   if (!b || !canGrow || !right) { store.save(); return { xp }; }
   tick();
   b.mood = clamp(b.mood + right * 2);
-  const evolved = grow(right * 2);
+  const evolved = grow(right * per);
   store.save();
-  return { pts: right * 2, xp, evolved };
+  return { pts: right * per, xp, evolved };
 }
 
 /** 아늑한 방에서 하루 한 번 받는 성장 보너스 */

@@ -1095,3 +1095,18 @@ body.talking .tabs { display: none; }
 .inapp-bar .btn { margin: 0; padding: 6px 12px; min-height: 36px; }
 .inapp-x { border: none; background: none; font-size: 16px; padding: 4px 6px; }
 body.talking .inapp-bar, body:has(.encounter:not([hidden])) .inapp-bar { display: none; }
+
+/* 퀴즈 난이도 · 새 문제 종류 */
+.ql-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.ql { display: grid; grid-template-columns: 70px 1fr; grid-template-rows: auto auto auto; column-gap: 10px; text-align: left; padding: 14px; border-radius: 18px; border: 2px solid #d4def0; background: #fff; font: inherit; color: inherit; }
+.ql.on { border-color: #ffb02e; background: #fff8e1; }
+.ql-stars { grid-row: 1 / 4; font-size: 18px; align-self: center; text-align: center; }
+.ql b { font-family: var(--display); font-weight: 400; font-size: 20px; }
+.ql small { color: var(--muted); font-size: 13px; }
+.ql .ql-grow { color: #3f8f5a; }
+.q-new { color: #e8873a; font-weight: 700; }
+.quiz-ko { text-align: center; font-family: var(--display); font-size: 40px; margin: 10px 0 14px; color: #2a4fa8; }
+.quiz-ko.small { font-size: 22px; margin: 0 0 10px; color: var(--muted); font-family: var(--body); }
+.quiz-pic.small { font-size: 64px; margin-bottom: 2px; }
+.quiz-blank { text-align: center; font-size: 22px; font-weight: 700; line-height: 1.5; margin: 14px 4px 6px; padding: 12px; background: #fff; border-radius: 16px; border: 2px dashed #9bb7e8; }
+.q-got-card { color: #e8873a; font-weight: 700; }

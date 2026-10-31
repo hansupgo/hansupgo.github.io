@@ -209,7 +209,7 @@ function startTalk(start = '', quizN = 5) {
     start,
     quizN,
     onDone: (n) => { const r = englishReward(n); onChangeFn(); return r; },
-    onQuiz: (right, canGrow) => { const r = quizReward(right, canGrow); onChangeFn(); return r; },
+    onQuiz: (right, canGrow, per) => { const r = quizReward(right, canGrow, per); onChangeFn(); return r; },
     onEvolve: showEvolve,
     onClose: () => { if (document.body.dataset.tab === 'buddy') renderBuddy(pick(['Thanks for talking with me! (나랑 이야기해 줘서 고마워!)', 'That was fun! (재밌었다!)'])); },
   });
