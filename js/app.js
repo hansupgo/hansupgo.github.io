@@ -12,6 +12,7 @@ import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText 
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
+import { initChurchUI, openChurch } from './church.js';
 import { initParentUI, walkedStep } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
 import { onNewWord } from './vocab.js';
@@ -145,6 +146,22 @@ function stopIcon(stop, ready) {
   });
 }
 
+function churchIcon(c) {
+  return L.divIcon({
+    className: 'stop-icon',
+    html: `<div class="church-pin"><div class="church-roof">⛪</div><div class="stop-label">${esc(c.name)}</div></div>`,
+    iconSize: [120, 64],
+    iconAnchor: [60, 30],
+  });
+}
+
+function enterChurch(c) {
+  if (!me) return;
+  const d = distanceM(me, c);
+  if (d > CONFIG.stopRadius) { toast(`⛪ ${c.name}까지 ${fmtDist(d)} 남았어요. 가까이 가면 들어갈 수 있어요.`); return; }
+  openChurch(c);
+}
+
 function initMap() {
   map = L.map('map', {
     zoomControl: false,
@@ -186,6 +203,9 @@ function initMap() {
       .addTo(map)
       .on('click', () => useStop(stop));
     stopMarkers.set(stop.id, m);
+  }
+  for (const c of CONFIG.churches || []) {
+    L.marker([c.lat, c.lng], { icon: churchIcon(c), zIndexOffset: 450 }).addTo(map).on('click', () => enterChurch(c));
   }
 }
 
@@ -779,6 +799,7 @@ async function main() {
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
   initFriends({ toast, onChange: () => { renderHud(); if (document.body.dataset.tab === 'family') renderFamily(); } });
   initQuestUI({ toast, onChange: renderHud });
+  initChurchUI({ toast, buddySp: () => buddySpecies(), buddyName: () => (hasBuddy() ? (buddy().nick || buddySpecies().name) : ''), onChange: renderHud });
   // 새 영어 단어 카드를 얻으면 살짝 알려 줌 (다른 안내와 겹치지 않게 조금 뒤에)
   onNewWord((fresh) => setTimeout(() => toast(`🔤 새 단어 카드! ${fresh.map(w => `${w.pic} ${w.en}(${w.ko})`).join(', ')}`, 2600), 2200));
   initParentUI({

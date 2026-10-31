@@ -20,6 +20,7 @@ function eng() {
   const s = store.state;
   s.english = s.english || { done: {}, phrases: {}, day: '', today: 0, total: 0, settings: { ko: true, slow: false, sound: true } };
   s.english.settings = s.english.settings || { ko: true, slow: false, sound: true };
+  if (!s.english.settings.koV2) { s.english.settings.ko = true; s.english.settings.koV2 = true; }
   if (s.english.day !== today()) { s.english.day = today(); s.english.today = 0; }
   return s.english;
 }
@@ -33,10 +34,22 @@ function level2Open(stage) { return stage >= 1 || eng().total >= 5; }
 
 const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
 let voice = null;
+// 깨끗하게 들리는 목소리일수록 점수가 높음 (자연스러운 신경망·고급 목소리 → 구글 → 기기 기본)
+function voiceScore(v) {
+  let s = /en[-_]US/i.test(v.lang) ? 4 : /^en/i.test(v.lang) ? 2 : -99;
+  if (/natural|neural|enhanced|premium|siri/i.test(v.name)) s += 6;
+  if (/google/i.test(v.name)) s += 4;
+  if (/samantha|aria|jenny|ava|allison|zoe|nicky|karen|serena/i.test(v.name)) s += 2;
+  if (/compact|espeak|eloquence|novelty|whisper|bad news|bells|boing|bubbles|cellos|jester|organ|trinoids|zarvox|wobble/i.test(v.name)) s -= 8;
+  return s;
+}
+export function englishVoices() {
+  return (synth?.getVoices() || []).filter(v => /^en/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+}
 function pickVoice() {
-  const vs = synth?.getVoices() || [];
-  const us = vs.filter(v => /en[-_]US/i.test(v.lang));
-  voice = us.find(v => /google|samantha|aria|jenny|zira|female/i.test(v.name)) || us[0] || vs.find(v => /^en/i.test(v.lang)) || null;
+  const list = englishVoices();
+  const want = store.state.english?.settings?.voice;
+  voice = (want && list.find(v => v.name === want)) || list[0] || null;
 }
 if (synth) { pickVoice(); synth.addEventListener?.('voiceschanged', pickVoice); }
 
@@ -52,16 +65,20 @@ function speak(text, { pitch = 1.3, onWord } = {}) {
     let done = false;
     const finish = () => { if (!done) { done = true; resolve(); } };
     try {
-      synth.cancel();
+      const busyNow = synth.speaking || synth.pending;
+      if (busyNow) synth.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
+      u.lang = voice?.lang || 'en-US';
       if (voice) u.voice = voice;
       u.rate = rate;
-      u.pitch = pitch;
+      // 음 높이를 많이 바꾸면 휴대폰 목소리가 지지직 깨지기 쉬워서 아주 조금만
+      u.pitch = Math.min(1.1, Math.max(0.9, pitch));
+      u.volume = 1;
       u.onend = finish;
       u.onerror = finish;
       u.onboundary = (e) => { if (id === speakId && e.name !== 'sentence') onWord?.(e.charIndex); };
-      synth.speak(u);
+      // 앞 소리를 끊자마자 바로 말하면 소리가 튀는 기기가 있어 살짝 쉬었다가
+      setTimeout(() => { if (id === speakId) synth.speak(u); else finish(); }, busyNow ? 120 : 0);
     } catch { finish(); }
     setTimeout(finish, guess + 1500); // onend가 안 오는 기기 대비
   });
@@ -126,7 +143,7 @@ let busy = false;
 let tries = 0;
 let learnedNow = [];
 
-function pitchFor(stage) { return [1.45, 1.3, 1.15][stage] ?? 1.3; }
+function pitchFor(stage) { return [1.1, 1.05, 1.0][stage] ?? 1.05; } // 아기일수록 살짝 높게 (너무 높이면 소리가 깨짐)
 
 function wordsHtml(text) {
   // 낱말마다 span (말할 때 낱말 불 켜기)
@@ -165,11 +182,11 @@ async function buddySays([en, ko], extraClass = '') {
   lightWord(p, -1);
 }
 
-function meSays(text, ko = '', tip = '') {
+function meSays(text, ko = '', tip = '', tipKo = '') {
   const msg = document.createElement('div');
   msg.className = 'msg me';
   msg.innerHTML = `<div class="msg-bubble"><p class="en" lang="en">${esc(text)}</p>${ko ? `<p class="ko">${esc(ko)}</p>` : ''}
-    ${tip ? `<p class="tip">💡 이렇게도 말할 수 있어: <b lang="en">${esc(tip)}</b> <button class="say-btn" type="button" aria-label="듣기">🔊</button></p>` : ''}</div>`;
+    ${tip ? `<p class="tip">💡 이렇게도 말할 수 있어: <b lang="en">${esc(tip)}</b> <button class="say-btn" type="button" aria-label="듣기">🔊</button>${tipKo ? `<span class="ko">${esc(tipKo)}</span>` : ''}</p>` : ''}</div>`;
   $('talk-log').appendChild(msg);
   msg.querySelector('.say-btn')?.addEventListener('click', () => speak(tip, { pitch: 1.0 }));
   scrollLog();
@@ -209,7 +226,9 @@ async function answer(option, typed = '') {
   setAnswering(false);
   const said = fill(option.en, ctx.name);
   const close = typed && similarity(norm(typed), norm(said)) >= 0.8;
-  meSays(typed || said, typed ? '' : fill(option.ko, ctx.name), typed && !close ? said : '');
+  const ko = fill(option.ko, ctx.name);
+  // 직접 쓴 대답에도 알아들은 뜻을 한글로 (영어를 몰라도 무슨 말인지 알 수 있게)
+  meSays(typed || said, typed && !close ? '' : ko, typed && !close ? said : '', ko);
   await speak(typed && close ? typed : said, { pitch: 1.0 });
   if (my !== sceneToken) return;
   if (typed) await buddySays(pick(LINES.good), 'small');
@@ -316,7 +335,7 @@ function showMenu() {
     <button class="talk-rec" data-id="${rec.id}" type="button"><span class="talk-ico">${rec.icon}</span>
       <span><small>오늘의 대화</small><br><b>${esc(rec.title)}</b> <span class="muted">· ${esc(rec.where)}</span></span><span class="go">시작 ›</span></button>
     <div class="talk-stats"><span>오늘 ${e.today}번 · 모두 ${e.total || 0}번</span>
-      <button id="talk-book-btn" class="link-btn" type="button">📘 표현 노트 (${phraseCount()})</button></div>
+      <span><button id="talk-voice-btn" class="link-btn" type="button">🗣️ 목소리</button> · <button id="talk-book-btn" class="link-btn" type="button">📘 표현 노트 (${phraseCount()})</button></span></div>
     <div class="talk-learn">
       <button id="talk-words-btn" class="talk-learn-btn" type="button"><span class="talk-ico">🔤</span><b>단어 카드</b><small>${knownCount()}/${WORDS.length}장 모음</small></button>
       <button id="talk-quiz-btn" class="talk-learn-btn" type="button" ${canQuiz() ? '' : 'disabled'}><span class="talk-ico">🧩</span><b>짝꿍 퀴즈</b><small>${canQuiz() ? 'What\'s this? 맞혀 봐!' : `카드 ${QUIZ_MIN}장부터`}</small></button>
@@ -330,6 +349,7 @@ function showMenu() {
   for (const b of $('talk-menu').querySelectorAll('[data-id]')) b.addEventListener('click', () => startScene(b.dataset.id));
   $('talk-book-btn').addEventListener('click', showBook);
   $('talk-words-btn').addEventListener('click', showWords);
+  $('talk-voice-btn').addEventListener('click', showVoices);
   $('talk-quiz-btn').addEventListener('click', () => startQuiz(5));
 }
 
@@ -348,6 +368,41 @@ function showBook() {
     : '<p class="muted">아직 모은 표현이 없어. 짝꿍이랑 이야기하면 여기에 쌓여!</p>'}`;
   $('book-back').addEventListener('click', showMenu);
   for (const b of $('talk-book').querySelectorAll('[data-say]')) b.addEventListener('click', () => speak(b.dataset.say, { pitch: 1.0 }));
+}
+
+// ---------- 🗣️ 목소리 고르기 ----------
+
+function showVoices() {
+  stopSpeak();
+  sceneToken++;
+  scene = null;
+  hideViews();
+  $('talk-book').hidden = false;
+  $('talk-title').textContent = '🗣️ 목소리 고르기';
+  if (!voice && synth) pickVoice();
+  const list = englishVoices().slice(0, 10);
+  const cur = voice?.name;
+  $('talk-book').innerHTML = `<button id="book-back" class="link-btn" type="button">‹ 대화 고르기</button>
+    <p class="w-lead">소리가 지지직거리거나 딱딱하면 다른 목소리를 골라 보세요. 이름에 <b>Natural · Enhanced · Premium · Google</b>이 들어간 목소리가 보통 가장 깨끗해요.</p>
+    ${list.length ? `<ul class="voice-list">${list.map((v, i) => `<li class="${v.name === cur ? 'on' : ''}">
+      <span><b>${esc(v.name)}</b><br><small>${esc(v.lang)}${v.localService ? ' · 휴대폰 안' : ' · 인터넷'}${i === 0 ? ' · 추천' : ''}</small></span>
+      <button class="btn ghost" type="button" data-try="${i}">▶ 듣기</button>
+      <button class="btn ${v.name === cur ? 'ghost' : 'primary'}" type="button" data-use="${i}" ${v.name === cur ? 'disabled' : ''}>${v.name === cur ? '쓰는 중' : '고르기'}</button></li>`).join('')}</ul>`
+      : '<p class="muted">이 휴대폰에서는 영어 목소리를 찾지 못했어요. 휴대폰 설정에서 영어 음성을 내려받아 주세요.</p>'}
+    <div class="tip-box"><b>더 깨끗한 소리를 원하면</b><br>
+      · <b>아이폰</b>: 설정 → 손쉬운 사용 → 읽기 및 말하기 → 음성 → 영어 → <b>"향상됨" 또는 "고음질"</b> 목소리를 내려받아요.<br>
+      · <b>갤럭시</b>: 설정 → 일반 → 텍스트 음성 변환 → <b>Google 음성 인식 및 합성</b>을 고르고, 영어(미국) 고음질 음성을 내려받아요.<br>
+      · 휴대폰 소리를 너무 크게 하면 스피커에서 지지직거릴 수 있어요. 이어폰으로 들으면 훨씬 깨끗해요.</div>`;
+  $('book-back').addEventListener('click', showMenu);
+  for (const b of $('talk-book').querySelectorAll('[data-try]')) b.addEventListener('click', () => { const keep = voice; voice = list[+b.dataset.try]; speak('Hi! Let\'s talk in English. Good job!', { pitch: 1.0 }).then(() => { voice = keep; }); });
+  for (const b of $('talk-book').querySelectorAll('[data-use]')) b.addEventListener('click', () => {
+    const v = list[+b.dataset.use];
+    eng().settings.voice = v.name;
+    store.save();
+    voice = v;
+    showVoices();
+    speak('This is my new voice!', { pitch: 1.0 });
+  });
 }
 
 function hideViews() {

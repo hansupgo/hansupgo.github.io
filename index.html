@@ -324,6 +324,28 @@
     <div id="visit-info" class="talk-body visit-info"></div>
   </section>
 
+  <!-- ⛪ 교회 안 -->
+  <section id="church" class="talk church" hidden aria-label="교회 안">
+    <header class="talk-top">
+      <button id="church-close" class="talk-btn" type="button">← 나가기</button>
+      <div class="talk-head"><b id="church-title">교회</b><small>말씀을 들어요</small></div>
+      <span></span>
+    </header>
+    <div class="ch-hall" aria-hidden="true">
+      <div class="ch-window"><span></span><span></span><span></span><span></span></div>
+      <div class="ch-cross">✝</div>
+      <div class="ch-pews"><i></i><i></i></div>
+      <div id="church-buddy" class="ch-sitter"></div>
+    </div>
+    <nav class="ch-tabs" role="tablist">
+      <button class="ch-tab" data-tab="today" type="button" role="tab">📖 오늘의 말씀</button>
+      <button class="ch-tab" data-tab="gospel" type="button" role="tab">✝️ 복음 이야기</button>
+      <button class="ch-tab" data-tab="cards" type="button" role="tab">🃏 말씀 카드</button>
+      <button class="ch-tab" data-tab="stamps" type="button" role="tab">🕊️ 출석</button>
+    </nav>
+    <div id="church-body" class="talk-body ch-body"></div>
+  </section>
+
   <!-- 이번 주 리포트 -->
   <section id="report-sheet" class="sheet" hidden>
     <div class="sheet-card">
