@@ -65,20 +65,28 @@ function speak(text, { pitch = 1.3, onWord } = {}) {
     let done = false;
     const finish = () => { if (!done) { done = true; resolve(); } };
     try {
-      const busyNow = synth.speaking || synth.pending;
-      if (busyNow) synth.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = voice?.lang || 'en-US';
-      if (voice) u.voice = voice;
-      u.rate = rate;
-      // 음 높이를 많이 바꾸면 휴대폰 목소리가 지지직 깨지기 쉬워서 아주 조금만
-      u.pitch = Math.min(1.1, Math.max(0.9, pitch));
-      u.volume = 1;
-      u.onend = finish;
-      u.onerror = finish;
-      u.onboundary = (e) => { if (id === speakId && e.name !== 'sentence') onWord?.(e.charIndex); };
-      // 앞 소리를 끊자마자 바로 말하면 소리가 튀는 기기가 있어 살짝 쉬었다가
-      setTimeout(() => { if (id === speakId) synth.speak(u); else finish(); }, busyNow ? 120 : 0);
+      if (synth.speaking || synth.pending) synth.cancel();
+      synth.resume?.(); // 멈춰 있는 음성 엔진 깨우기 (안드로이드 크롬)
+      const make = (withVoice) => {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = (withVoice && voice?.lang) || 'en-US';
+        if (withVoice && voice) u.voice = voice;
+        u.rate = rate;
+        // 음 높이를 많이 바꾸면 휴대폰 목소리가 지지직 깨지기 쉬워서 아주 조금만
+        u.pitch = Math.min(1.1, Math.max(0.9, pitch));
+        u.volume = 1;
+        u.onend = finish;
+        u.onboundary = (e) => { if (id === speakId && e.name !== 'sentence') onWord?.(e.charIndex); };
+        return u;
+      };
+      const u = make(true);
+      // 고른 목소리가 이 휴대폰에서 안 나오면 기본 목소리로 한 번 더
+      u.onerror = (e) => {
+        if (voice && id === speakId && !/interrupted|canceled/.test(e?.error || '')) { const u2 = make(false); u2.onerror = finish; synth.speak(u2); }
+        else finish();
+      };
+      // 휴대폰은 누른 순간에 바로 말해야 소리가 나므로 기다리지 않고 바로 말함
+      synth.speak(u);
     } catch { finish(); }
     setTimeout(finish, guess + 1500); // onend가 안 오는 기기 대비
   });

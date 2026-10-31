@@ -101,16 +101,20 @@ if (synth) { pickVoice(); synth.addEventListener?.('voiceschanged', pickVoice); 
 function speakKo(text) {
   if (!synth) return;
   try {
-    const busyNow = synth.speaking || synth.pending;
-    if (busyNow) synth.cancel();
+    if (synth.speaking || synth.pending) synth.cancel();
+    synth.resume?.();
     if (!koVoice) pickVoice();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ko-KR';
-    if (koVoice) u.voice = koVoice;
-    u.rate = 0.9;
-    u.pitch = 1;
-    // 앞 소리를 끊자마자 말하면 소리가 튀는 기기가 있어 살짝 쉬었다가
-    setTimeout(() => synth.speak(u), busyNow ? 120 : 0);
+    const make = (withVoice) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR';
+      if (withVoice && koVoice) u.voice = koVoice;
+      u.rate = 0.9;
+      u.pitch = 1;
+      return u;
+    };
+    const u = make(true);
+    u.onerror = (e) => { if (koVoice && !/interrupted|canceled/.test(e?.error || '')) synth.speak(make(false)); };
+    synth.speak(u); // 누른 순간에 바로 (휴대폰은 기다렸다 말하면 소리가 안 남)
   } catch { /* 소리를 못 내는 환경 */ }
 }
 const stopSpeak = () => { try { synth?.cancel(); } catch { /* 무시 */ } };
