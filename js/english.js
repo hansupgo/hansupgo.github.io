@@ -8,6 +8,7 @@ import { store } from './store.js';
 import { monsterSVG, josa } from './monsters.js';
 import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS } from './vocab.js';
 import { track } from './quests.js';
+import { inAppName, openExternal, externalHint, isIOS } from './browser.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -54,6 +55,8 @@ function pickVoice() {
 if (synth) { pickVoice(); synth.addEventListener?.('voiceschanged', pickVoice); }
 
 let speakId = 0;
+let heardOnce = false;   // 한 번이라도 소리가 실제로 시작됐는지
+let warnedNoSound = false;
 /** 영어로 말하기. 끝나면 resolve (음성이 없거나 막혀도 글 길이만큼 기다렸다가 넘어감) */
 function speak(text, { pitch = 1.3, onWord } = {}) {
   const set = eng().settings;
@@ -76,6 +79,7 @@ function speak(text, { pitch = 1.3, onWord } = {}) {
         u.pitch = Math.min(1.1, Math.max(0.9, pitch));
         u.volume = 1;
         u.onend = finish;
+        u.onstart = () => { heardOnce = true; };
         u.onboundary = (e) => { if (id === speakId && e.name !== 'sentence') onWord?.(e.charIndex); };
         return u;
       };
@@ -87,9 +91,35 @@ function speak(text, { pitch = 1.3, onWord } = {}) {
       };
       // 휴대폰은 누른 순간에 바로 말해야 소리가 나므로 기다리지 않고 바로 말함
       synth.speak(u);
+      // 3초가 지나도 소리가 시작되지 않으면 (이 브라우저에서 음성이 막힘) 안내
+      setTimeout(() => { if (!heardOnce && id === speakId) noSound(); }, 3000);
     } catch { finish(); }
     setTimeout(finish, guess + 1500); // onend가 안 오는 기기 대비
   });
+}
+
+/** 소리가 안 날 때 도움말 (대화 중 한 번만) */
+function soundHelpHtml() {
+  const app = inAppName();
+  return `<div class="sound-help"><b>🔇 소리가 안 나나요?</b>
+    <ul>${app ? `<li><b>${esc(app)} 안에서 열면</b> 영어 소리가 안 나요. 아래 버튼이나 ${esc(externalHint())}로 열어 주세요.</li>` : ''}
+      ${!synth ? '<li>이 브라우저는 음성 기능이 없어요. <b>크롬</b>이나 <b>사파리</b>로 열어 주세요.</li>' : ''}
+      ${isIOS ? '<li>아이폰 옆 <b>무음 스위치</b>를 켜 두면 소리가 안 나요. 스위치를 올리고 소리를 키워 주세요.</li>' : '<li>휴대폰 <b>무음·진동 모드</b>를 끄고 미디어 소리를 키워 주세요.</li>'}
+      <li>위쪽 <b>🔊</b> 버튼이 켜져 있는지, <b>🗣️ 목소리</b>에서 다른 목소리를 골라 보세요.</li></ul>
+    ${app || !synth ? '<button class="btn primary sound-open" type="button">🌐 크롬/사파리로 열기</button><small class="muted">기록은 브라우저마다 따로 저장돼요.</small>' : ''}</div>`;
+}
+function bindSoundHelp(box) {
+  box.querySelector('.sound-open')?.addEventListener('click', () => { if (!openExternal()) ctx?.toast?.(`${externalHint()}를 눌러 주세요.`, 4000); });
+}
+function noSound() {
+  if (warnedNoSound || $('talk').hidden) return;
+  warnedNoSound = true;
+  const box = document.createElement('div');
+  box.innerHTML = soundHelpHtml();
+  const log = $('talk-chat').hidden ? $('talk-menu') : $('talk-log');
+  log.appendChild(box);
+  bindSoundHelp(box);
+  if (log === $('talk-log')) scrollLog();
 }
 
 function stopSpeak() {
@@ -337,7 +367,8 @@ function showMenu() {
   $('talk-title').textContent = '영어로 이야기하기';
   const rec = recommended();
   const l2 = level2Open(ctx.stage);
-  $('talk-menu').innerHTML = `
+  const soundTrouble = inAppName() || !synth;
+  $('talk-menu').innerHTML = `${soundTrouble ? soundHelpHtml() : ''}
     <div class="talk-hello">${monsterSVG(ctx.sp, { size: 72 })}
       <p><b lang="en">Hi! Let's talk in English!</b><br><span class="muted">영어로 이야기하자! 하루 3번까지 짝꿍이 쑥쑥 자라.</span></p></div>
     <button class="talk-rec" data-id="${rec.id}" type="button"><span class="talk-ico">${rec.icon}</span>
@@ -358,6 +389,7 @@ function showMenu() {
   $('talk-book-btn').addEventListener('click', showBook);
   $('talk-words-btn').addEventListener('click', showWords);
   $('talk-voice-btn').addEventListener('click', showVoices);
+  if (soundTrouble) bindSoundHelp($('talk-menu'));
   $('talk-quiz-btn').addEventListener('click', () => startQuiz(5));
 }
 
@@ -391,6 +423,7 @@ function showVoices() {
   const list = englishVoices().slice(0, 10);
   const cur = voice?.name;
   $('talk-book').innerHTML = `<button id="book-back" class="link-btn" type="button">‹ 대화 고르기</button>
+    <button id="sound-test" class="btn primary" type="button">🔊 소리 시험하기</button> <span id="sound-result" class="muted"></span>
     <p class="w-lead">소리가 지지직거리거나 딱딱하면 다른 목소리를 골라 보세요. 이름에 <b>Natural · Enhanced · Premium · Google</b>이 들어간 목소리가 보통 가장 깨끗해요.</p>
     ${list.length ? `<ul class="voice-list">${list.map((v, i) => `<li class="${v.name === cur ? 'on' : ''}">
       <span><b>${esc(v.name)}</b><br><small>${esc(v.lang)}${v.localService ? ' · 휴대폰 안' : ' · 인터넷'}${i === 0 ? ' · 추천' : ''}</small></span>
@@ -402,6 +435,21 @@ function showVoices() {
       · <b>갤럭시</b>: 설정 → 일반 → 텍스트 음성 변환 → <b>Google 음성 인식 및 합성</b>을 고르고, 영어(미국) 고음질 음성을 내려받아요.<br>
       · 휴대폰 소리를 너무 크게 하면 스피커에서 지지직거릴 수 있어요. 이어폰으로 들으면 훨씬 깨끗해요.</div>`;
   $('book-back').addEventListener('click', showMenu);
+  $('sound-test').addEventListener('click', () => {
+    const before = heardOnce;
+    heardOnce = false;
+    $('sound-result').textContent = '들리나요?';
+    speak('Hello! Can you hear me?', { pitch: 1.0 });
+    setTimeout(() => {
+      if (heardOnce) { $('sound-result').textContent = '✅ 소리를 냈어요. 안 들리면 무음 모드와 소리 크기를 확인해 주세요.'; return; }
+      heardOnce = before;
+      $('sound-result').textContent = '';
+      const box = document.createElement('div');
+      box.innerHTML = soundHelpHtml();
+      $('sound-test').after(box);
+      bindSoundHelp(box);
+    }, 2500);
+  });
   for (const b of $('talk-book').querySelectorAll('[data-try]')) b.addEventListener('click', () => { const keep = voice; voice = list[+b.dataset.try]; speak('Hi! Let\'s talk in English. Good job!', { pitch: 1.0 }).then(() => { voice = keep; }); });
   for (const b of $('talk-book').querySelectorAll('[data-use]')) b.addEventListener('click', () => {
     const v = list[+b.dataset.use];
@@ -553,6 +601,7 @@ function renderTools() {
 /** 대화 창 열기 */
 export function openTalk(options) {
   ctx = options;
+  warnedNoSound = false;
   eng();
   renderTools();
   $('talk').hidden = false;

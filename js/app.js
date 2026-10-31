@@ -12,6 +12,7 @@ import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText 
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
+import { inAppName, openExternal, externalHint } from './browser.js';
 import { initChurchUI, openChurch } from './church.js';
 import { initParentUI, walkedStep } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
@@ -788,6 +789,20 @@ function bindOnboarding() {
 function begin() {
   if (store.state.demo) setDemo(true);
   else startGps();
+  inAppNotice();
+}
+
+// 카카오톡 같은 앱 안에서 열면 소리·위치가 잘 안 돼서 크롬/사파리로 열기를 권함
+function inAppNotice() {
+  const app = inAppName();
+  if (!app || sessionStorage.getItem('hansupgo.inapp')) return;
+  const bar = document.createElement('div');
+  bar.className = 'inapp-bar';
+  bar.innerHTML = `<span>📱 ${esc(app)} 안에서 열었어요. 영어 소리·위치가 잘 되려면 크롬/사파리로 열어 주세요.</span>
+    <button class="btn primary" type="button" data-open>열기</button><button class="inapp-x" type="button" aria-label="닫기">✕</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('[data-open]').addEventListener('click', () => { if (!openExternal()) toast(`${externalHint()}를 눌러 주세요.`, 4000); });
+  bar.querySelector('.inapp-x').addEventListener('click', () => { bar.remove(); try { sessionStorage.setItem('hansupgo.inapp', '1'); } catch { /* 무시 */ } });
 }
 
 // ---------- 시작 ----------

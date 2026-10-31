@@ -1084,3 +1084,14 @@ body.talking .tabs { display: none; }
 .voice-list small { color: var(--muted); }
 .tip-box { background: #fff8e1; border: 1px dashed #ffd23f; border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6; margin-top: 10px; }
 .msg .tip .ko { display: block; margin-top: 2px; }
+
+.sound-help { background: #fff3ef; border: 2px solid #ffb3a8; border-radius: 16px; padding: 10px 12px; margin: 6px 0; font-size: 14px; line-height: 1.55; }
+.sound-help ul { margin: 6px 0; padding-left: 18px; }
+.sound-help .btn { margin: 6px 0 2px; width: 100%; }
+.sound-help small { display: block; text-align: center; }
+
+.inapp-bar { position: fixed; left: 8px; right: 8px; top: calc(var(--hud-h) + var(--safe-t) + 8px); z-index: 1500; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center;
+  background: #fff3ef; border: 2px solid #ffb3a8; border-radius: 16px; padding: 8px 10px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.inapp-bar .btn { margin: 0; padding: 6px 12px; min-height: 36px; }
+.inapp-x { border: none; background: none; font-size: 16px; padding: 4px 6px; }
+body.talking .inapp-bar, body:has(.encounter:not([hidden])) .inapp-bar { display: none; }
