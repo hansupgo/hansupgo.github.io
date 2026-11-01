@@ -37,13 +37,11 @@
     <section id="panel-map" class="panel panel-map">
       <div id="map" aria-label="한숲시티 지도"></div>
       <div id="wx-layer" class="wx-layer" aria-hidden="true"></div>
-      <p id="gps-status" class="gps-status" role="status"></p>
-      <div class="demo-badge">산책 연습 모드 · 지도를 누르면 걸어가요</div>
       <div id="walk-banner" class="walk-banner" hidden></div>
       <div class="map-btns">
         <button id="btn-quest" class="round-btn quest-btn" type="button" title="오늘의 할 일 · 계절 행사" aria-label="오늘의 할 일과 계절 행사">📋<span id="quest-badge" class="quest-badge" hidden>0</span></button>
         <button id="btn-home" class="round-btn" type="button" title="한숲시티로 이동" aria-label="한숲시티로 이동">⌂</button>
-        <button id="btn-center" class="round-btn" type="button" title="내 위치로" aria-label="내 위치로" hidden>◎</button>
+        <button id="btn-center" class="round-btn" type="button" title="나에게로" aria-label="내 자리로 돌아가기" hidden>◎</button>
       </div>
       <div class="nearby-wrap">
         <div class="nearby-title">근처에 있어요</div>
@@ -170,7 +168,6 @@
           <button class="btn primary" type="submit">저장</button>
         </form>
         <p id="set-share" class="muted"></p>
-        <label class="toggle"><input id="set-demo" type="checkbox" /> 산책 연습 모드 <small>(집에서 지도를 눌러 이동하며 연습)</small></label>
         <div class="gfx-set">
           <label for="set-gfx">3D 화질</label>
           <select id="set-gfx"></select>
@@ -245,16 +242,14 @@
     <form id="onboard-form" class="modal-card">
       <div class="ob-hero" aria-hidden="true"></div>
       <h1>한숲GO</h1>
-      <p class="ob-lead">한숲시티와 남곡초 주변을 걸으며 몬스터, 곤충, 동물, 물고기를 모아 보세요!</p>
+      <p class="ob-lead">지도를 눌러 한숲시티와 남곡초 주변을 산책하며 몬스터, 곤충, 동물, 물고기를 모아 보세요!</p>
       <label for="ob-name">닉네임</label>
       <input id="ob-name" maxlength="12" placeholder="예: 숲탐험대장" autocomplete="nickname" required />
       <label for="ob-group">친구 코드 <small>(선택)</small></label>
       <input id="ob-group" maxlength="20" placeholder="친구끼리 같은 코드를 입력" autocapitalize="characters" />
       <span class="label">내 색</span>
       <div id="ob-colors" class="colors"></div>
-      <p class="ob-safe">걸을 때는 주위를 살피고, 길을 건널 때는 휴대폰을 보지 마세요.</p>
-      <button class="btn primary" type="submit">GPS로 시작하기</button>
-      <button id="ob-demo" class="btn ghost" type="button">집에서 연습하기 (산책 연습 모드)</button>
+      <button class="btn primary" type="submit">시작하기</button>
     </form>
   </section>
 

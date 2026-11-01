@@ -523,6 +523,7 @@ export function buddyWalked(m) {
   const r = addWalk(m);
   if (!r) return;
   if (r.evolved != null) { showEvolve(r.evolved); return; }
+  if (r.capped) { toastFn(`${displayName()}: "오늘 1km나 걸었어! 오늘 산책 성장은 여기까지, 내일 또 걷자!"`, 3500); return; }
   if (r.milestone) {
     toastFn(`${displayName()}: "${pick(['같이 걸으니까 좋다!', '우리 벌써 이만큼 왔어!', '조금만 더 걸어 볼까?'])}"`);
   }

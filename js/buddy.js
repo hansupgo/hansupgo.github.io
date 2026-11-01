@@ -228,19 +228,22 @@ export function rename(nick) {
   store.save();
 }
 
-/** 걸은 거리 반영 (m). 10m마다 성장 1점 */
+export const WALK_GROW_MAX = 1000; // 하루에 걸어서 자라는 건 1km까지 (그 뒤엔 기분만 좋아짐)
+
+/** 걸은 거리 반영 (m). 10m마다 성장 1점, 하루 1km까지 */
 export function addWalk(m) {
   const b = buddy();
   if (!b || !(m > 0)) return null;
   if (b.day !== today()) { b.day = today(); b.todayM = 0; }
-  const before = Math.floor(b.walkedM / 10);
+  const growBefore = Math.min(b.todayM, WALK_GROW_MAX);
   b.walkedM += m;
   b.todayM += m;
-  const pts = Math.floor(b.walkedM / 10) - before;
+  const pts = Math.floor(Math.min(b.todayM, WALK_GROW_MAX) / 10) - Math.floor(growBefore / 10);
   const evolved = pts > 0 ? grow(pts) : null;
   if (!b.sleeping) b.mood = clamp(b.mood + m * 0.02);
   store.save();
-  return { evolved, milestone: Math.floor((b.todayM - m) / 200) < Math.floor(b.todayM / 200) };
+  const capped = growBefore < WALK_GROW_MAX && b.todayM >= WALK_GROW_MAX;
+  return { evolved, capped, milestone: Math.floor((b.todayM - m) / 200) < Math.floor(b.todayM / 200) };
 }
 
 // ---------- 말하기 (반말) ----------
