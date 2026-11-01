@@ -1,17 +1,17 @@
-// 보호자 화면: 쉬는 시간 안내, 걸을 때 앞 보기 알림, 보호자 설정, 이번 주 리포트
+// 보호자 화면: 쉬는 시간 안내, 보호자 설정, 이번 주 리포트
 
 import { store } from './store.js';
 import { speciesById, monsterSVG } from './monsters.js';
 import { STAGES, buddy, buddySpecies, displayName, stageIndex } from './buddy.js';
 import {
   settings, setSetting, restReason, allowMore, tickPlay, hasPin, setPin, checkPin,
-  zones, addZone, removeZone, onMove, isStill, snoozeLookUp, week, today,
+  week, today,
 } from './parent.js';
 import { weekWords, accuracy } from './vocab.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let cb = { toast: () => {}, center: () => null, me: () => null, onZones: () => {}, onboarded: () => true };
+let cb = { toast: () => {}, onboarded: () => true };
 let unlocked = false;
 
 const LIMITS = [[0, '제한 없음'], [30, '30분'], [60, '1시간'], [90, '1시간 30분'], [120, '2시간']];
@@ -56,18 +56,6 @@ function bindRest() {
   });
 }
 
-// ---------- 걸을 때 앞 보기 ----------
-
-/** app.js의 걸음 계산에서 부름 */
-export function walkedStep() {
-  if (onMove()) $('lookup').hidden = false;
-}
-
-function bindLookUp() {
-  $('lookup-ok').addEventListener('click', () => { snoozeLookUp(); $('lookup').hidden = true; });
-  setInterval(() => { if (!$('lookup').hidden && isStill()) $('lookup').hidden = true; }, 3000);
-}
-
 // ---------- 보호자 설정 ----------
 
 function renderParent() {
@@ -109,25 +97,9 @@ function renderParent() {
     <p class="muted small">오늘 논 시간: ${fmtMin(today().play)} · 다 쓰면 "오늘은 여기까지" 화면이 나와요.</p>
     <div class="par-row"><label for="par-bed">🌙 잠잘 시간</label><select id="par-bed">${opt(BEDS, p.bed)}</select></div>
     <p class="muted small">정한 시각부터 아침 6시까지 쉬어요.</p>
-    <h4>🚧 캐릭터가 안 나오는 곳</h4>
-    <p class="muted small">큰길, 주차장 입구처럼 아이가 멈춰 서면 위험한 곳을 정해 주세요. 반경 60m 안에는 캐릭터와 재료가 나오지 않아요.</p>
-    <ul class="zone-list">${zones().map((z, i) => `<li><span>🚧 ${esc(z.name)}</span><button class="link-btn" data-zone="${i}" type="button">지우기</button></li>`).join('') || '<li class="muted">아직 없어요.</li>'}</ul>
-    <div class="row zone-add"><input id="zone-name" maxlength="16" placeholder="이름 (예: 정문 앞 큰길)" />
-      <button id="zone-center" class="btn ghost" type="button">지도 가운데 추가</button><button id="zone-me" class="btn ghost" type="button">내 위치 추가</button></div>
-    <p class="muted small">지도 가운데 추가: 지도 탭에서 피할 곳을 화면 가운데에 맞춘 뒤 여기서 눌러요.</p>
     <button id="pin-change" class="link-btn" type="button">비밀번호 바꾸기</button>`;
   $('par-limit').addEventListener('change', (e) => { setSetting('limit', +e.target.value); cb.toast(`하루 놀이 시간: ${e.target.selectedOptions[0].textContent}`); renderParent(); });
   $('par-bed').addEventListener('change', (e) => { setSetting('bed', +e.target.value); cb.toast(`잠잘 시간: ${e.target.selectedOptions[0].textContent}`); });
-  const add = (pos) => {
-    if (!pos) { cb.toast('위치를 아직 몰라요. 잠시 뒤 다시 해 보세요.'); return; }
-    addZone(pos, $('zone-name').value.trim());
-    cb.onZones();
-    cb.toast('🚧 피할 곳을 추가했어요.');
-    renderParent();
-  };
-  $('zone-center').addEventListener('click', () => add(cb.center()));
-  $('zone-me').addEventListener('click', () => add(cb.me()));
-  for (const b of body.querySelectorAll('[data-zone]')) b.addEventListener('click', () => { removeZone(+b.dataset.zone); cb.onZones(); renderParent(); });
   $('pin-change').addEventListener('click', () => { setSetting('pin', ''); unlocked = false; renderParent(); });
 }
 
@@ -199,7 +171,6 @@ export function openParent() { unlocked = false; renderParent(); $('parent-sheet
 export function initParentUI(callbacks) {
   cb = { ...cb, ...callbacks };
   bindRest();
-  bindLookUp();
   $('btn-report').addEventListener('click', openReport);
   $('btn-parent').addEventListener('click', openParent);
   for (const id of ['report-sheet', 'parent-sheet']) {

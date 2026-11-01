@@ -914,11 +914,6 @@ body.talking .tabs { display: none; }
 .par-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .par-row label { font-weight: 700; }
 .par-row select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid #cfd8c8; background: #fff; }
-.zone-list { list-style: none; padding: 0; margin: 6px 0; }
-.zone-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #e3e3e3; }
-.zone-add { display: flex; gap: 6px; flex-wrap: wrap; }
-.zone-add input { flex: 1 1 100%; padding: 8px; border-radius: 10px; border: 1px solid #cfd8c8; font: inherit; }
-.zone-add .btn { margin: 0; flex: 1; }
 .rp-range { color: var(--muted); margin: 0 0 10px; }
 .rp-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .rp-tiles div { background: #f6f8f2; border-radius: 14px; padding: 10px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
@@ -934,20 +929,14 @@ body.talking .tabs { display: none; }
 .rp-phr { padding-left: 18px; margin: 4px 0; }
 .rp-phr li { margin: 3px 0; }
 #report-copy { width: 100%; margin-top: 12px; }
-.rest, .lookup { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.rest[hidden], .lookup[hidden] { display: none; }
+.rest { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.rest[hidden] { display: none; }
 .rest { background: linear-gradient(180deg, #2a3466 0%, #4a4f8f 100%); }
 .rest-card { max-width: 360px; width: 100%; background: #fffdf6; border-radius: 28px; padding: 24px 20px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
 .rest-art { font-size: 64px; display: flex; justify-content: center; }
 .rest-art svg { animation: bob 2.4s ease-in-out infinite; }
 .rest-card h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 8px 0; }
 .rest-card p { margin: 6px 0 14px; line-height: 1.5; }
-.lookup { background: rgba(255, 196, 0, .92); }
-.lookup-card { text-align: center; max-width: 340px; }
-.lookup-ico { font-size: 72px; animation: bob 1.2s ease-in-out infinite; }
-.lookup-card h2 { font-family: var(--display); font-weight: 400; font-size: 40px; margin: 6px 0; color: #3b2f00; }
-.lookup-card p { font-size: 18px; color: #3b2f00; margin: 0 0 18px; }
-.lookup-card .btn { font-size: 20px; padding: 14px 28px; }
 
 /* ---------- 단어 카드 · 짝꿍 퀴즈 ---------- */
 .talk-learn { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
