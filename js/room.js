@@ -137,6 +137,23 @@ export function placedCount(id) {
 
 export const spare = (id) => owned(id) - placedCount(id);
 
+// 탈것: 만들면 지도에서 더 빨리 다녀요 (🚲 버튼으로 타고 내림)
+export const VEHICLES = [
+  { id: 'bike', name: '숲길 자전거', icon: '🚲', cost: { twig: 8, pebble: 5, shell: 2, star: 2 }, speed: 2 },
+];
+export const vehicleById = Object.fromEntries(VEHICLES.map(v => [v.id, v]));
+export const hasVehicle = (id) => Boolean(st().vehicles?.[id]);
+
+export function craftVehicle(id) {
+  const v = vehicleById[id];
+  if (!v || hasVehicle(id) || !canAfford(v.cost)) return false;
+  pay(v.cost);
+  st().vehicles = { ...(st().vehicles || {}), [id]: Date.now() };
+  store.save();
+  track('craft', { id });
+  return true;
+}
+
 /** 행사 가구는 그 계절에만 만들 수 있음 (이미 만든 건 목록에 계속 보임) */
 export function craftable(f, now = new Date()) {
   return !f.event || f.event === currentEvent(now).id;

@@ -224,7 +224,7 @@ const SPECIES_WORDS = {
 };
 // 만든 가구 · 거둔 작물 · 재료 → 낱말
 const THING_WORDS = {
-  cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
+  bike: ['bike'], cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
   bed: ['bed', 'mushroom'], rug: ['flower'], frame: ['picture'], window: ['window'], garland: ['star', 'light'], mobile: ['shell'],
   sunpot: ['sunflower'], lotuslamp: ['flower', 'light'], pumpkinlamp: ['pumpkin', 'light'], snowman: ['snow'], chime: ['rain', 'bell'],
   friendframe: ['friend', 'picture'], blossomtree: ['tree', 'flower'], firejar: ['light', 'bug'], acornlamp: ['acorn', 'light'],

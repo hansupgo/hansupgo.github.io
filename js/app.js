@@ -10,7 +10,7 @@ import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
 import { TOWN, REVEAL, visitedCells, cellCenter, metersPerLng, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
 import { sayEnglish } from './english.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
-import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
+import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText, vehicleById, hasVehicle, costText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
@@ -543,7 +543,7 @@ function useStop(stop) {
 }
 
 // ---------- 이동: 지도를 누르면 그쪽으로 걸어감 ----------
-const WALK_SPEED = 15;  // m/초 (게임 속 빠른 걸음)
+const WALK_SPEED = 15;  // m/초 (게임 속 빠른 걸음), 자전거를 타면 2배
 const WALK_TICK = 100;  // ms
 let walkTimer = null;
 let walkSaveAt = 0;
@@ -553,6 +553,28 @@ const BOUNDS = L.latLngBounds([[TOWN.s, TOWN.w], [TOWN.n, TOWN.e]]);
 function clampToTown(lat, lng) {
   const sw = BOUNDS.getSouthWest(); const ne = BOUNDS.getNorthEast();
   return [Math.min(ne.lat, Math.max(sw.lat, lat)), Math.min(ne.lng, Math.max(sw.lng, lng))];
+}
+
+// 🚲 자전거: 만들었으면 지도 버튼으로 타고 내림
+const riding = () => Boolean(store.state.riding) && hasVehicle('bike');
+const speedUp = () => (riding() ? vehicleById.bike.speed : 1);
+function renderBike() {
+  const b = $('btn-bike');
+  b.classList.toggle('on', riding());
+  b.classList.toggle('locked', !hasVehicle('bike'));
+  b.setAttribute('aria-pressed', riding() ? 'true' : 'false');
+  meMarker?.getElement()?.classList.toggle('riding', riding());
+}
+function toggleBike() {
+  const v = vehicleById.bike;
+  if (!hasVehicle('bike')) {
+    toast(`🚲 ${v.name}가 아직 없어요. 재료(${costText(v.cost)})를 모아 짝꿍 탭 → 가구 만들기에서 만들어요!`, 4500);
+    return;
+  }
+  store.state.riding = !riding();
+  store.save();
+  renderBike();
+  toast(riding() ? `🚲 자전거를 탔어요! ${v.speed}배 빨리 달려요.` : '🚶 자전거에서 내렸어요. 천천히 걸어요.');
 }
 
 function setWalking(on) {
@@ -577,7 +599,7 @@ function walkTo(lat, lng, arrive) {
   if (!goalMarker) goalMarker = L.marker([lat, lng], { interactive: false, zIndexOffset: 800, icon: L.divIcon({ className: 'goal-icon', html: '<div class="goal-dot"></div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(map);
   else goalMarker.setLatLng([lat, lng]);
   setWalking(true);
-  const step = WALK_SPEED * WALK_TICK / 1000;
+  const step = WALK_SPEED * speedUp() * WALK_TICK / 1000;
   walkTimer = setInterval(() => {
     if (encounterActive()) return; // 잡기 화면이 열리면 잠깐 멈춤
     const d = distanceM(me, { lat, lng });
@@ -609,6 +631,7 @@ function placeMe() {
   const ok = p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && BOUNDS.contains([p.lat, p.lng]);
   updateMe(ok ? p.lat : CONFIG.home.lat, ok ? p.lng : CONFIG.home.lng);
   map.setView([me.lat, me.lng], Math.max(map.getZoom(), 17));
+  renderBike();
 }
 
 // ---------- 탭 ----------
@@ -931,6 +954,9 @@ async function main() {
     map.setView([CONFIG.home.lat, CONFIG.home.lng], CONFIG.home.zoom);
   });
   $('btn-explore').addEventListener('click', openExplore);
+  $('btn-bike').addEventListener('click', toggleBike);
+  store.onChange(renderBike);
+  renderBike();
   for (const id of ['sp-sheet', 'coord-sheet', 'explore-sheet']) {
     $(id).addEventListener('click', (e) => {
       if (e.target.id === id || e.target.closest('.sheet-close')) {
