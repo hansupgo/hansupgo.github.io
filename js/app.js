@@ -291,23 +291,31 @@ function renderXmas() {
 
 // ---------- 🗺️ 탐험 지도 (안개) ----------
 let fogLayer = null;
-let fogDirty = true;
-let fogAt = 0;
+let fogTimer = null;
+let fogCanvas = null;
+const fogDrawn = new Set(); // 이미 밝혀 그린 칸 (새로 밝힌 칸만 더 그림)
 const FOG_BOUNDS = [[TOWN.s - (TOWN.n - TOWN.s) * 0.4, TOWN.w - (TOWN.e - TOWN.w) * 0.4], [TOWN.n + (TOWN.n - TOWN.s) * 0.4, TOWN.e + (TOWN.e - TOWN.w) * 0.4]];
 
 function drawFog() {
+  fogTimer = null;
   const [[s, w], [n, e]] = FOG_BOUNDS;
   const W = 520;
   const H = Math.round(W * ((n - s) * 111320) / ((e - w) * metersPerLng));
-  const pxPerM = W / ((e - w) * metersPerLng);
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  g.fillStyle = 'rgba(232, 238, 228, 0.66)';
-  g.fillRect(0, 0, W, H);
+  if (!fogCanvas) {
+    fogCanvas = document.createElement('canvas');
+    fogCanvas.width = W; fogCanvas.height = H;
+    const g0 = fogCanvas.getContext('2d');
+    g0.fillStyle = 'rgba(232, 238, 228, 0.66)';
+    g0.fillRect(0, 0, W, H);
+  }
+  const g = fogCanvas.getContext('2d');
   g.globalCompositeOperation = 'destination-out';
-  const r = REVEAL * pxPerM * 1.25;
+  const r = REVEAL * (W / ((e - w) * metersPerLng)) * 1.25;
+  let drew = 0;
   for (const k of visitedCells()) {
+    if (fogDrawn.has(k)) continue;
+    fogDrawn.add(k);
+    drew++;
     const [i, j] = k.split('_').map(Number);
     const p = cellCenter(i, j);
     const x = ((p.lng - w) / (e - w)) * W;
@@ -318,20 +326,20 @@ function drawFog() {
     g.fillStyle = grad;
     g.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  const url = c.toDataURL('image/png');
+  if (!drew && fogLayer) return;
+  const url = fogCanvas.toDataURL('image/png');
   if (!fogLayer) fogLayer = L.imageOverlay(url, FOG_BOUNDS, { interactive: false, className: 'fog-layer' }).addTo(map);
   else fogLayer.setUrl(url);
-  fogDirty = false;
-  fogAt = Date.now();
 }
+/** 새로 밝힌 곳이 있으면 잠깐 모았다가 한 번에 그림 (걷기를 멈춰도 마지막 칸까지 그려짐) */
+function queueFog() { if (!fogTimer) fogTimer = setTimeout(drawFog, 500); }
 
 let lastWarmth = -1;
 let treasureMarker = null;
 
 function exploreStep() {
   const r = reveal(me);
-  if (r.fresh) fogDirty = true;
-  if (fogDirty && Date.now() - fogAt > 600) drawFog();
+  if (r.fresh || !fogLayer) queueFog();
   for (const a of r.completed) {
     setTimeout(() => toast(`🗺️ ${a.name} 둘레를 다 돌았어요! 숲볼 ${areaReward.balls}개, ${matText(areaReward.mats)}를 받았어요.${r.allDone ? ' 🏅 동네 탐험 대장!' : ''}`, 4500), 400);
     renderHud();

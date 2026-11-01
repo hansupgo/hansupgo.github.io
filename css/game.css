@@ -1150,3 +1150,9 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .church.xmas .ch-hall { background: linear-gradient(180deg, #2a3466, #4a4f8f); }
 .ch-step.xmas { border-color: #e8a0a0; background: #fff6f6; }
 @media (prefers-reduced-motion: reduce) { .xmas-tree, .adv-door.today { animation: none; } }
+
+/* 지도 높이가 낮은 화면(가로 모드 등): 지도 버튼 다섯 개를 위쪽에 가로로 */
+@media (max-height: 560px) {
+  .map-btns { flex-direction: row; top: 10px; bottom: auto; }
+  .round-btn { width: 42px; height: 42px; font-size: 19px; }
+}

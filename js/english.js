@@ -466,6 +466,7 @@ function showVoices() {
 
 function hideViews() {
   for (const id of ['talk-menu', 'talk-book', 'talk-chat', 'talk-words', 'talk-quiz']) $(id).hidden = true;
+  $('talk-step').textContent = ''; // 대화 몇 번째인지는 대화 화면에서만
 }
 
 // ---------- 🔤 단어 카드 ----------
