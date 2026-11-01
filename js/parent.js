@@ -1,10 +1,10 @@
 // 보호자 안심 기능 + 성장 리포트
 // - 날마다 걸은 거리, 잡은 친구, 영어 대화, 놀이 시간을 기록해 이번 주 리포트로 보여 줘요.
-// - 보호자 비밀번호(4자리)로 잠근 설정: 하루 놀이 시간, 잠잘 시간, 걸을 때 앞 보기 알림, 캐릭터가 안 나오는 곳.
+// - 보호자 비밀번호(4자리)로 잠근 설정: 하루 놀이 시간, 잠잘 시간.
 // 기록과 설정은 이 휴대폰에만 저장돼요 (친구에게 공유되지 않음).
 
 import { store } from './store.js';
-import { hashString, distanceM } from './spawn.js';
+import { hashString } from './spawn.js';
 
 const KEEP_DAYS = 14;
 const MORNING = 6; // 잠잘 시간은 아침 6시까지
@@ -15,7 +15,9 @@ export function dayKey(d = new Date()) {
 
 function P() {
   const s = store.state;
-  s.parent = { pin: '', limit: 0, bed: 0, lookUp: true, zones: [], extra: { day: '', min: 0, bedDay: '' }, ...(s.parent || {}) };
+  s.parent = { pin: '', limit: 0, bed: 0, extra: { day: '', min: 0, bedDay: '' }, ...(s.parent || {}) };
+  delete s.parent.zones; // 예전 '캐릭터가 안 나오는 곳'·'앞을 봐요' 설정은 이제 없음 (화면에서 산책)
+  delete s.parent.lookUp;
   return s.parent;
 }
 
@@ -124,32 +126,3 @@ export function setPin(pin) {
 }
 export const checkPin = (pin) => hasPin() && P().pin === hashPin(pin);
 
-// ---------- 캐릭터가 안 나오는 곳 (큰길, 주차장 입구 등) ----------
-
-export const ZONE_R = 60;
-export const zones = () => P().zones;
-export function addZone(pos, name) {
-  P().zones.push({ lat: +pos.lat.toFixed(6), lng: +pos.lng.toFixed(6), r: ZONE_R, name: (name || '').slice(0, 16) || `피할 곳 ${P().zones.length + 1}` });
-  store.save();
-}
-export function removeZone(i) { P().zones.splice(i, 1); store.save(); }
-export const inNoZone = (pos) => P().zones.some(z => distanceM(pos, z) <= z.r);
-
-// ---------- 걸을 때 앞 보기 ----------
-
-const LOOK_AFTER = 40000;  // 40초 넘게 걸으며 화면을 보면
-const STILL_RESET = 15000; // 15초 멈추면 처음부터
-const SNOOZE = 120000;     // 확인하면 2분 동안 다시 안 띄움
-let movingSince = 0;
-let lastMove = 0;
-let snoozeUntil = 0;
-
-/** 걸음이 확인될 때마다 부름. 앞 보기 알림을 띄울 때면 true */
-export function onMove(now = Date.now()) {
-  if (!P().lookUp) return false;
-  if (!movingSince || now - lastMove > STILL_RESET) movingSince = now;
-  lastMove = now;
-  return now - movingSince >= LOOK_AFTER && now >= snoozeUntil && document.visibilityState === 'visible';
-}
-export function isStill(now = Date.now()) { return now - lastMove > STILL_RESET; }
-export function snoozeLookUp(now = Date.now()) { snoozeUntil = now + SNOOZE; movingSince = 0; }

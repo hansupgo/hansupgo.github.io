@@ -15,7 +15,6 @@ import { initQuestUI } from './quests-ui.js';
 import { inAppName, openExternal, externalHint } from './browser.js';
 import { initChurchUI, openChurch } from './church.js';
 import { initParentUI } from './parent-ui.js';
-import { inNoZone, zones } from './parent.js';
 import { onNewWord } from './vocab.js';
 import { isBad, BAD_NAME_MSG } from './safety.js';
 import { track, todayKey as questDay } from './quests.js';
@@ -283,7 +282,7 @@ function refreshWorld() {
   if (!me || encounterActive()) return;
   const now = Date.now();
   const list = spawnsAround(me, CONFIG.visibleRadius, now)
-    .filter(s => !store.state.caughtSpawns[s.id] && !inNoZone(s)); // 보호자가 정한 '피할 곳'엔 안 나옴
+    .filter(s => !store.state.caughtSpawns[s.id]);
   const keep = new Set();
   for (const s of list) {
     keep.add(s.id);
@@ -311,19 +310,10 @@ function refreshWorld() {
   renderNearby(list);
 }
 
-// 보호자가 정한 '캐릭터가 안 나오는 곳' 표시
-let zoneLayers = [];
-function drawZones() {
-  for (const l of zoneLayers) map.removeLayer(l);
-  zoneLayers = zones().map(z => L.circle([z.lat, z.lng], { radius: z.r, color: '#e8534a', weight: 2, dashArray: '6 6', fillColor: '#e8534a', fillOpacity: 0.08, interactive: false })
-    .bindTooltip(`🚧 ${z.name}`, { permanent: false }).addTo(map));
-}
-
 // 동네에 떨어진 재료
 function refreshMaterials() {
   const keep = new Set();
   for (const m of materialsAround(me)) {
-    if (inNoZone(m)) continue;
     keep.add(m.id);
     const near = distanceM(me, m) <= CONFIG.catchRadius;
     const existing = matMarkers.get(m.id);
@@ -810,12 +800,8 @@ async function main() {
   onNewWord((fresh) => setTimeout(() => toast(`🔤 새 단어 카드! ${fresh.map(w => `${w.pic} ${w.en}(${w.ko})`).join(', ')}`, 2600), 2200));
   initParentUI({
     toast,
-    center: () => map.getCenter(),
-    me: () => me,
-    onZones: () => { drawZones(); refreshWorld(); },
     onboarded: () => Boolean(store.state.name),
   });
-  drawZones();
   bindSettings();
   bindOnboarding();
   renderHud();
