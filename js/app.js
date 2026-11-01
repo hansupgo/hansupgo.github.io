@@ -9,11 +9,13 @@ import { loadThree, createViewer } from './stage3d.js';
 import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
 import { TOWN, REVEAL, visitedCells, cellCenter, metersPerLng, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
 import { sayEnglish } from './english.js';
+import { isXmas } from './christmas.js';
+import { initAdventUI, openAdvent } from './christmas-ui.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText, vehicleById, hasVehicle, costText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
-import { initQuestUI } from './quests-ui.js';
+import { initQuestUI, renderQuestBadge } from './quests-ui.js';
 import { inAppName, openExternal, externalHint } from './browser.js';
 import { initChurchUI, openChurch } from './church.js';
 import { initParentUI } from './parent-ui.js';
@@ -270,6 +272,21 @@ function checkZones() {
 function buddySays(kind, id) {
   const line = hasBuddy() && placeLine(kind, id);
   return line ? ` ${displayName()}: "${line[0]}" (${line[1]})` : '';
+}
+
+// ---------- 🎄 성탄절 (12월): 눈 덮인 지도 + 동네 가운데 큰 트리 (누르면 대림절 달력) ----------
+let xmasTree = null;
+const TREE = { lat: CONFIG.home.lat + 0.00045, lng: CONFIG.home.lng - 0.0002 }; // 처음 서는 자리와 안 겹치게 조금 위
+function renderXmas() {
+  const on = isXmas();
+  document.body.classList.toggle('xmas', on);
+  if (on && !xmasTree) {
+    xmasTree = L.marker([TREE.lat, TREE.lng], { zIndexOffset: 600, icon: L.divIcon({ className: 'xmas-tree-icon', html: '<div class="xmas-tree">🎄<span>대림절 달력</span></div>', iconSize: [90, 70], iconAnchor: [45, 50] }) })
+      .addTo(map).on('click', () => {
+        if (distanceM(me, TREE) > CONFIG.stopRadius) walkNear(TREE, CONFIG.stopRadius, openAdvent);
+        else openAdvent();
+      });
+  } else if (!on && xmasTree) { xmasTree.remove(); xmasTree = null; }
 }
 
 // ---------- 🗺️ 탐험 지도 (안개) ----------
@@ -954,6 +971,8 @@ async function main() {
     map.setView([CONFIG.home.lat, CONFIG.home.lng], CONFIG.home.zoom);
   });
   $('btn-explore').addEventListener('click', openExplore);
+  initAdventUI({ toast, onChange: () => { renderHud(); renderQuestBadge(); }, buddyName: () => (hasBuddy() ? displayName() : '') });
+  renderXmas();
   $('btn-bike').addEventListener('click', toggleBike);
   store.onChange(renderBike);
   renderBike();
@@ -972,7 +991,7 @@ async function main() {
 
   store.onChange(renderHud);
   remote.onChange(() => { if (document.body.dataset.tab === 'family') renderFamily(); });
-  setInterval(() => { renderHud(); refreshWorld(); }, 15000);
+  setInterval(() => { renderHud(); refreshWorld(); renderXmas(); }, 15000);
   $('hud-time').addEventListener('click', showWeatherTip);
   // 날씨가 바뀌면 나오는 친구와 재료도 바뀜
   let lastKind = weather().kind;

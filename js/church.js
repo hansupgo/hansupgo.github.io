@@ -3,10 +3,12 @@
 // - 복음 이야기: 하나님의 사랑 → 죄 → 예수님 → 다시 사심 → 믿음과 새 생명, 다섯 장면
 // - 말씀 카드: 교회에 올 때마다 그날 말씀이 카드로 모여요
 // - 출석 도장: 하루 한 번, 처음 오면 도장 + 작은 선물
+// - 🎄 성탄 이야기 (12월에만): 예수님 탄생 이야기 다섯 장면 (christmas.js)
 // 성경 본문은 저작권이 끝난 「개역한글」(대한성서공회, 1961)을 썼습니다.
 
 import { store } from './store.js';
 import { monsterSVG } from './monsters.js';
+import { isXmas, NATIVITY, daysToXmas } from './christmas.js';
 
 // [책 장:절, 본문(개역한글), 쉬운 풀이]
 const RAW = [
@@ -152,6 +154,13 @@ function render() {
         <b>${i + 1}. ${esc(g.title)}</b><p>${esc(g.body)}</p>
         <p class="ch-mini">"${esc(byRef[g.ref].text)}" <small>— ${esc(g.ref)}</small></p>
         <button class="link-btn ch-listen" type="button" data-say="${esc(g.title)}. ${esc(g.body)} ${esc(byRef[g.ref].text)}">🔊 듣기</button></div></div>`).join('')}`;
+  } else if (tab === 'xmas') {
+    const left = daysToXmas();
+    body.innerHTML = `<h3 class="ch-h">🎄 성탄 이야기</h3><p class="ch-lead">성탄절은 예수님이 태어나신 날을 기뻐하는 날이에요. ${left ? `성탄절까지 ${left}일 남았어요!` : '메리 크리스마스!'}</p>
+      ${NATIVITY.map((g, i) => `<div class="ch-step xmas"><span class="ch-step-ico">${g.icon}</span><div>
+        <b>${i + 1}. ${esc(g.title)}</b><p>${esc(g.body)}</p>
+        <p class="ch-mini">"${esc(g.text)}" <small>— ${esc(g.ref)}</small></p>
+        <button class="link-btn ch-listen" type="button" data-say="${esc(g.title)}. ${esc(g.body)} ${esc(g.text)}">🔊 듣기</button></div></div>`).join('')}`;
   } else if (tab === 'cards') {
     body.innerHTML = `<h3 class="ch-h">🃏 말씀 카드 <small>${cardCount()}/${VERSES.length}</small></h3>
       <p class="ch-lead">교회에 올 때마다 그날의 말씀 카드를 받아요. 날마다 다른 말씀이 기다려요!</p>
@@ -175,7 +184,10 @@ function bindListen() {
 
 export function openChurch(place) {
   const r = visit();
-  tab = 'today';
+  const xmas = isXmas();
+  document.querySelector('#church .ch-tab[data-tab=xmas]').hidden = !xmas;
+  $('church').classList.toggle('xmas', xmas);
+  tab = xmas ? 'xmas' : 'today';
   $('church-title').textContent = place?.name || '교회';
   $('church').hidden = false;
   document.body.classList.add('talking');

@@ -7,6 +7,8 @@ import {
   currentEvent, eventEndsAt, eventQuestGoal,
 } from './quests.js';
 import { speciesById } from './monsters.js';
+import { isXmas, unopened, daysToXmas, openedCount } from './christmas.js';
+import { openAdvent } from './christmas-ui.js';
 
 const $ = (id) => document.getElementById(id);
 let toastFn = () => {};
@@ -57,7 +59,12 @@ export function renderQuests() {
     </div>`;
   const tokens = store.state.materials?.[ev.token] || 0;
   const boosts = ev.boost.map(id => speciesById[id].name).join(' · ');
+  const un = isXmas() ? unopened() : 0;
+  const xmasCard = isXmas() ? `<div class="ev-card ev-xmas"><div class="ev-head"><span class="ev-ico">🎄</span>
+      <span><b>대림절 달력</b><br><small>${daysToXmas() ? `성탄절까지 ${daysToXmas()}일` : '메리 크리스마스!'} · 연 문 ${openedCount()}/25</small></span>
+      <button id="q-advent" class="btn primary" type="button">${un ? `문 열기 (${un})` : '보기'}</button></div></div>` : '';
   $('quest-body').innerHTML = `
+    ${xmasCard}
     <p class="q-lead">날마다 바뀌어요. 내일 또 새로운 할 일이 기다려요!</p>
     <div class="q-list">${rows}</div>
     ${bonus}
@@ -82,11 +89,12 @@ export function renderQuests() {
       renderQuests();
     });
   }
+  $('q-advent')?.addEventListener('click', () => { $('quest-sheet').hidden = true; openAdvent(); });
   renderQuestBadge();
 }
 
 export function renderQuestBadge() {
-  const n = claimable();
+  const n = claimable() + (isXmas() ? unopened() : 0);
   const badge = $('quest-badge');
   badge.textContent = n;
   badge.hidden = n === 0;

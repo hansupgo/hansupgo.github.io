@@ -59,6 +59,10 @@ export const FURNITURE = [
   { id: 'acornlamp', name: '도토리 등불', icon: '🌰', where: 'floor', cozy: 6, cost: { acorn: 8, twig: 2 }, special: true, event: 'autumn' },
   { id: 'mapleframe', name: '단풍잎 액자', icon: '🍁', where: 'wall', cozy: 5, cost: { acorn: 5, leaf: 3 }, special: true, event: 'autumn' },
   { id: 'snowglobe', name: '반짝 스노볼', icon: '🔮', where: 'floor', cozy: 6, cost: { snowball: 8, star: 1 }, special: true, event: 'winter' },
+  // 🎄 성탄절(12월)에만 만들 수 있는 가구, 선물 상자는 대림절 달력 25일 선물
+  { id: 'xmastree', name: '크리스마스 트리', icon: '🎄', where: 'floor', cozy: 7, cost: { snowball: 6, star: 2, twig: 2 }, special: true, xmas: true },
+  { id: 'stocking', name: '성탄 양말', icon: '🧦', where: 'wall', cozy: 4, cost: { snowball: 3, petal: 2 }, special: true, xmas: true },
+  { id: 'giftbox', name: '성탄 선물 상자', icon: '🎁', where: 'floor', cozy: 5, cost: {}, special: true, gift: '대림절 달력 25일 선물' },
 ];
 export const furnitureById = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 
@@ -156,6 +160,8 @@ export function craftVehicle(id) {
 
 /** 행사 가구는 그 계절에만 만들 수 있음 (이미 만든 건 목록에 계속 보임) */
 export function craftable(f, now = new Date()) {
+  if (f.gift) return false; // 선물로만 받는 가구
+  if (f.xmas) return now.getMonth() === 11; // 12월에만
   return !f.event || f.event === currentEvent(now).id;
 }
 
