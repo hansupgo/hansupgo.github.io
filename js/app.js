@@ -18,8 +18,8 @@ import { initParentUI } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
 import { onNewWord } from './vocab.js';
 import { isBad, BAD_NAME_MSG } from './safety.js';
-import { track } from './quests.js';
-import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions } from './friends.js';
+import { track, todayKey as questDay } from './quests.js';
+import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions, WALK_GOAL } from './friends.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
@@ -226,6 +226,7 @@ function updateMe(lat, lng) {
   }
   if (followMe) map.panTo([lat, lng], { animate: false });
   countWalk(lat, lng);
+  checkZones();
   updateBuddyMarker();
   refreshWorld();
 }
@@ -240,6 +241,19 @@ function countWalk(lat, lng) {
   buddyWalked(d);
   onWalk(d); // 친구와 같이 걷는 중이면 보너스
   track('walk', { m: d });
+}
+
+// 공원·연못에 들어가면 (하루에 곳마다 한 번) 할 일에 반영
+function checkZones() {
+  const day = questDay();
+  const v = store.state.visitedZones?.day === day ? store.state.visitedZones : (store.state.visitedZones = { day, ids: [] });
+  for (const z of CONFIG.zones || []) {
+    if (v.ids.includes(z.id) || distanceM(me, z) > z.radius) continue;
+    v.ids.push(z.id);
+    store.save();
+    track('zone', { id: z.id, type: z.type });
+    toast(`${z.type === 'water' ? '🎣' : '🌳'} ${z.name}에 왔어요!`);
+  }
 }
 
 function updateBuddyMarker() {
@@ -635,7 +649,7 @@ function renderFamily() {
       <span>${f.kind === 'visit'
     ? `<b>${esc(f.name)}</b>님 짝꿍이 <b>${esc(f.toName || '친구')}</b>네 집에 놀러 갔어요 🏡`
     : f.kind === 'walk'
-      ? `<b>${esc(f.name)}</b>님이 <b>${esc(f.withName || '친구')}</b>님과 같이 1km를 걸었어요 🎀`
+      ? `<b>${esc(f.name)}</b>님이 <b>${esc(f.withName || '친구')}</b>님과 같이 ${WALK_GOAL / 1000}km를 걸었어요 🎀`
       : `<b>${esc(f.name)}</b>님이 ${sp.kind === 'animal' ? josa(sp.name, '과', '와') : josa(sp.name, '을', '를')} ${KINDS[sp.kind].feed}${f.isNew ? ' <em>NEW</em>' : ''}`}</span><time>${when}</time></li>`;
   }).join('');
   box.innerHTML = `${walkCardHtml()}${inboxHtml()}

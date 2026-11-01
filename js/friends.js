@@ -4,7 +4,7 @@
 
 import { store, remote } from './store.js';
 import { speciesById, monsterSVG, josa } from './monsters.js';
-import { STAGES, hasBuddy, buddy, buddySpecies, stageIndex, displayName, visitReward, bonusGrow } from './buddy.js';
+import { STAGES, hasBuddy, buddy, buddySpecies, stageIndex, displayName, visitReward, bonusGrow, canWalkGrow } from './buddy.js';
 import { MATERIALS, MATERIAL_IDS, addMaterials, matCount, cozyOf, cozyLevel, SLOTS } from './room.js';
 import { CROPS, PLOT_IDS, parseFriendGarden, waterFromFriend } from './garden.js';
 import { createBuddyView } from './stage3d.js';
@@ -18,7 +18,8 @@ const today = () => new Date().toLocaleDateString('ko-KR');
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 export const GIFTS_PER_DAY = 5;
-export const WALK_GOAL = 1000;          // 둘이 합쳐 1km
+export const WALK_GOAL = 2000;          // 둘이 합쳐 2km
+export const WALK_EACH = 500;           // 한 사람이 적어도 500m씩 (혼자서만 걸으면 안 됨)
 export const WALK_MINUTES = 60;
 
 // 방명록 스티커 (영어도 같이 익히기)
@@ -104,7 +105,7 @@ export function inboxHtml() {
         <button class="btn ghost" data-ok="${esc(m.id)}" type="button">확인</button></li>`;
     }
     if (m.kind === 'walk') {
-      return `<li><span class="inbox-ico">🚶</span><span>${who}님이 같이 걷자고 해요! (${WALK_MINUTES}분 동안 둘이 합쳐 ${WALK_GOAL / 1000}km)</span>
+      return `<li><span class="inbox-ico">🚶</span><span>${who}님이 같이 걷자고 해요! (${WALK_MINUTES}분 동안 둘이 합쳐 ${WALK_GOAL / 1000}km, 한 사람 ${WALK_EACH}m 이상)</span>
         <button class="btn primary" data-walk="${esc(m.id)}" type="button">같이 걷기</button></li>`;
     }
     return '';
@@ -233,7 +234,7 @@ function acceptWalk(m) {
   if (!hasBuddy()) { toastFn('짝꿍이 있어야 같이 걸을 수 있어요. 짝꿍 탭에서 골라 주세요!'); return; }
   store.state.walkTogether = { id: String(m.walkId || ''), with: m.from, withName: String(m.fromName || '친구').slice(0, 12), since: Date.now(), startM: myWalked(), accepted: true, rewarded: false, bonusAcc: 0 };
   store.save();
-  toastFn(`🚶 ${m.fromName}님과 같이 걷기 시작! ${WALK_MINUTES}분 안에 둘이 합쳐 ${WALK_GOAL / 1000}km를 걸어 봐요.`, 3500);
+  toastFn(`🚶 ${m.fromName}님과 같이 걷기 시작! ${WALK_MINUTES}분 안에 둘이 합쳐 ${WALK_GOAL / 1000}km (한 사람 ${WALK_EACH}m 이상) 걸어 봐요.`, 3500);
   onChangeFn();
 }
 
@@ -260,7 +261,7 @@ export function onWalk(d) {
   const w = walkStatus();
   if (!w || !w.on || w.done) return;
   const st = store.state.walkTogether;
-  st.bonusAcc = (st.bonusAcc || 0) + d * 0.05; // 평소의 1.5배 (10m에 1점 → 1.5점)
+  if (canWalkGrow()) st.bonusAcc = (st.bonusAcc || 0) + d * 0.05; // 평소의 1.5배 (10m에 1점 → 1.5점), 하루 1km 안에서만
   const pts = Math.floor(st.bonusAcc);
   if (pts > 0) { st.bonusAcc -= pts; const ev = bonusGrow(pts); if (ev != null) showEvolve(ev); }
   store.save();
@@ -271,7 +272,7 @@ export function onWalk(d) {
  *  성공해도 바로 끝내지 않고 시간이 다 될 때까지 두어, 친구도 같은 합계를 보고 보상을 받게 함 */
 function checkWalkGoal() {
   const w = walkStatus();
-  if (!w || !w.on || w.done || w.total < WALK_GOAL) return;
+  if (!w || !w.on || w.done || w.total < WALK_GOAL || w.mine < WALK_EACH || w.theirs < WALK_EACH) return;
   store.state.walkTogether.rewarded = true;
   addMaterials({ ribbon: 1 });
   const ev = bonusGrow(30);
@@ -290,7 +291,7 @@ export function walkCardHtml() {
   return `<div class="walk-card">
     <p><b>🚶 ${esc(w.withName)}님과 같이 걷기</b> <small class="muted">${w.done ? '성공!' : `${mins}분 남음`}</small></p>
     ${w.on ? `<div class="grow-bar"><span style="width:${pct}%"></span></div>
-      <p class="small">나 ${Math.round(w.mine)}m + ${esc(w.withName)} ${w.theirs}m = <b>${Math.round(w.total)}</b> / ${WALK_GOAL}m · 함께 걷는 동안 짝꿍이 1.5배 빨리 자라요</p>`
+      <p class="small">나 ${Math.round(w.mine)}m + ${esc(w.withName)} ${w.theirs}m = <b>${Math.round(w.total)}</b> / ${WALK_GOAL}m · 한 사람 ${WALK_EACH}m 이상 · 함께 걷는 동안 짝꿍이 1.5배 빨리 자라요</p>`
     : `<p class="small muted">${esc(w.withName)}님이 초대를 받으면 시작돼요. (위치는 서로 보내지 않고, 걸은 거리만 나눠요)</p>`}
   </div>`;
 }

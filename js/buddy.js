@@ -229,6 +229,8 @@ export function rename(nick) {
 }
 
 export const WALK_GROW_MAX = 1000; // 하루에 걸어서 자라는 건 1km까지 (그 뒤엔 기분만 좋아짐)
+/** 오늘 걸어서 더 자랄 수 있는지 (같이 걷기 보너스도 이 안에서만) */
+export const canWalkGrow = () => { const b = buddy(); return Boolean(b) && (b.day !== today() || b.todayM < WALK_GROW_MAX); };
 
 /** 걸은 거리 반영 (m). 10m마다 성장 1점, 하루 1km까지 */
 export function addWalk(m) {
@@ -243,7 +245,7 @@ export function addWalk(m) {
   if (!b.sleeping) b.mood = clamp(b.mood + m * 0.02);
   store.save();
   const capped = growBefore < WALK_GROW_MAX && b.todayM >= WALK_GROW_MAX;
-  return { evolved, capped, milestone: Math.floor((b.todayM - m) / 200) < Math.floor(b.todayM / 200) };
+  return { evolved, capped, milestone: Math.floor((b.todayM - m) / 500) < Math.floor(b.todayM / 500) };
 }
 
 // ---------- 말하기 (반말) ----------

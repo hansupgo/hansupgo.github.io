@@ -265,6 +265,7 @@ export function learn(list, now = Date.now()) {
 export function learnFrom(on, info = {}) {
   if (on === 'catch' && info.sp) return learn(SPECIES_WORDS[info.sp.id] || []);
   if ((on === 'craft' || on === 'harvest' || on === 'gather') && info.id) return learn(THING_WORDS[info.id] || []);
+  if (on === 'zone') return learn(info.type === 'water' ? ['park', 'water', 'fish'] : ['park', 'tree']);
   if (ACTION_WORDS[on]) return learn(ACTION_WORDS[on]);
   return [];
 }
