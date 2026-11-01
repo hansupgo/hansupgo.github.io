@@ -447,16 +447,17 @@ function costHtml(cost) {
 function openCraft() {
   $('craft-mats').innerHTML = matChips();
   // 행사 가구: 지금 계절 것 + 이미 만든 것만 보임 (맨 위에)
-  const list = FURNITURE.filter(f => !f.event || craftable(f) || owned(f.id))
-    .sort((a, b) => (b.event && craftable(b) ? 1 : 0) - (a.event && craftable(a) ? 1 : 0));
+  const seasonal = (f) => f.event || f.xmas || f.gift;
+  const list = FURNITURE.filter(f => !seasonal(f) || craftable(f) || owned(f.id))
+    .sort((a, b) => (seasonal(b) && craftable(b) ? 1 : 0) - (seasonal(a) && craftable(a) ? 1 : 0));
   $('craft-list').innerHTML = list.map(f => {
     const ev = f.event ? eventById[f.event] : null;
-    const tag = ev ? `<span class="craft-tag event">${ev.icon} ${ev.name}</span>` : f.special ? '<span class="craft-tag">특별</span>' : '';
+    const tag = ev ? `<span class="craft-tag event">${ev.icon} ${ev.name}</span>` : f.xmas || f.gift ? '<span class="craft-tag event">🎄 성탄절</span>' : f.special ? '<span class="craft-tag">특별</span>' : '';
     const can = craftable(f);
-    return `<div class="craft-item ${f.special ? 'special' : ''} ${ev ? 'event' : ''}">
+    return `<div class="craft-item ${f.special ? 'special' : ''} ${ev || f.xmas || f.gift ? 'event' : ''}">
       <span class="craft-ico">${f.icon}</span>
       <span><span class="craft-name">${f.name}</span>${tag}${owned(f.id) ? ` <small class="craft-meta">(${owned(f.id)}개 있음)</small>` : ''}<br>
-        <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${can ? costHtml(f.cost) : '행사 기간이 끝났어요'}</span></span>
+        <span class="craft-meta">${whereName(f.where)} · 아늑함 +${f.cozy} · ${f.gift ? f.gift : can ? costHtml(f.cost) : '행사 기간이 끝났어요'}</span></span>
       <button class="btn primary" data-craft="${f.id}" type="button" ${can && canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
     </div>`;
   }).join('');

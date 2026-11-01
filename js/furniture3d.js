@@ -433,6 +433,52 @@ export function buildFurniture(THREE, id) {
       }));
       break;
     }
+    // ---------- 🎄 성탄절 가구 ----------
+    case 'xmastree': {
+      // 화분 + 초록 원뿔 세 겹 + 꼭대기 별, 꼬마전구가 반짝반짝
+      cyl(0.11, 0.09, 0.12, 0xb5452f, [0, 0.06, 0]);
+      cyl(0.03, 0.035, 0.1, WOOD_D, [0, 0.16, 0]);
+      for (const [y, r, h] of [[0.3, 0.26, 0.26], [0.46, 0.2, 0.22], [0.6, 0.14, 0.18]]) mesh(new THREE.ConeGeometry(r, h, 18), 0x2f8f4e, [0, y, 0]);
+      const star = mesh(new THREE.OctahedronGeometry(0.05), 0xffd23f, [0, 0.73, 0], { glow: 0.9 });
+      const bulbs = [];
+      const colors = [0xff5c5c, 0xffd23f, 0x5ab4ff, 0xff9ad5, 0xffffff];
+      for (let i = 0; i < 14; i++) {
+        const y = 0.22 + (i / 14) * 0.42;
+        const r = 0.24 - (i / 14) * 0.16;
+        const a = i * 2.4;
+        const b = sph(0.018, colors[i % colors.length], [Math.cos(a) * r, y, Math.sin(a) * r], [1, 1, 1], { glow: 0.8 });
+        bulbs.push(b.material);
+      }
+      ticks.push((t) => { star.rotation.y = t * 0.8; bulbs.forEach((m, i) => { m.emissiveIntensity = 0.3 + 0.7 * ((Math.sin(t * 3 + i * 1.3) + 1) / 2); }); });
+      g.userData.glow = bulbs;
+      break;
+    }
+    case 'stocking': {
+      // 벽에 거는 빨간 양말 (흰 테두리 + 사탕 지팡이)
+      box(0.12, 0.22, 0.05, 0xd8343a, [0, -0.02, 0.03]);
+      box(0.17, 0.08, 0.05, 0xd8343a, [0.035, -0.13, 0.03]);
+      box(0.15, 0.06, 0.06, 0xffffff, [0, 0.11, 0.035], { rough: 0.95 });
+      sph(0.015, 0xffd23f, [0, 0.03, 0.06], [1, 1, 0.5], { glow: 0.4 });
+      const cane = cyl(0.008, 0.008, 0.12, 0xffffff, [-0.04, 0.17, 0.02]);
+      cane.rotation.z = 0.2;
+      mesh(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), 0xe8534a, [-0.05, 0.23, 0.02]);
+      break;
+    }
+    case 'giftbox': {
+      // 리본 맨 선물 상자 두 개, 뚜껑이 살짝 들썩
+      box(0.26, 0.2, 0.26, 0x4fa3e8, [0, 0.1, 0]);
+      box(0.04, 0.205, 0.265, 0xffd23f, [0, 0.1, 0]);
+      box(0.265, 0.205, 0.04, 0xffd23f, [0, 0.1, 0]);
+      const lid = new THREE.Group();
+      lid.position.set(0, 0.2, 0);
+      g.add(lid);
+      box(0.28, 0.05, 0.28, 0x3b8fd6, [0, 0.025, 0], {}, lid);
+      for (const sx of [-1, 1]) { const bow = sph(0.05, 0xffd23f, [sx * 0.045, 0.07, 0], [1, 0.6, 0.5], {}, lid); bow.rotation.z = sx * 0.6; }
+      box(0.15, 0.12, 0.15, 0xe8534a, [0.22, 0.06, 0.1]);
+      box(0.03, 0.125, 0.155, 0xffffff, [0.22, 0.06, 0.1]);
+      ticks.push((t) => { lid.position.y = 0.2 + Math.max(0, Math.sin(t * 2.2)) * 0.02; });
+      break;
+    }
     default:
       box(0.3, 0.3, 0.3, 0xcccccc, [0, 0.15, 0]);
   }

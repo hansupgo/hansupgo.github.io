@@ -154,6 +154,9 @@ const RAW = [
   ['house', '집', '🏠', 'place', 'This is my house.', '여기가 우리 집이야.'],
   ['map', '지도', '🗺️', 'place', "Let's look at the map.", '지도를 보자.'],
   ['treasure', '보물', '💎', 'place', 'I found a treasure!', '보물을 찾았어!'],
+  ['christmas', '성탄절', '🎄', 'home', 'Merry Christmas!', '메리 크리스마스!'],
+  ['candle', '초', '🕯️', 'home', 'The candle is bright.', '촛불이 밝아.'],
+  ['angel', '천사', '👼', 'people', 'The angel sang a song.', '천사가 노래했어.'],
   ['park', '공원', '🏞️', 'place', 'Let\'s go to the park.', '공원에 가자.'],
   ['hospital', '병원', '🏥', 'place', 'The doctor works at the hospital.', '의사 선생님은 병원에서 일하셔.'],
   ['store', '가게', '🏪', 'place', 'We buy milk at the store.', '가게에서 우유를 사.'],
@@ -224,7 +227,7 @@ const SPECIES_WORDS = {
 };
 // 만든 가구 · 거둔 작물 · 재료 → 낱말
 const THING_WORDS = {
-  bike: ['bike'], cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
+  bike: ['bike'], xmastree: ['christmas', 'tree'], stocking: ['christmas'], giftbox: ['gift'], cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
   bed: ['bed', 'mushroom'], rug: ['flower'], frame: ['picture'], window: ['window'], garland: ['star', 'light'], mobile: ['shell'],
   sunpot: ['sunflower'], lotuslamp: ['flower', 'light'], pumpkinlamp: ['pumpkin', 'light'], snowman: ['snow'], chime: ['rain', 'bell'],
   friendframe: ['friend', 'picture'], blossomtree: ['tree', 'flower'], firejar: ['light', 'bug'], acornlamp: ['acorn', 'light'],

@@ -1119,3 +1119,34 @@ body.talking .inapp-bar, body:has(.encounter:not([hidden])) .inapp-bar { display
 .bike-btn.on { background: #ffd23f; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffb02e; }
 .me-icon.riding .me-dot::after { content: '🚲'; position: absolute; left: -26px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; display: grid; place-items: center; font-size: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .me-icon.riding.walking .me-dot { animation-duration: .2s; }
+
+/* 🎄 성탄절 */
+body.xmas .panel-map .leaflet-tile-pane { filter: saturate(.55) brightness(1.08) hue-rotate(-8deg); }
+body.xmas .panel-map.tod-night .leaflet-tile-pane { filter: brightness(.55) saturate(.5) hue-rotate(200deg); }
+body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
+  background-image: radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,.9), transparent), radial-gradient(1.5px 1.5px at 40px 70px, rgba(255,255,255,.8), transparent);
+  background-size: 90px 90px, 57px 57px; animation: snowfall 10s linear infinite; opacity: .8;
+}
+.xmas-tree-icon { background: none; border: none; }
+.xmas-tree { font-size: 46px; text-align: center; line-height: 1; filter: drop-shadow(0 3px 4px rgba(0,0,0,.3)); animation: trBob 1.6s ease-in-out infinite alternate; }
+.xmas-tree span { display: block; font-size: 11px; font-weight: 700; color: #fff; background: #c8343a; border-radius: 999px; padding: 2px 6px; margin-top: 2px; white-space: nowrap; }
+.adv-lead { margin: 4px 0 10px; }
+.adv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.adv-door { aspect-ratio: 1; border-radius: 14px; border: 2px solid #b8d8c0; background: #e9f6ec; font: inherit; font-weight: 700; font-size: 18px; color: #2f6b45; }
+.adv-door.big { background: #fde3e3; border-color: #e8a0a0; color: #b02f35; }
+.adv-door.today { background: #c8343a; border-color: #ffd23f; color: #fff; animation: questPulse 1.4s ease-in-out infinite; }
+.adv-door.ready { background: #2f8f4e; border-color: #ffd23f; color: #fff; }
+.adv-door.open { background: #fff8e1; border-color: #ffd27a; font-size: 22px; }
+.adv-door.locked { opacity: .55; }
+.adv-door.pop { animation: advPop .5s ease-out; }
+@keyframes advPop { 0% { transform: scale(.6) rotate(-10deg); } 70% { transform: scale(1.15) rotate(4deg); } 100% { transform: scale(1); } }
+.adv-got { margin-top: 12px; background: #fff8e1; border: 2px solid #ffd27a; border-radius: 16px; padding: 10px 12px; }
+.adv-got p { margin: 4px 0; }
+.adv-got .en { font-weight: 700; }
+.adv-got .ko { color: var(--muted); font-size: 14px; }
+.ev-card.ev-xmas { background: linear-gradient(135deg, #fff1f1, #eaf7ee); border-color: #e8a0a0; margin-bottom: 12px; }
+.ev-xmas .ev-head { align-items: center; }
+.ev-xmas .ev-head .btn { margin: 0 0 0 auto; }
+.church.xmas .ch-hall { background: linear-gradient(180deg, #2a3466, #4a4f8f); }
+.ch-step.xmas { border-color: #e8a0a0; background: #fff6f6; }
+@media (prefers-reduced-motion: reduce) { .xmas-tree, .adv-door.today { animation: none; } }
