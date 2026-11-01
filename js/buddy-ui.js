@@ -14,7 +14,7 @@ import {
 } from './buddy.js';
 import { openTalk, initTalkUI } from './english.js';
 import {
-  MATERIALS, MATERIAL_IDS, BASIC_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName,
+  MATERIALS, MATERIAL_IDS, BASIC_IDS, FURNITURE, furnitureById, THEMES, SLOTS, slotById, whereName, VEHICLES, vehicleById, hasVehicle, craftVehicle,
   room, matCount, canAfford, craft, unlockTheme, hasTheme, owned, spare, place, clearSlot,
   cozy, cozyLevel, craftable,
 } from './room.js';
@@ -460,6 +460,13 @@ function openCraft() {
       <button class="btn primary" data-craft="${f.id}" type="button" ${can && canAfford(f.cost) ? '' : 'disabled'}>만들기</button>
     </div>`;
   }).join('');
+  // 탈것 (한 번 만들면 끝)
+  $('craft-list').insertAdjacentHTML('afterbegin', VEHICLES.map(v => `<div class="craft-item special vehicle">
+      <span class="craft-ico">${v.icon}</span>
+      <span><span class="craft-name">${v.name}</span><span class="craft-tag">탈것</span>${hasVehicle(v.id) ? ' <small class="craft-meta">(있음)</small>' : ''}<br>
+        <span class="craft-meta">지도에서 ${v.speed}배 빨리 · ${hasVehicle(v.id) ? '지도의 🚲 버튼으로 타요' : costHtml(v.cost)}</span></span>
+      <button class="btn primary" data-vehicle="${v.id}" type="button" ${!hasVehicle(v.id) && canAfford(v.cost) ? '' : 'disabled'}>${hasVehicle(v.id) ? '완성' : '만들기'}</button>
+    </div>`).join(''));
   const r = room();
   $('theme-list').innerHTML = ['wall', 'floor'].flatMap(kind => THEMES[kind].map(t => {
     const using = r[kind] === t.id;
@@ -477,6 +484,16 @@ function openCraft() {
       toastFn(`${f.icon} ${f.name} 완성! '방 꾸미기'에서 놓아 봐.`);
       say(pick([`${f.name} 만들었어? 대단해!`, '우와, 솜씨 좋다!', '얼른 방에 놓아 보자!']));
       renderRoomInfo();
+      onChangeFn();
+      openCraft();
+    });
+  }
+  for (const b of $('craft-list').querySelectorAll('[data-vehicle]')) {
+    b.addEventListener('click', () => {
+      const v = vehicleById[b.dataset.vehicle];
+      if (!craftVehicle(v.id)) return;
+      toastFn(`${v.icon} ${v.name} 완성! 지도의 🚲 버튼을 누르면 ${v.speed}배 빨리 달려요.`, 4000);
+      say(pick(['자전거다! 우리 같이 타고 동네 한 바퀴 돌자!', '우와, 바람처럼 달릴 수 있겠다!']));
       onChangeFn();
       openCraft();
     });

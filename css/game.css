@@ -1112,3 +1112,10 @@ body.talking .inapp-bar, body:has(.encounter:not([hidden])) .inapp-bar { display
 .ex-bar span { display: block; height: 100%; background: #6cc24a; }
 .ex-list b { text-align: right; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .treasure-box { animation: none; } }
+
+/* 🚲 자전거 */
+.bike-btn { font-size: 21px; }
+.bike-btn.locked { opacity: .55; filter: grayscale(.7); }
+.bike-btn.on { background: #ffd23f; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffb02e; }
+.me-icon.riding .me-dot::after { content: '🚲'; position: absolute; left: -26px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; display: grid; place-items: center; font-size: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.me-icon.riding.walking .me-dot { animation-duration: .2s; }
