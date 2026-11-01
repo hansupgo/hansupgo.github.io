@@ -152,6 +152,8 @@ const RAW = [
   ['foot', '발', '🦶', 'people', 'My foot is cold.', '내 발이 차가워.'],
   ['tooth', '이', '🦷', 'people', 'I lost a tooth!', '이가 빠졌어!'],
   ['house', '집', '🏠', 'place', 'This is my house.', '여기가 우리 집이야.'],
+  ['map', '지도', '🗺️', 'place', "Let's look at the map.", '지도를 보자.'],
+  ['treasure', '보물', '💎', 'place', 'I found a treasure!', '보물을 찾았어!'],
   ['park', '공원', '🏞️', 'place', 'Let\'s go to the park.', '공원에 가자.'],
   ['hospital', '병원', '🏥', 'place', 'The doctor works at the hospital.', '의사 선생님은 병원에서 일하셔.'],
   ['store', '가게', '🏪', 'place', 'We buy milk at the store.', '가게에서 우유를 사.'],
@@ -232,7 +234,7 @@ const THING_WORDS = {
 };
 // 짝꿍 돌보기 · 걷기 → 낱말
 const ACTION_WORDS = {
-  feed: ['eat', 'hungry', 'cookie'], play: ['play', 'ball', 'happy'], pet: ['happy'], walk: ['walk'], water: ['water'],
+  feed: ['eat', 'hungry', 'cookie'], play: ['play', 'ball', 'happy'], pet: ['happy'], walk: ['walk'], water: ['water'], treasure: ['treasure', 'map'],
   sleep: ['sleep', 'sleepy'], gift: ['gift', 'friend'], friendWater: ['water', 'friend'], stop: ['gift'],
 };
 

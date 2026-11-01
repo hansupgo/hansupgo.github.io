@@ -59,6 +59,7 @@ const POOL = [
   { id: 'pet', cat: 'care', text: '짝꿍 5번 쓰다듬기', icon: '🤚', goal: 5, on: 'pet', need: 'buddy' },
   { id: 'walk', cat: 'go', text: '한숲시티 1km 산책하기', icon: '👟', goal: 1000, on: 'walk', unit: 'm' },
   { id: 'zones', cat: 'go', text: '공원·연못 2곳 가 보기', icon: '🌳', goal: 2, on: 'zone' },
+  { id: 'treasure', cat: 'go', text: '오늘의 보물 찾기 (🧭 힌트)', icon: '💎', goal: 1, on: 'treasure' },
   { id: 'stop', cat: 'go', text: '거점 2곳 들르기', icon: '📍', goal: 2, on: 'stop' },
   { id: 'gather', cat: 'go', text: '재료 3개 줍기', icon: '🍃', goal: 3, on: 'gather' },
   { id: 'water', cat: 'go', text: '텃밭에 물 1번 주기', icon: '💧', goal: 1, on: 'water', need: 'buddy' },
