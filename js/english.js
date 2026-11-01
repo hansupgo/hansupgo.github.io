@@ -6,7 +6,7 @@
 import { SCENES, sceneById, LINES } from './english-data.js';
 import { store } from './store.js';
 import { monsterSVG, josa } from './monsters.js';
-import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS } from './vocab.js';
+import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS, LEVELS, quizLevel, setQuizLevel } from './vocab.js';
 import { track } from './quests.js';
 import { inAppName, openExternal, externalHint, isIOS } from './browser.js';
 
@@ -390,7 +390,7 @@ function showMenu() {
   $('talk-words-btn').addEventListener('click', showWords);
   $('talk-voice-btn').addEventListener('click', showVoices);
   if (soundTrouble) bindSoundHelp($('talk-menu'));
-  $('talk-quiz-btn').addEventListener('click', () => startQuiz(5));
+  $('talk-quiz-btn').addEventListener('click', showQuizLevels);
 }
 
 function showBook() {
@@ -489,7 +489,7 @@ function showWords() {
     <div id="w-detail" class="w-detail" hidden></div>
     ${canQuiz() ? '<button id="words-quiz" class="btn primary w-quiz-btn" type="button">🧩 짝꿍 퀴즈 풀기</button>' : ''}`;
   $('words-back').addEventListener('click', showMenu);
-  $('words-quiz')?.addEventListener('click', () => startQuiz(5));
+  $('words-quiz')?.addEventListener('click', showQuizLevels);
   for (const b of $('talk-words').querySelectorAll('[data-word]')) {
     b.addEventListener('click', async () => {
       const w = WORDS.find(x => x.en === b.dataset.word);
@@ -511,6 +511,23 @@ let qi = 0;
 let qRight = 0;
 let quizToken = 0;
 
+// 난이도 고르기
+function showQuizLevels() {
+  stopSpeak();
+  sceneToken++;
+  scene = null;
+  hideViews();
+  $('talk-quiz').hidden = false;
+  $('talk-title').textContent = '🧩 짝꿍 퀴즈';
+  const cur = quizLevel();
+  $('talk-quiz').innerHTML = `<button id="ql-back" class="link-btn" type="button">‹ 대화 고르기</button>
+    <p class="w-lead">어떤 난이도로 해 볼까? 보통·어려움에서는 아직 못 모은 낱말도 나와요. 맞히면 그 카드를 얻어요!</p>
+    <div class="ql-list">${Object.entries(LEVELS).map(([k, L]) => `<button class="ql ${+k === cur ? 'on' : ''}" type="button" data-level="${k}">
+      <span class="ql-stars">${L.icon}</span><b>${L.name}</b><small>${L.desc}</small><small class="ql-grow">맞힐 때마다 짝꿍 성장 +${L.grow}</small></button>`).join('')}</div>`;
+  $('ql-back').addEventListener('click', showMenu);
+  for (const b of $('talk-quiz').querySelectorAll('[data-level]')) b.addEventListener('click', () => { setQuizLevel(+b.dataset.level); startQuiz(5); });
+}
+
 function startQuiz(n) {
   stopSpeak();
   sceneToken++;
@@ -521,25 +538,37 @@ function startQuiz(n) {
   qRight = 0;
   hideViews();
   $('talk-quiz').hidden = false;
-  $('talk-title').textContent = '🧩 짝꿍 퀴즈';
+  $('talk-title').textContent = `🧩 짝꿍 퀴즈 · ${LEVELS[quizLevel()].name}`;
   showQuestion();
 }
 
 const Cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 
+// 문제 종류마다: 짝꿍이 묻는 말 [영어, 한글], 소리로 읽을 말, 가운데 그림/글, 보기 모양
+function questionParts(q) {
+  const w = q.word;
+  switch (q.type) {
+    case 'listen': return { ask: ['Where is the …?', '잘 듣고 그림을 골라 봐!'], say: `Where is the ${w.en}?`, mid: '<div class="quiz-pic listen">👂</div>', pics: true };
+    case 'ko': return { ask: ['How do you say this in English?', '이 말을 영어로 하면?'], say: 'How do you say this in English?', mid: `<div class="quiz-ko">${esc(w.ko)}</div>` };
+    case 'listenWord': return { ask: ['Listen! Which word is it?', '잘 듣고 낱말을 골라 봐!'], say: w.en, mid: '<div class="quiz-pic listen">👂</div>' };
+    case 'spell': return { ask: ['Which spelling is right?', '바른 철자를 골라 봐!'], say: 'Which spelling is right?', mid: `<div class="quiz-pic small">${w.pic}</div><div class="quiz-ko small">${esc(w.ko)}</div>`, spell: true };
+    case 'blank': return { ask: ['Fill in the blank!', '빈칸에 알맞은 낱말은?'], say: 'Fill in the blank!', mid: `<div class="quiz-blank" lang="en">${esc(q.blank)}</div><div class="quiz-ko small">${esc(w.ex[1])}</div>` };
+    default: return { ask: ["What's this?", '이건 뭘까?'], say: "What's this?", mid: `<div class="quiz-pic">${w.pic}</div>` };
+  }
+}
+
 async function showQuestion() {
   const my = ++quizToken;
   const q = quiz[qi];
-  const pic = q.type === 'pic';
-  const ask = pic ? ["What's this?", '이건 뭘까?'] : [`Where is the ${q.word.en}?`, '잘 듣고 그림을 골라 봐!'];
-  $('talk-quiz').innerHTML = `<div class="q-top"><span>${qi + 1} / ${quiz.length}</span><span>맞힌 수 ${qRight}</span></div>
+  const P = questionParts(q);
+  $('talk-quiz').innerHTML = `<div class="q-top"><span>${qi + 1} / ${quiz.length}${q.isNew ? ' · <b class="q-new">🆕 새 낱말 도전!</b>' : ''}</span><span>맞힌 수 ${qRight}</span></div>
     <div class="quiz-ask">${monsterSVG(ctx.sp, { size: 64 })}
-      <div class="quiz-bubble"><p class="en" lang="en">${pic ? esc(ask[0]) : 'Where is the …?'}</p><p class="ko">${esc(ask[1])}</p>
+      <div class="quiz-bubble"><p class="en" lang="en">${esc(P.ask[0])}</p><p class="ko">${esc(P.ask[1])}</p>
       <button class="say-btn" type="button" id="quiz-say" aria-label="다시 듣기">🔊</button></div></div>
-    ${pic ? `<div class="quiz-pic">${q.word.pic}</div>` : '<div class="quiz-pic listen">👂</div>'}
-    <div class="quiz-choices ${pic ? 'words' : 'pics'}">${q.choices.map(c => `<button class="quiz-opt" type="button" data-qc="${c.en}">${pic ? `<span lang="en">${esc(c.en)}</span>` : `<span class="w-pic">${c.pic}</span>`}</button>`).join('')}</div>
+    ${P.mid}
+    <div class="quiz-choices ${P.pics ? 'pics' : 'words'}">${q.choices.map(c => `<button class="quiz-opt" type="button" data-qc="${esc(c.en)}">${P.pics ? `<span class="w-pic">${c.pic}</span>` : `<span lang="en">${esc(c.en)}</span>`}</button>`).join('')}</div>
     <div id="quiz-feedback" class="quiz-feedback" hidden></div>`;
-  const sayIt = () => speak(pic ? ask[0] : `Where is the ${q.word.en}?`, { pitch: pitchFor(ctx.stage) });
+  const sayIt = () => speak(P.say, { pitch: pitchFor(ctx.stage) });
   $('quiz-say').addEventListener('click', sayIt);
   for (const b of $('talk-quiz').querySelectorAll("[data-qc]")) b.addEventListener('click', () => pickAnswer(b.dataset.qc));
   await sayIt();
@@ -555,14 +584,15 @@ async function pickAnswer(en) {
     if (b.dataset.qc === q.word.en) b.classList.add('right');
     else if (b.dataset.qc === en) b.classList.add('wrong');
   }
-  answerQuiz(q.word.en, ok);
+  const gotCard = answerQuiz(q.word.en, ok);
   track(ok ? 'quizRight' : 'quizWrong', { en: q.word.en });
   if (ok) qRight++;
   const fb = $('quiz-feedback');
-  const line = ok ? [`${pick(['Yes!', 'Great job!', 'You got it!'])} ${Cap(q.word.en)}!`, `맞았어! ${q.word.ko}!`] : [`Oops! This is ${q.word.en}.`, `아쉬워! 이건 ${q.word.ko}야.`];
+  const line = ok ? [`${pick(['Yes!', 'Great job!', 'You got it!'])} ${Cap(q.word.en)}!`, `맞았어! ${q.word.en} = ${q.word.ko}!`] : [`Oops! The answer is ${q.word.en}.`, `아쉬워! 정답은 ${q.word.en} (${q.word.ko})야.`];
   fb.hidden = false;
   fb.className = `quiz-feedback ${ok ? 'good' : 'bad'}`;
   fb.innerHTML = `<p><span class="w-pic">${q.word.pic}</span> <b lang="en">${esc(line[0])}</b><br><small>${esc(line[1])}</small></p>
+    ${gotCard ? '<p class="q-got-card">🔤 새 단어 카드를 얻었어!</p>' : ''}
     <p class="quiz-ex"><span lang="en">${esc(q.word.ex[0])}</span><br><small>${esc(q.word.ex[1])}</small></p>
     <button id="quiz-next" class="btn primary" type="button">${qi + 1 < quiz.length ? '다음 ›' : '결과 보기'}</button>`;
   $('quiz-next').addEventListener('click', () => { if (qi + 1 < quiz.length) { qi++; showQuestion(); } else quizDone(); });
@@ -573,7 +603,7 @@ async function pickAnswer(en) {
 function quizDone() {
   quizToken++;
   const round = finishRound();
-  const reward = ctx.onQuiz?.(qRight, round <= QUIZ_GROW_ROUNDS) || {};
+  const reward = ctx.onQuiz?.(qRight, round <= QUIZ_GROW_ROUNDS, LEVELS[quizLevel()].grow) || {};
   const all = qRight === quiz.length;
   $('talk-quiz').innerHTML = `<div class="talk-done">
     <h3>${all ? '🏆 다 맞혔어!' : '🎉 퀴즈 끝!'}</h3>
@@ -581,9 +611,11 @@ function quizDone() {
     <p>${reward.pts ? `짝꿍 성장 +${reward.pts} · 경험치 +${reward.xp}` : `경험치 +${reward.xp || 0} (오늘 짝꿍 성장 보너스는 다 받았어)`}</p>
     <div class="talk-done-btns"><button id="quiz-again" class="btn primary" type="button">한 판 더</button>
     <button id="quiz-words" class="btn ghost" type="button">🔤 단어 카드</button></div>
+    <button id="quiz-level" class="link-btn" type="button">난이도 바꾸기 (지금: ${LEVELS[quizLevel()].icon} ${LEVELS[quizLevel()].name})</button>
     <button id="quiz-menu" class="link-btn" type="button">‹ 대화 고르기</button></div>`;
   $('quiz-again').addEventListener('click', () => startQuiz(5));
   $('quiz-words').addEventListener('click', showWords);
+  $('quiz-level').addEventListener('click', showQuizLevels);
   $('quiz-menu').addEventListener('click', showMenu);
   speak(all ? 'Perfect! You are amazing!' : 'Good job! Let\'s play again!', { pitch: pitchFor(ctx.stage) });
   if (reward.evolved != null) ctx.onEvolve?.(reward.evolved);
