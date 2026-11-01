@@ -6,7 +6,9 @@ import { spawnsAround, distanceM, specialEncounter, isNight } from './spawn.js';
 import { store, remote, levelFromXp, xpForLevel } from './store.js';
 import { startEncounter, initEncounterUI, encounterActive } from './catch.js';
 import { loadThree, createViewer } from './stage3d.js';
-import { hasBuddy, buddy, buddySpecies, STAGES } from './buddy.js';
+import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
+import { TOWN, REVEAL, visitedCells, cellCenter, metersPerLng, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
+import { sayEnglish } from './english.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
 import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
@@ -226,6 +228,7 @@ function updateMe(lat, lng) {
   if (followMe) map.panTo([lat, lng], { animate: false });
   countWalk(lat, lng);
   checkZones();
+  exploreStep();
   updateBuddyMarker();
   refreshWorld();
 }
@@ -251,9 +254,119 @@ function checkZones() {
     v.ids.push(z.id);
     store.save();
     track('zone', { id: z.id, type: z.type });
-    toast(`${z.type === 'water' ? '🎣' : '🌳'} ${z.name}에 왔어요!`);
+    toast(`${z.type === 'water' ? '🎣' : '🌳'} ${z.name}에 왔어요!${buddySays(z.type === 'water' ? 'pond' : 'park', z.id)}`, 4000);
+  }
+  // 학교·교회 앞: 짝꿍 한마디 (하루에 곳마다 한 번)
+  for (const sp of STORY_SPOTS) {
+    const key = `story:${sp.id}`;
+    if (v.ids.includes(key) || distanceM(me, sp) > sp.r || !hasBuddy()) continue;
+    v.ids.push(key);
+    store.save();
+    toast(`${sp.kind === 'church' ? '⛪' : '🏫'}${buddySays(sp.kind, sp.id)}`, 4000);
   }
 }
+
+/** 짝꿍이 그 장소에서 하는 영어 한마디 (짝꿍이 없으면 빈 글) */
+function buddySays(kind, id) {
+  const line = hasBuddy() && placeLine(kind, id);
+  return line ? ` ${displayName()}: "${line[0]}" (${line[1]})` : '';
+}
+
+// ---------- 🗺️ 탐험 지도 (안개) ----------
+let fogLayer = null;
+let fogDirty = true;
+let fogAt = 0;
+const FOG_BOUNDS = [[TOWN.s - (TOWN.n - TOWN.s) * 0.4, TOWN.w - (TOWN.e - TOWN.w) * 0.4], [TOWN.n + (TOWN.n - TOWN.s) * 0.4, TOWN.e + (TOWN.e - TOWN.w) * 0.4]];
+
+function drawFog() {
+  const [[s, w], [n, e]] = FOG_BOUNDS;
+  const W = 520;
+  const H = Math.round(W * ((n - s) * 111320) / ((e - w) * metersPerLng));
+  const pxPerM = W / ((e - w) * metersPerLng);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(232, 238, 228, 0.66)';
+  g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'destination-out';
+  const r = REVEAL * pxPerM * 1.25;
+  for (const k of visitedCells()) {
+    const [i, j] = k.split('_').map(Number);
+    const p = cellCenter(i, j);
+    const x = ((p.lng - w) / (e - w)) * W;
+    const y = ((n - p.lat) / (n - s)) * H;
+    const grad = g.createRadialGradient(x, y, r * 0.35, x, y, r);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const url = c.toDataURL('image/png');
+  if (!fogLayer) fogLayer = L.imageOverlay(url, FOG_BOUNDS, { interactive: false, className: 'fog-layer' }).addTo(map);
+  else fogLayer.setUrl(url);
+  fogDirty = false;
+  fogAt = Date.now();
+}
+
+let lastWarmth = -1;
+let treasureMarker = null;
+
+function exploreStep() {
+  const r = reveal(me);
+  if (r.fresh) fogDirty = true;
+  if (fogDirty && Date.now() - fogAt > 600) drawFog();
+  for (const a of r.completed) {
+    setTimeout(() => toast(`🗺️ ${a.name} 둘레를 다 돌았어요! 숲볼 ${areaReward.balls}개, ${matText(areaReward.mats)}를 받았어요.${r.allDone ? ' 🏅 동네 탐험 대장!' : ''}`, 4500), 400);
+    renderHud();
+  }
+  updateTreasure();
+}
+
+// 오늘의 보물: 가까워지면 알려 주고, 80m 안에 들어오면 상자가 보임
+function updateTreasure() {
+  const t = treasure();
+  const w = t.found ? -1 : warmth(me, t);
+  if (!t.found && w > lastWarmth && lastWarmth >= 0 && w >= 1) {
+    toast(`🧭 ${WARMTH_TEXT[w][0]} (${WARMTH_TEXT[w][1]})`, 2600);
+  }
+  lastWarmth = w;
+  const show = !t.found && w === 3;
+  if (show && !treasureMarker) {
+    treasureMarker = L.marker([t.lat, t.lng], { zIndexOffset: 700, icon: L.divIcon({ className: 'treasure-icon', html: '<div class="treasure-box">💎</div>', iconSize: [40, 40], iconAnchor: [20, 20] }) })
+      .addTo(map).on('click', tapTreasure);
+  } else if (!show && treasureMarker) { treasureMarker.remove(); treasureMarker = null; }
+}
+
+function tapTreasure() {
+  const t = treasure();
+  if (t.found) return;
+  if (distanceM(me, t) > CONFIG.catchRadius) { walkNear(t, CONFIG.catchRadius, tapTreasure); return; }
+  const got = findTreasure(me);
+  if (!got) return;
+  track('treasure');
+  updateTreasure();
+  renderHud();
+  toast(`💎 보물을 찾았어요! 숲볼 ${got.balls}개, 간식 ${got.snacks}개, ${matText(got.mats)}${hasBuddy() ? ` · ${displayName()}: "I found a treasure!" (보물을 찾았다!)` : ''}`, 4500);
+}
+
+// 🧭 탐험 창: 오늘의 보물 힌트 + 단지별 탐험
+function renderExplore() {
+  const t = treasure();
+  const w = t.found ? 3 : warmth(me, t);
+  const who = hasBuddy() ? esc(displayName()) : '보물 지도';
+  const box = $('explore-body');
+  box.innerHTML = `<div class="tr-card ${t.found ? 'found' : ''}">
+      <div class="tr-top"><span class="tr-ico">${t.found ? '🎉' : '💎'}</span><b>오늘의 보물찾기</b><small class="muted">${t.found ? '찾았어요! 내일 또 숨어요' : `지금까지 ${treasureDays()}번 찾음`}</small></div>
+      ${t.found ? '' : `<div class="tr-hint"><p class="en" lang="en">${who}: "${esc(t.hint[0])}"</p><p class="ko">${esc(t.hint[1])}</p>
+        <p class="en" lang="en">"${esc(WARMTH_TEXT[w][0])}"</p><p class="ko">${esc(WARMTH_TEXT[w][1])}</p>
+        <button id="tr-say" class="btn ghost small" type="button">🔊 영어로 듣기</button></div>`}
+    </div>
+    <h4>🗺️ 동네 탐험 <small class="muted">${Math.round(townProgress() * 100)}% · 다 돈 곳 ${doneCount()}/${AREAS.length}</small></h4>
+    <p class="muted small">지도를 눌러 걸어간 곳은 안개가 걷혀요. 단지 둘레를 80% 넘게 돌면 숲볼 ${areaReward.balls}개와 재료를 받아요.</p>
+    <ul class="ex-list">${AREAS.map(a => { const p = Math.min(100, Math.round(areaProgress(a) * 100)); return `<li><span>${areaDone(a.id) ? '✅' : '🔸'} ${esc(a.name)}</span><span class="ex-bar"><span style="width:${p}%"></span></span><b>${p}%</b></li>`; }).join('')}</ul>`;
+  $('tr-say')?.addEventListener('click', () => sayEnglish(`${t.hint[0]} ${WARMTH_TEXT[w][0]}`));
+}
+function openExplore() { renderExplore(); $('explore-sheet').hidden = false; }
 
 function updateBuddyMarker() {
   if (!me || !hasBuddy()) {
@@ -436,7 +549,7 @@ let walkTimer = null;
 let walkSaveAt = 0;
 
 /** 한숲시티 밖으로는 못 가게 (거점·교회·공원을 다 담는 네모 + 여유) */
-const BOUNDS = L.latLngBounds([...CONFIG.stops, ...(CONFIG.churches || []), ...(CONFIG.zones || []), CONFIG.home].map(p => [p.lat, p.lng])).pad(0.35);
+const BOUNDS = L.latLngBounds([[TOWN.s, TOWN.w], [TOWN.n, TOWN.e]]);
 function clampToTown(lat, lng) {
   const sw = BOUNDS.getSouthWest(); const ne = BOUNDS.getNorthEast();
   return [Math.min(ne.lat, Math.max(sw.lat, lat)), Math.min(ne.lng, Math.max(sw.lng, lng))];
@@ -817,7 +930,8 @@ async function main() {
     $('btn-center').hidden = false;
     map.setView([CONFIG.home.lat, CONFIG.home.lng], CONFIG.home.zoom);
   });
-  for (const id of ['sp-sheet', 'coord-sheet']) {
+  $('btn-explore').addEventListener('click', openExplore);
+  for (const id of ['sp-sheet', 'coord-sheet', 'explore-sheet']) {
     $(id).addEventListener('click', (e) => {
       if (e.target.id === id || e.target.closest('.sheet-close')) {
         $(id).hidden = true;

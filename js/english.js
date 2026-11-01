@@ -122,6 +122,9 @@ function noSound() {
   if (log === $('talk-log')) scrollLog();
 }
 
+/** 다른 화면에서 영어 한 줄 들려주기 (보물 힌트 등). 누른 순간 바로 불러야 소리가 나요 */
+export function sayEnglish(text) { return speak(text, { pitch: 1.05 }); }
+
 function stopSpeak() {
   speakId++;
   try { synth?.cancel(); } catch { /* 무시 */ }
