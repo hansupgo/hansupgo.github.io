@@ -1,4 +1,4 @@
-// 한숲GO 메인: 지도, 위치 추적, 도감, 친구 탭
+// 한숲GO 메인: 지도(화면에서 눌러 산책), 도감, 친구 탭
 
 import { CONFIG, firebaseEnabled } from './config.js';
 import { SPECIES, RARITY, KINDS, speciesById, monsterSVG, josa, habitatText } from './monsters.js';
@@ -14,7 +14,7 @@ import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI } from './quests-ui.js';
 import { inAppName, openExternal, externalHint } from './browser.js';
 import { initChurchUI, openChurch } from './church.js';
-import { initParentUI, walkedStep } from './parent-ui.js';
+import { initParentUI } from './parent-ui.js';
 import { inNoZone, zones } from './parent.js';
 import { onNewWord } from './vocab.js';
 import { isBad, BAD_NAME_MSG } from './safety.js';
@@ -25,15 +25,13 @@ const $ = (id) => document.getElementById(id);
 const COLORS = ['#3f8fd2', '#e8532b', '#4f9a3a', '#a45ee5', '#e8a317', '#e86f9b'];
 
 let map;
-let me = null;               // { lat, lng, acc }
+let me = null;               // { lat, lng } 지금 내 위치 (지도를 눌러 걸어감)
 let meMarker = null;
 let buddyMarker = null;       // 나를 따라오는 짝꿍
 let buddyMarkerFor = '';
 let walkPrev = null;          // 짝꿍 산책 거리 계산용
-let accCircle = null;
 let catchCircle = null;
-let gpsWatch = null;
-let gpsOk = false;
+let goalMarker = null;        // 걸어가는 곳 표시
 const spawnMarkers = new Map();
 const stopMarkers = new Map();
 const matMarkers = new Map();
@@ -159,7 +157,7 @@ function churchIcon(c) {
 function enterChurch(c) {
   if (!me) return;
   const d = distanceM(me, c);
-  if (d > CONFIG.stopRadius) { toast(`⛪ ${c.name}까지 ${fmtDist(d)} 남았어요. 가까이 가면 들어갈 수 있어요.`); return; }
+  if (d > CONFIG.stopRadius) { walkNear(c, CONFIG.stopRadius, () => enterChurch(c)); return; }
   openChurch(c);
 }
 
@@ -169,6 +167,8 @@ function initMap() {
     attributionControl: true,
     minZoom: 13,
     maxZoom: 19,
+    maxBounds: BOUNDS.pad(0.25),
+    maxBoundsViscosity: 0.8,
   }).setView([CONFIG.home.lat, CONFIG.home.lng], CONFIG.home.zoom);
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -178,7 +178,7 @@ function initMap() {
 
   map.on('dragstart', () => { followMe = false; $('btn-center').hidden = false; });
   map.on('click', (e) => {
-    if (store.state.demo) walkTo(e.latlng.lat, e.latlng.lng);
+    walkTo(e.latlng.lat, e.latlng.lng);
   });
   map.on('contextmenu', (e) => {
     const txt = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
@@ -215,40 +215,31 @@ function showCoord(txt) {
   $('coord-sheet').hidden = false;
 }
 
-function updateMe(lat, lng, acc = 10) {
-  me = { lat, lng, acc };
+function updateMe(lat, lng) {
+  me = { lat, lng };
   if (!meMarker) {
     meMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 1000, interactive: false }).addTo(map);
-    accCircle = L.circle([lat, lng], { radius: acc, className: 'acc-circle', interactive: false }).addTo(map);
     catchCircle = L.circle([lat, lng], { radius: CONFIG.catchRadius, className: 'catch-circle', interactive: false }).addTo(map);
   } else {
     meMarker.setLatLng([lat, lng]);
-    accCircle.setLatLng([lat, lng]).setRadius(Math.min(acc, 200));
     catchCircle.setLatLng([lat, lng]);
   }
-  if (followMe) map.panTo([lat, lng], { animate: true });
-  countWalk(lat, lng, acc);
+  if (followMe) map.panTo([lat, lng], { animate: false });
+  countWalk(lat, lng);
   updateBuddyMarker();
   refreshWorld();
 }
 
-// 걸은 거리: 작은 흔들림은 모아서 세고, 80m 넘게 튄 위치는 버림
-function countWalk(lat, lng, acc) {
-  if (acc > 60) return;
+// 걸은 거리: 10m쯤 모아서 한 번에 셈
+function countWalk(lat, lng) {
   if (!walkPrev) { walkPrev = { lat, lng }; return; }
   const d = distanceM(walkPrev, { lat, lng });
-  // 가만히 있어도 GPS는 몇 m씩 흔들리니, 정확도의 절반(최소 8m) 넘게 움직였을 때만 셈
-  if (d < Math.max(8, acc / 2)) return;
+  if (d < 10) return;
   walkPrev = { lat, lng };
-  if (d > 80) return;
-  if (store.state.demo) {
-    if (!countWalk.told && hasBuddy()) { countWalk.told = true; toast('연습 모드에서는 짝꿍 산책 거리가 쌓이지 않아요. 진짜로 걸어야 자라요!', 3500); }
-    return;
-  }
+  if (d > 80) return; // 순간이동(처음 자리 잡기 등)은 안 셈
   buddyWalked(d);
   onWalk(d); // 친구와 같이 걷는 중이면 보너스
   track('walk', { m: d });
-  walkedStep(); // 오래 걸으며 화면을 보면 '앞을 봐요!'
 }
 
 function updateBuddyMarker() {
@@ -340,10 +331,7 @@ function tapMaterial(m) {
   if (!me) return;
   const d = distanceM(me, m);
   const info = MATERIALS[m.kind];
-  if (d > CONFIG.catchRadius) {
-    toast(`${info.icon} ${info.name}까지 ${fmtDist(d)} 남았어요.`);
-    return;
-  }
+  if (d > CONFIG.catchRadius) { walkNear(m, CONFIG.catchRadius, () => tapMaterial(m)); return; }
   if (!gather(m)) return;
   toast(`${gainText({ [m.kind]: m.amount })}를 주웠어요!`);
   track('gather', { id: m.kind });
@@ -362,11 +350,11 @@ function renderNearby(list) {
       return `<button class="near-item ${d <= CONFIG.catchRadius ? 'in' : ''}" data-id="${s.id}" type="button">
         ${monsterSVG(sp, { size: 40, silhouette: !known })}<span>${fmtDist(d)}</span></button>`;
     }).join('')
-    : '<p class="near-empty">근처에 아무도 없어요. 조금 걸어 보세요!</p>';
+    : '<p class="near-empty">근처에 아무도 없어요. 지도를 눌러 다른 곳으로 걸어가 보세요!</p>';
   for (const btn of $('nearby').querySelectorAll('.near-item')) {
     btn.addEventListener('click', () => {
       const s = list.find(x => x.id === btn.dataset.id);
-      if (s) { map.panTo([s.lat, s.lng]); followMe = false; $('btn-center').hidden = false; tapSpawn(s); }
+      if (s) tapSpawn(s);
     });
   }
 }
@@ -374,9 +362,9 @@ function renderNearby(list) {
 function tapSpawn(spawn) {
   if (!me) return;
   const d = distanceM(me, spawn);
-  const sp = speciesById[spawn.speciesId];
   if (d > CONFIG.catchRadius) {
-    toast(`${store.state.caught[sp.id] ? sp.name : '???'}까지 ${fmtDist(d)} 남았어요. 더 가까이 가 보세요!`);
+    // 그 앞까지 걸어가서 바로 만나기 (가는 동안 잡혔거나 사라졌으면 그만)
+    walkNear(spawn, CONFIG.catchRadius, () => { if (spawnMarkers.has(spawn.id) && !encounterActive()) tapSpawn(spawn); });
     return;
   }
   openEncounter(spawn);
@@ -409,10 +397,7 @@ function stopReady(stop) {
 function useStop(stop) {
   if (!me) return;
   const d = distanceM(me, stop);
-  if (d > CONFIG.stopRadius) {
-    toast(`${stop.name}까지 ${fmtDist(d)} 남았어요.`);
-    return;
-  }
+  if (d > CONFIG.stopRadius) { walkNear(stop, CONFIG.stopRadius, () => useStop(stop)); return; }
   if (!stopReady(stop)) {
     const left = CONFIG.stopCooldownMinutes * 60000 - (Date.now() - store.state.stopCooldowns[stop.id]);
     toast(`${stop.name}: ${Math.ceil(left / 60000)}분 뒤에 다시 받을 수 있어요.`);
@@ -440,71 +425,73 @@ function useStop(stop) {
   }
 }
 
-// ---------- 위치 ----------
-function startGps() {
-  if (store.state.demo) return;
-  if (!('geolocation' in navigator)) {
-    gpsFailed('이 브라우저는 위치 기능을 지원하지 않아요.');
-    return;
-  }
-  $('gps-status').textContent = '위치 찾는 중...';
-  gpsWatch = navigator.geolocation.watchPosition(
-    (p) => {
-      gpsOk = true;
-      $('gps-status').textContent = '';
-      updateMe(p.coords.latitude, p.coords.longitude, p.coords.accuracy);
-    },
-    (err) => {
-      if (!gpsOk) {
-        gpsFailed(err.code === 1
-          ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 위치를 허용하거나 산책 연습 모드를 켜 주세요.'
-          : '위치를 찾지 못했어요. 밖으로 나가거나 산책 연습 모드를 켜 주세요.');
-      }
-    },
-    { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 },
-  );
-}
-
-function stopGps() {
-  if (gpsWatch !== null) navigator.geolocation.clearWatch(gpsWatch);
-  gpsWatch = null;
-}
-
-function gpsFailed(msg) {
-  $('gps-status').textContent = msg;
-  $('gps-status').classList.add('warn');
-}
-
-// 연습 모드: 지도를 누르면 그 방향으로 걸어감
+// ---------- 이동: 지도를 누르면 그쪽으로 걸어감 ----------
+const WALK_SPEED = 15;  // m/초 (게임 속 빠른 걸음)
+const WALK_TICK = 100;  // ms
 let walkTimer = null;
-function walkTo(lat, lng) {
-  clearInterval(walkTimer);
-  if (!me) { updateMe(lat, lng); return; }
-  const speed = 6; // m/틱 (빠르게 걷기)
-  walkTimer = setInterval(() => {
-    const d = distanceM(me, { lat, lng });
-    if (d <= speed) { clearInterval(walkTimer); updateMe(lat, lng); return; }
-    const f = speed / d;
-    updateMe(me.lat + (lat - me.lat) * f, me.lng + (lng - me.lng) * f);
-  }, 120);
+let walkSaveAt = 0;
+
+/** 한숲시티 밖으로는 못 가게 (거점·교회·공원을 다 담는 네모 + 여유) */
+const BOUNDS = L.latLngBounds([...CONFIG.stops, ...(CONFIG.churches || []), ...(CONFIG.zones || []), CONFIG.home].map(p => [p.lat, p.lng])).pad(0.35);
+function clampToTown(lat, lng) {
+  const sw = BOUNDS.getSouthWest(); const ne = BOUNDS.getNorthEast();
+  return [Math.min(ne.lat, Math.max(sw.lat, lat)), Math.min(ne.lng, Math.max(sw.lng, lng))];
 }
 
-function setDemo(on) {
-  store.state.demo = on;
+function setWalking(on) {
+  meMarker?.getElement()?.classList.toggle('walking', on);
+  if (!on && goalMarker) { goalMarker.remove(); goalMarker = null; }
+}
+
+function savePos() {
+  if (!me) return;
+  store.state.pos = { lat: +me.lat.toFixed(6), lng: +me.lng.toFixed(6) };
   store.save();
-  document.body.classList.toggle('demo', on);
-  $('set-demo').checked = on;
-  if (on) {
-    stopGps();
-    $('gps-status').textContent = '';
-    $('gps-status').classList.remove('warn');
-    followMe = true;
-    if (!me) updateMe(CONFIG.home.lat, CONFIG.home.lng);
-    toast('산책 연습 모드: 지도를 누르면 그쪽으로 걸어가요.');
-  } else {
-    clearInterval(walkTimer);
-    startGps();
-  }
+}
+
+/** (lat, lng)까지 걸어감. 도착하면 arrive() */
+function walkTo(lat, lng, arrive) {
+  clearInterval(walkTimer);
+  walkTimer = null;
+  [lat, lng] = clampToTown(lat, lng);
+  if (!me) { updateMe(lat, lng); return; }
+  followMe = true;
+  $('btn-center').hidden = true;
+  if (!goalMarker) goalMarker = L.marker([lat, lng], { interactive: false, zIndexOffset: 800, icon: L.divIcon({ className: 'goal-icon', html: '<div class="goal-dot"></div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(map);
+  else goalMarker.setLatLng([lat, lng]);
+  setWalking(true);
+  const step = WALK_SPEED * WALK_TICK / 1000;
+  walkTimer = setInterval(() => {
+    if (encounterActive()) return; // 잡기 화면이 열리면 잠깐 멈춤
+    const d = distanceM(me, { lat, lng });
+    if (d <= step) {
+      clearInterval(walkTimer);
+      walkTimer = null;
+      updateMe(lat, lng);
+      setWalking(false);
+      savePos();
+      arrive?.();
+      return;
+    }
+    const f = step / d;
+    updateMe(me.lat + (lat - me.lat) * f, me.lng + (lng - me.lng) * f);
+    if (Date.now() - walkSaveAt > 3000) { walkSaveAt = Date.now(); savePos(); }
+  }, WALK_TICK);
+}
+
+/** 목표(몬스터·거점·재료·교회) 앞 r*0.6 거리까지 걸어간 뒤 arrive() */
+function walkNear(target, r, arrive) {
+  const d = distanceM(me, target);
+  const f = Math.max(0, (d - r * 0.6) / d);
+  walkTo(me.lat + (target.lat - me.lat) * f, me.lng + (target.lng - me.lng) * f, arrive);
+}
+
+/** 처음 자리: 지난번에 멈춘 곳, 없으면 한숲시티 가운데 */
+function placeMe() {
+  const p = store.state.pos;
+  const ok = p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && BOUNDS.contains([p.lat, p.lng]);
+  updateMe(ok ? p.lat : CONFIG.home.lat, ok ? p.lng : CONFIG.home.lng);
+  map.setView([me.lat, me.lng], Math.max(map.getZoom(), 17));
 }
 
 // ---------- 탭 ----------
@@ -703,7 +690,6 @@ function renderSettings() {
   const s = store.state;
   $('set-name').value = s.name;
   $('set-group').value = s.group;
-  $('set-demo').checked = s.demo;
   $('set-gfx').innerHTML = Object.entries(GFX_LEVELS).map(([k, v]) => `<option value="${k}" ${gfxLevel() === k ? 'selected' : ''}>${v}</option>`).join('');
   $('set-share').textContent = firebaseEnabled()
     ? (remote.ready ? '친구 공유 연결됨' : '친구 공유 연결 중...')
@@ -746,7 +732,6 @@ function bindSettings() {
     renderSettings();
     toast('저장했어요.');
   });
-  $('set-demo').addEventListener('change', (e) => setDemo(e.target.checked));
   $('set-reset').addEventListener('click', () => { $('reset-confirm').hidden = false; });
   $('reset-no').addEventListener('click', () => { $('reset-confirm').hidden = true; });
   $('reset-yes').addEventListener('click', () => {
@@ -773,22 +758,15 @@ function bindOnboarding() {
     renderHud();
     begin();
   });
-  $('ob-demo').addEventListener('click', () => {
-    const typed = $('ob-name').value.trim().slice(0, 12);
-    const name = typed && !isBad(typed) ? typed : '연습생';
-    store.state.name = name;
-    store.state.group = isBad($('ob-group').value) ? '' : normalizeGroup($('ob-group').value);
-    store.save();
-    $('onboard').hidden = true;
-    remote.watchGroup(store.state.group);
-    renderHud();
-    setDemo(true);
-  });
 }
 
 function begin() {
-  if (store.state.demo) setDemo(true);
-  else startGps();
+  placeMe();
+  if (!store.state.walkHint) {
+    store.state.walkHint = true;
+    store.save();
+    toast('🚶 지도를 누르면 그쪽으로 걸어가요. 친구나 거점을 누르면 그 앞까지 가요!', 4500);
+  }
   inAppNotice();
 }
 
@@ -798,7 +776,7 @@ function inAppNotice() {
   if (!app || sessionStorage.getItem('hansupgo.inapp')) return;
   const bar = document.createElement('div');
   bar.className = 'inapp-bar';
-  bar.innerHTML = `<span>📱 ${esc(app)} 안에서 열었어요. 영어 소리·위치가 잘 되려면 크롬/사파리로 열어 주세요.</span>
+  bar.innerHTML = `<span>📱 ${esc(app)} 안에서 열었어요. 영어 소리가 잘 나오려면 크롬/사파리로 열어 주세요.</span>
     <button class="btn primary" type="button" data-open>열기</button><button class="inapp-x" type="button" aria-label="닫기">✕</button>`;
   document.body.appendChild(bar);
   bar.querySelector('[data-open]').addEventListener('click', () => { if (!openExternal()) toast(`${externalHint()}를 눌러 주세요.`, 4000); });
@@ -808,7 +786,6 @@ function inAppNotice() {
 // ---------- 시작 ----------
 async function main() {
   store.load();
-  document.body.classList.toggle('demo', store.state.demo);
   initMap();
   initEncounterUI();
   initBuddyUI({ toast, onChange: () => { updateBuddyMarker(); renderHud(); } });
@@ -889,3 +866,8 @@ async function main() {
 }
 
 main();
+
+// 다른 모듈·시험에서 쓰는 이동 함수
+export { walkTo };
+export const myPos = () => (me ? { ...me } : null);
+export const isWalking = () => walkTimer !== null;

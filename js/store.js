@@ -35,7 +35,7 @@ function defaultState() {
     stopCooldowns: {}, // stopId -> timestamp
     specialDay: '',
     log: [],           // 최근 잡은 기록
-    demo: false,
+    pos: null,         // 지도에서 마지막으로 멈춘 곳 { lat, lng }
     buddy: null,       // 지금 짝꿍 (buddy.js)
     buddyBook: {},     // 예전 짝꿍들의 성장 기록
     materials: { leaf: 5, twig: 4, pebble: 2 }, // 방 꾸미기 재료 (처음 선물)
@@ -55,6 +55,7 @@ export const store = {
       const raw = localStorage.getItem(KEY);
       if (raw) this.state = { ...defaultState(), ...JSON.parse(raw) };
     } catch { /* 저장소를 못 쓰는 환경이면 새로 시작 */ }
+    delete this.state.demo; // 예전 'GPS / 산책 연습 모드' 설정은 이제 없음
     this.prune();
     return this.state;
   },
