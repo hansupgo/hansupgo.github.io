@@ -10,9 +10,10 @@ import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
 import { TOWN, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
 import { sayEnglish } from './english.js';
 import { isXmas } from './christmas.js';
+import { checkDexRewards, MILESTONES, KIND_TROPHY, MASTER, hasReward, isMaster, kindProgress } from './dexreward.js';
 import { initAdventUI, openAdvent } from './christmas-ui.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
-import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText, vehicleById, hasVehicle, costText } from './room.js';
+import { MATERIALS, materialsAround, gather, stopMaterials, catchGift, gainText, vehicleById, hasVehicle, costText, furnitureById } from './room.js';
 import { weather, weatherInfo, refreshWeather, onWeather, timeOfDay } from './weather.js';
 import { GFX_LEVELS, gfxLevel, setGfxLevel } from './charfx.js';
 import { initQuestUI, renderQuestBadge } from './quests-ui.js';
@@ -474,6 +475,7 @@ function openEncounter(spawn) {
       const gift = catchGift(s.kind);
       const giftText = gift ? ` · 선물로 ${MATERIALS[gift].icon} ${MATERIALS[gift].name}!` : '';
       toast((result.isNew ? `새로운 ${KINDS[s.kind].label} ${s.name} 도감 등록!` : `${s.name} +${result.gained} XP`) + giftText, 3200);
+      if (result.isNew) setTimeout(announceDexRewards, 3400); // 잡기 알림 뒤에 도감 보상
       const m = spawnMarkers.get(sp.id);
       if (m) { map.removeLayer(m); spawnMarkers.delete(sp.id); }
     } else if (result.fled) {
@@ -652,9 +654,40 @@ function kindCount(kind) {
   return { got: all.filter(sp => store.state.caught[sp.id]).length, total: all.length };
 }
 
+// ---------- 🏆 도감 완성 보상 ----------
+function rewardText(r) {
+  const parts = [];
+  if (r.gift?.balls) parts.push(`숲볼 ${r.gift.balls}`);
+  if (r.gift?.snacks) parts.push(`간식 ${r.gift.snacks}`);
+  if (r.gift?.mats) parts.push(gainText(r.gift.mats));
+  if (r.furniture) parts.push(`${furnitureById[r.furniture].icon} ${furnitureById[r.furniture].name}`);
+  return parts.join(', ');
+}
+/** 새로 받은 도감 보상을 알림 (여러 개면 차례로) */
+function announceDexRewards() {
+  const got = checkDexRewards();
+  got.forEach((r, i) => setTimeout(() => {
+    toast(`🏆 ${r.text} ${rewardText(r)}${r.furniture ? ' · 짝꿍 방에 놓아 보세요!' : ''}`, 4500);
+    renderHud();
+    if (document.body.dataset.tab === 'dex') renderDex();
+  }, i * 4700));
+}
+
+function dexRewardsHtml() {
+  const ms = MILESTONES.map(m => `<li class="${hasReward(m.id) ? 'done' : ''}"><span>${hasReward(m.id) ? '✅' : '🎁'} ${m.n}종</span><small>${rewardText({ gift: m.gift })}</small></li>`).join('');
+  const kinds = Object.entries(KIND_TROPHY).map(([k, f]) => {
+    const p = kindProgress(k);
+    return `<li class="${hasReward('kind_' + k) ? 'done' : ''}"><span>${hasReward('kind_' + k) ? '🏆' : '🔸'} ${KINDS[k].label} ${p.got}/${p.total}</span><small>${furnitureById[f].name}</small></li>`;
+  }).join('');
+  return `<details class="dex-rewards"><summary>🏆 도감 보상 <small>${MILESTONES.filter(m => hasReward(m.id)).length + Object.keys(KIND_TROPHY).filter(k => hasReward('kind_' + k)).length + (isMaster() ? 1 : 0)}/${MILESTONES.length + Object.keys(KIND_TROPHY).length + 1}</small></summary>
+    <p class="muted small">새 친구를 도감에 올리면 저절로 받아요. 트로피는 짝꿍 방 꾸미기에서 놓을 수 있어요.</p>
+    <ul class="dr-list">${ms}${kinds}<li class="${isMaster() ? 'done' : ''}"><span>${isMaster() ? '👑' : '🔸'} 모두 ${SPECIES.length}종</span><small>황금 왕관 트로피 · '${MASTER.title}' · ${rewardText({ gift: MASTER.gift })}</small></li></ul></details>`;
+}
+
 function renderDex() {
   const s = store.state;
-  $('dex-summary').textContent = `${store.speciesCount()}/${SPECIES.length}종 발견 · 총 ${store.totalCaught()}마리`;
+  $('dex-summary').innerHTML = `${isMaster() ? `<b class="dex-master">👑 ${MASTER.title}</b> · ` : ''}${store.speciesCount()}/${SPECIES.length}종 발견 · 총 ${store.totalCaught()}마리`;
+  $('dex-rewards').innerHTML = dexRewardsHtml();
   $('dex-progress').style.width = `${(store.speciesCount() / SPECIES.length) * 100}%`;
   const tabs = [['all', '전체'], ...Object.entries(KINDS).map(([k, v]) => [k, v.label])];
   $('dex-tabs').innerHTML = tabs.map(([k, label]) => {
@@ -882,6 +915,7 @@ function bindOnboarding() {
 
 function begin() {
   placeMe();
+  setTimeout(announceDexRewards, 5000); // 이미 모아 둔 도감으로 받을 보상이 있으면
   if (!store.state.walkHint) {
     store.state.walkHint = true;
     store.save();

@@ -452,7 +452,7 @@ function openCraft() {
     .sort((a, b) => (seasonal(b) && craftable(b) ? 1 : 0) - (seasonal(a) && craftable(a) ? 1 : 0));
   $('craft-list').innerHTML = list.map(f => {
     const ev = f.event ? eventById[f.event] : null;
-    const tag = ev ? `<span class="craft-tag event">${ev.icon} ${ev.name}</span>` : f.xmas || f.gift ? '<span class="craft-tag event">🎄 성탄절</span>' : f.special ? '<span class="craft-tag">특별</span>' : '';
+    const tag = ev ? `<span class="craft-tag event">${ev.icon} ${ev.name}</span>` : f.id.startsWith('trophy') ? '<span class="craft-tag event">🏆 도감 보상</span>' : f.xmas || f.gift ? '<span class="craft-tag event">🎄 성탄절</span>' : f.special ? '<span class="craft-tag">특별</span>' : '';
     const can = craftable(f);
     return `<div class="craft-item ${f.special ? 'special' : ''} ${ev || f.xmas || f.gift ? 'event' : ''}">
       <span class="craft-ico">${f.icon}</span>
