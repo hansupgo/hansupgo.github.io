@@ -7,7 +7,7 @@ import { store, remote, levelFromXp, xpForLevel } from './store.js';
 import { startEncounter, initEncounterUI, encounterActive } from './catch.js';
 import { loadThree, createViewer } from './stage3d.js';
 import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
-import { TOWN, REVEAL, visitedCells, cellCenter, metersPerLng, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
+import { TOWN, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
 import { sayEnglish } from './english.js';
 import { isXmas } from './christmas.js';
 import { initAdventUI, openAdvent } from './christmas-ui.js';
@@ -289,57 +289,12 @@ function renderXmas() {
   } else if (!on && xmasTree) { xmasTree.remove(); xmasTree = null; }
 }
 
-// ---------- 🗺️ 탐험 지도 (안개) ----------
-let fogLayer = null;
-let fogTimer = null;
-let fogCanvas = null;
-const fogDrawn = new Set(); // 이미 밝혀 그린 칸 (새로 밝힌 칸만 더 그림)
-const FOG_BOUNDS = [[TOWN.s - (TOWN.n - TOWN.s) * 0.4, TOWN.w - (TOWN.e - TOWN.w) * 0.4], [TOWN.n + (TOWN.n - TOWN.s) * 0.4, TOWN.e + (TOWN.e - TOWN.w) * 0.4]];
-
-function drawFog() {
-  fogTimer = null;
-  const [[s, w], [n, e]] = FOG_BOUNDS;
-  const W = 520;
-  const H = Math.round(W * ((n - s) * 111320) / ((e - w) * metersPerLng));
-  if (!fogCanvas) {
-    fogCanvas = document.createElement('canvas');
-    fogCanvas.width = W; fogCanvas.height = H;
-    const g0 = fogCanvas.getContext('2d');
-    g0.fillStyle = 'rgba(232, 238, 228, 0.66)';
-    g0.fillRect(0, 0, W, H);
-  }
-  const g = fogCanvas.getContext('2d');
-  g.globalCompositeOperation = 'destination-out';
-  const r = REVEAL * (W / ((e - w) * metersPerLng)) * 1.25;
-  let drew = 0;
-  for (const k of visitedCells()) {
-    if (fogDrawn.has(k)) continue;
-    fogDrawn.add(k);
-    drew++;
-    const [i, j] = k.split('_').map(Number);
-    const p = cellCenter(i, j);
-    const x = ((p.lng - w) / (e - w)) * W;
-    const y = ((n - p.lat) / (n - s)) * H;
-    const grad = g.createRadialGradient(x, y, r * 0.35, x, y, r);
-    grad.addColorStop(0, 'rgba(0,0,0,1)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grad;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-  if (!drew && fogLayer) return;
-  const url = fogCanvas.toDataURL('image/png');
-  if (!fogLayer) fogLayer = L.imageOverlay(url, FOG_BOUNDS, { interactive: false, className: 'fog-layer' }).addTo(map);
-  else fogLayer.setUrl(url);
-}
-/** 새로 밝힌 곳이 있으면 잠깐 모았다가 한 번에 그림 (걷기를 멈춰도 마지막 칸까지 그려짐) */
-function queueFog() { if (!fogTimer) fogTimer = setTimeout(drawFog, 500); }
-
+// ---------- 🗺️ 탐험 (걸어간 곳 기록 · 단지 탐험 보상) ----------
 let lastWarmth = -1;
 let treasureMarker = null;
 
 function exploreStep() {
   const r = reveal(me);
-  if (r.fresh || !fogLayer) queueFog();
   for (const a of r.completed) {
     setTimeout(() => toast(`🗺️ ${a.name} 둘레를 다 돌았어요! 숲볼 ${areaReward.balls}개, ${matText(areaReward.mats)}를 받았어요.${r.allDone ? ' 🏅 동네 탐험 대장!' : ''}`, 4500), 400);
     renderHud();
@@ -387,7 +342,7 @@ function renderExplore() {
         <button id="tr-say" class="btn ghost small" type="button">🔊 영어로 듣기</button></div>`}
     </div>
     <h4>🗺️ 동네 탐험 <small class="muted">${Math.round(townProgress() * 100)}% · 다 돈 곳 ${doneCount()}/${AREAS.length}</small></h4>
-    <p class="muted small">지도를 눌러 걸어간 곳은 안개가 걷혀요. 단지 둘레를 80% 넘게 돌면 숲볼 ${areaReward.balls}개와 재료를 받아요.</p>
+    <p class="muted small">지도를 눌러 걸어간 곳이 탐험으로 쌓여요. 단지 둘레를 80% 넘게 돌면 숲볼 ${areaReward.balls}개와 재료를 받아요.</p>
     <ul class="ex-list">${AREAS.map(a => { const p = Math.min(100, Math.round(areaProgress(a) * 100)); return `<li><span>${areaDone(a.id) ? '✅' : '🔸'} ${esc(a.name)}</span><span class="ex-bar"><span style="width:${p}%"></span></span><b>${p}%</b></li>`; }).join('')}</ul>`;
   $('tr-say')?.addEventListener('click', () => sayEnglish(`${t.hint[0]} ${WARMTH_TEXT[w][0]}`));
 }
