@@ -1155,3 +1155,13 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
   .map-btns { flex-direction: row; top: 10px; bottom: auto; }
   .round-btn { width: 42px; height: 42px; font-size: 19px; }
 }
+
+/* 🏆 도감 보상 */
+.dex-rewards { margin: 10px 0; background: #fff8e1; border: 2px solid #ffd27a; border-radius: 16px; padding: 8px 12px; }
+.dex-rewards summary { font-weight: 700; cursor: pointer; }
+.dex-rewards p { margin: 6px 0; }
+.dr-list { list-style: none; padding: 0; margin: 4px 0; }
+.dr-list li { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #f1d9a0; font-size: 14px; }
+.dr-list li small { color: var(--muted); text-align: right; }
+.dr-list li.done span { color: #3f8f5a; font-weight: 700; }
+.dex-master { color: #b8860b; }

@@ -63,6 +63,12 @@ export const FURNITURE = [
   { id: 'xmastree', name: '크리스마스 트리', icon: '🎄', where: 'floor', cozy: 7, cost: { snowball: 6, star: 2, twig: 2 }, special: true, xmas: true },
   { id: 'stocking', name: '성탄 양말', icon: '🧦', where: 'wall', cozy: 4, cost: { snowball: 3, petal: 2 }, special: true, xmas: true },
   { id: 'giftbox', name: '성탄 선물 상자', icon: '🎁', where: 'floor', cozy: 5, cost: {}, special: true, gift: '대림절 달력 25일 선물' },
+  // 🏆 도감 완성 트로피 (dexreward.js가 줌)
+  { id: 'trophy_monster', name: '몬스터 트로피', icon: '🏆', where: 'floor', cozy: 4, cost: {}, special: true, gift: '몬스터 16종을 모두 모으면' },
+  { id: 'trophy_insect', name: '곤충 트로피', icon: '🏆', where: 'floor', cozy: 4, cost: {}, special: true, gift: '곤충 8종을 모두 모으면' },
+  { id: 'trophy_animal', name: '동물 트로피', icon: '🏆', where: 'floor', cozy: 4, cost: {}, special: true, gift: '동물 8종을 모두 모으면' },
+  { id: 'trophy_fish', name: '물고기 트로피', icon: '🏆', where: 'floor', cozy: 4, cost: {}, special: true, gift: '물고기 4종을 모두 모으면' },
+  { id: 'trophy_gold', name: '황금 왕관 트로피', icon: '👑', where: 'floor', cozy: 8, cost: {}, special: true, gift: '도감 36종을 모두 모으면' },
 ];
 export const furnitureById = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 

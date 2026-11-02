@@ -479,6 +479,34 @@ export function buildFurniture(THREE, id) {
       ticks.push((t) => { lid.position.y = 0.2 + Math.max(0, Math.sin(t * 2.2)) * 0.02; });
       break;
     }
+    // ---------- 🏆 도감 트로피 ----------
+    case 'trophy_monster':
+    case 'trophy_insect':
+    case 'trophy_animal':
+    case 'trophy_fish':
+    case 'trophy_gold': {
+      // 나무 받침 + 금빛 컵 + 갈래 색 리본·장식, 황금 트로피는 왕관과 별이 반짝
+      const RIB = { trophy_monster: 0x6cc24a, trophy_insect: 0xff8a3d, trophy_animal: 0xff9ad5, trophy_fish: 0x4fa3e8, trophy_gold: 0xe8534a }[id];
+      const GOLD = 0xffcf3f;
+      box(0.22, 0.08, 0.22, WOOD_D, [0, 0.04, 0]);
+      box(0.16, 0.025, 0.012, RIB, [0, 0.045, 0.112]);
+      cyl(0.035, 0.05, 0.04, GOLD, [0, 0.1, 0], { rough: 0.25, glow: 0.15 });
+      cyl(0.018, 0.018, 0.08, GOLD, [0, 0.16, 0], { rough: 0.25, glow: 0.15 });
+      const cup = cyl(0.11, 0.05, 0.14, GOLD, [0, 0.27, 0], { rough: 0.2, glow: 0.2 });
+      for (const sx of [-1, 1]) { const h = mesh(new THREE.TorusGeometry(0.04, 0.01, 8, 16, Math.PI), GOLD, [sx * 0.11, 0.28, 0], { rough: 0.2 }); h.rotation.z = sx > 0 ? -Math.PI / 2 : Math.PI / 2; }
+      const top = new THREE.Group();
+      top.position.set(0, 0.37, 0);
+      g.add(top);
+      if (id === 'trophy_gold') {
+        cyl(0.07, 0.07, 0.05, GOLD, [0, 0.02, 0], { rough: 0.2, glow: 0.3 }, top);
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; mesh(new THREE.ConeGeometry(0.018, 0.05, 6), GOLD, [Math.cos(a) * 0.06, 0.065, Math.sin(a) * 0.06], { glow: 0.3 }, top); sph(0.012, [0xe8534a, 0x4fa3e8, 0x6cc24a, 0xff9ad5, 0xffffff][i], [Math.cos(a) * 0.07, 0.02, Math.sin(a) * 0.07], [1, 1, 1], { glow: 0.5 }, top); }
+      } else {
+        const star = mesh(new THREE.OctahedronGeometry(0.04), RIB, [0, 0.03, 0], { glow: 0.5 }, top);
+        star.scale.set(1, 1, 0.5);
+      }
+      ticks.push((t) => { top.rotation.y = t * 0.9; cup.material.emissiveIntensity = 0.15 + 0.1 * Math.sin(t * 2.5); });
+      break;
+    }
     default:
       box(0.3, 0.3, 0.3, 0xcccccc, [0, 0.15, 0]);
   }
