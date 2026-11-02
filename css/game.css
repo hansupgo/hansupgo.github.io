@@ -1093,7 +1093,6 @@ body.talking .inapp-bar, body:has(.encounter:not([hidden])) .inapp-bar { display
 @media (prefers-reduced-motion: reduce) { .me-icon.walking .me-dot, .goal-dot { animation: none; } }
 
 /* 🧭 탐험 지도 · 보물찾기 */
-.fog-layer { pointer-events: none; }
 .explore-btn { font-size: 21px; }
 .treasure-icon { background: none; border: none; }
 .treasure-box { width: 40px; height: 40px; display: grid; place-items: center; font-size: 26px; border-radius: 12px; background: #fff3c4; border: 3px solid #ffb02e; box-shadow: 0 0 0 6px rgba(255,176,46,.25), 0 3px 8px rgba(0,0,0,.25); animation: trBob 1.1s ease-in-out infinite alternate; }
@@ -1150,3 +1149,9 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .church.xmas .ch-hall { background: linear-gradient(180deg, #2a3466, #4a4f8f); }
 .ch-step.xmas { border-color: #e8a0a0; background: #fff6f6; }
 @media (prefers-reduced-motion: reduce) { .xmas-tree, .adv-door.today { animation: none; } }
+
+/* 지도 높이가 낮은 화면(가로 모드 등): 지도 버튼 다섯 개를 위쪽에 가로로 */
+@media (max-height: 560px) {
+  .map-btns { flex-direction: row; top: 10px; bottom: auto; }
+  .round-btn { width: 42px; height: 42px; font-size: 19px; }
+}
