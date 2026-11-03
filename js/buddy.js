@@ -12,8 +12,9 @@ import { weather, timeOfDay } from './weather.js';
 
 export const STAGES = [
   { name: '아기', need: 0, scale: 0.72 },
-  { name: '어린이', need: 300, scale: 0.88 },
-  { name: '어른', need: 1000, scale: 1.0 },
+  // 보통으로 놀면(하루 150점쯤) 어린이까지 9일쯤, 어른까지 한 달쯤
+  { name: '어린이', need: 1350, scale: 0.88 },
+  { name: '어른', need: 4500, scale: 1.0 },
 ];
 
 // 한 시간에 변하는 양
