@@ -56,6 +56,11 @@ export const store = {
       if (raw) this.state = { ...defaultState(), ...JSON.parse(raw) };
     } catch { /* 저장소를 못 쓰는 환경이면 새로 시작 */ }
     delete this.state.demo; // 예전 'GPS / 산책 연습 모드' 설정은 이제 없음
+    // 진화에 필요한 점수가 4.5배(300→1350, 1000→4500)가 되면서, 이미 키우던 짝꿍은 점수도 4.5배로 (단계가 내려가지 않게)
+    if (!this.state.growthV2) {
+      for (const b of [this.state.buddy, ...Object.values(this.state.buddyBook || {})]) if (b && b.growth > 0) b.growth = Math.round(b.growth * 4.5);
+      this.state.growthV2 = true;
+    }
     this.prune();
     return this.state;
   },
@@ -223,7 +228,7 @@ export const remote = {
         speciesId: state.buddy.speciesId,
         nick: (state.buddy.nick || '').slice(0, 8),
         // 업로드 횟수를 줄이려고 단계와 0.5km 단위 거리만 공유
-        stage: state.buddy.growth >= 1000 ? 2 : state.buddy.growth >= 300 ? 1 : 0,
+        stage: state.buddy.growth >= 4500 ? 2 : state.buddy.growth >= 1350 ? 1 : 0,
         walkedKm: Math.floor(state.buddy.walkedM / 500) / 2,
       } : null,
       // 친구가 놀러 올 때 보이는 방과 텃밭
