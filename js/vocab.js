@@ -227,7 +227,7 @@ const SPECIES_WORDS = {
 };
 // 만든 가구 · 거둔 작물 · 재료 → 낱말
 const THING_WORDS = {
-  bike: ['bike'], xmastree: ['christmas', 'tree'], stocking: ['christmas'], giftbox: ['gift'], cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
+  bike: ['bike'], leafhat: ['hat', 'leaf'], flower: ['flower'], strawhat: ['hat'], starclip: ['star'], beanie: ['hat', 'cold'], santa: ['hat', 'christmas'], scarf: ['scarf'], shellneck: ['shell'], bell: ['bell'], xmastree: ['christmas', 'tree'], stocking: ['christmas'], giftbox: ['gift'], cushion: ['leaf'], stool: ['chair', 'tree'], table: ['chair'], plant: ['flower'], lamp: ['light'], shelf: ['book'], tank: ['fish', 'water'],
   bed: ['bed', 'mushroom'], rug: ['flower'], frame: ['picture'], window: ['window'], garland: ['star', 'light'], mobile: ['shell'],
   sunpot: ['sunflower'], lotuslamp: ['flower', 'light'], pumpkinlamp: ['pumpkin', 'light'], snowman: ['snow'], chime: ['rain', 'bell'],
   friendframe: ['friend', 'picture'], blossomtree: ['tree', 'flower'], firejar: ['light', 'bug'], acornlamp: ['acorn', 'light'],

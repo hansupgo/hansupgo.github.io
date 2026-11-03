@@ -1165,3 +1165,10 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .dr-list li small { color: var(--muted); text-align: right; }
 .dr-list li.done span { color: #3f8f5a; font-weight: 700; }
 .dex-master { color: #b8860b; }
+
+/* 👕 짝꿍 옷장 */
+.wear-btn { border: 2px solid #ffd27a; background: #fff8e1; color: #8a5a00; border-radius: 999px; padding: 4px 12px; font: inherit; font-weight: 700; font-size: 14px; }
+.wear-preview { display: flex; justify-content: center; margin: 4px 0; }
+#wear-list h4 { margin: 12px 0 4px; }
+.craft-item.wearing { border-color: #ffb02e; background: #fff8e1; }
+#wear-sheet .sheet-card { max-height: 86vh; overflow-y: auto; }

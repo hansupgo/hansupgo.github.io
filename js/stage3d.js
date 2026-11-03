@@ -506,9 +506,10 @@ export async function createViewer(el, sp) {
 // ---------- 짝꿍 방: 쓰다듬고, 밥 먹고, 자고, 자라는 3D ----------
 
 // 자란 단계에 따라 붙는 장식 (어린이: 리본 배지, 어른: 별 왕관 + 반짝이)
-function addAccessories(model, stage) {
+function addAccessories(model, stage, wear = null) {
   const old = model.getObjectByName('acc');
   if (old) { model.remove(old); disposeTree(old); }
+  model.userData.wear = wear;
   // 진화 단계마다 옷이 바뀜 (동물 친구들)
   const of = model.userData.outfit;
   if (of) {
@@ -519,7 +520,7 @@ function addAccessories(model, stage) {
       if (m.userData.baseEmissive != null) m.userData.baseEmissive = m.color.getHex(); // 진화 반짝임이 끝나도 새 옷 색으로
     }
   }
-  if (stage < 1) return;
+  if (stage < 1 && !wear?.head && !wear?.neck) return;
   const acc = new THREE.Group();
   acc.name = 'acc';
   // 모델 자신의 좌표로 크기를 재기 위해 잠시 기본 자세로 돌려 둠
@@ -543,8 +544,17 @@ function addAccessories(model, stage) {
   badge.add(knot);
   const chest = model.userData.chest;
   badge.position.set(0, chest ? chest.y : top * 0.3, chest ? chest.z + 0.02 : front - 0.02);
-  acc.add(badge);
-  if (stage >= 2) {
+  if (stage >= 1 && !wear?.neck) acc.add(badge); // 목 장식을 하면 진화 리본 대신
+  // 👕 옷장 꾸미기
+  const half = Math.max(0.12, Math.min(0.32, (box.max.x - box.min.x) / 2));
+  if (wear?.head) acc.add(wearHead3D(wear.head, chest ? top : headTopOf(model, top), mat)); // 새싹·더듬이 말고 머리 위에
+  if (wear?.neck) {
+    const ny = chest ? chest.y + 0.09 : top * 0.34;
+    // 그 높이에서 몸이 얼마나 굵은지 재서 목 장식이 몸 속에 묻히지 않게
+    const r = chest ? 0.17 : bodyRadiusAt(model, ny, half) + 0.015;
+    acc.add(wearNeck3D(wear.neck, ny, r, chest ? chest.z : r, mat));
+  }
+  if (stage >= 2 && !wear?.head) { // 모자를 쓰면 왕관 대신
     const crown = new THREE.Group();
     crown.add(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 20, 1, true), mat(0xffc93c, 0.3)));
     for (let i = 0; i < 5; i++) {
@@ -565,7 +575,113 @@ function addAccessories(model, stage) {
     }
     acc.add(sparkles);
   }
+  if (!badge.parent) disposeTree(badge);
   model.add(acc);
+}
+
+// 머리 꼭대기: 가장 큰 덩어리(몸통·머리)의 꼭대기 (가는 새싹·더듬이·불꽃은 건너뜀)
+function headTopOf(model, top) {
+  const keep = { s: model.scale.clone(), p: model.position.clone(), r: model.rotation.clone() };
+  model.scale.setScalar(1); model.position.set(0, 0, 0); model.rotation.set(0, 0, 0);
+  model.updateMatrixWorld(true);
+  let best = null, bestVol = 0;
+  const bb = new THREE.Box3(), size = new THREE.Vector3();
+  model.children[0].traverse(o => {
+    if (!o.isMesh || o.userData.isOutline) return;
+    bb.setFromObject(o).getSize(size);
+    const vol = size.x * size.y * size.z;
+    if (vol > bestVol) { bestVol = vol; best = bb.max.y; }
+  });
+  model.scale.copy(keep.s); model.position.copy(keep.p); model.rotation.copy(keep.r);
+  model.updateMatrixWorld(true);
+  return best != null && best > top * 0.4 ? Math.min(top, best) : top;
+}
+
+// 모델 자기 좌표에서 높이 y 둘레의 몸 반지름 (꼭짓점을 훑어 가장 먼 거리)
+function bodyRadiusAt(model, y, fallback) {
+  const keep = { s: model.scale.clone(), p: model.position.clone(), r: model.rotation.clone() };
+  model.scale.setScalar(1); model.position.set(0, 0, 0); model.rotation.set(0, 0, 0);
+  model.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  let best = 0;
+  model.children[0].traverse(o => {
+    const pos = o.isMesh && !o.userData.isOutline && o.geometry?.attributes?.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i += 2) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      if (Math.abs(v.y - y) < 0.035 && Math.abs(v.x) < 0.45) best = Math.max(best, Math.hypot(v.x, v.z));
+    }
+  });
+  model.scale.copy(keep.s); model.position.copy(keep.p); model.rotation.copy(keep.r);
+  model.updateMatrixWorld(true);
+  return best > 0.05 ? Math.min(best, 0.45) : fallback;
+}
+
+// 머리 장식 (모델 꼭대기 top 위)
+function wearHead3D(id, top, mat) {
+  const g = new THREE.Group();
+  const M = (geo, c, pos, o = {}) => { const m = new THREE.Mesh(geo, mat(c, o.glow || 0)); m.position.set(...pos); if (o.s) m.scale.set(...o.s); g.add(m); return m; };
+  switch (id) {
+    case 'leafhat':
+      M(new THREE.SphereGeometry(0.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), 0x5fae55, [0, -0.02, 0], { s: [1, 0.7, 1] });
+      M(new THREE.CylinderGeometry(0.2, 0.2, 0.02, 24), 0x4f9a3a, [0, -0.02, 0]);
+      M(new THREE.SphereGeometry(0.05, 12, 8), 0x8fd16a, [0.05, 0.1, 0], { s: [1.6, 0.4, 0.8] }).rotation.z = 0.5;
+      break;
+    case 'strawhat':
+      M(new THREE.CylinderGeometry(0.25, 0.25, 0.02, 28), 0xf2c86b, [0, -0.02, 0]);
+      M(new THREE.CylinderGeometry(0.12, 0.13, 0.11, 20), 0xf7d78a, [0, 0.04, 0]);
+      M(new THREE.CylinderGeometry(0.132, 0.132, 0.035, 20), 0xe8534a, [0, 0.01, 0]);
+      break;
+    case 'beanie':
+      M(new THREE.SphereGeometry(0.15, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), 0x5b8def, [0, -0.02, 0], { s: [1, 0.95, 1] });
+      M(new THREE.TorusGeometry(0.15, 0.03, 8, 24), 0xe8eef8, [0, -0.02, 0]).rotation.x = Math.PI / 2;
+      M(new THREE.SphereGeometry(0.045, 12, 8), 0xe8eef8, [0, 0.14, 0]);
+      break;
+    case 'santa': {
+      const cone = M(new THREE.ConeGeometry(0.14, 0.26, 20), 0xe8343a, [0.02, 0.1, 0]);
+      cone.rotation.z = -0.35;
+      M(new THREE.TorusGeometry(0.14, 0.035, 8, 24), 0xffffff, [0, -0.02, 0]).rotation.x = Math.PI / 2;
+      M(new THREE.SphereGeometry(0.045, 12, 8), 0xffffff, [0.1, 0.2, 0]);
+      break;
+    }
+    case 'flower':
+      for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; M(new THREE.SphereGeometry(0.04, 10, 8), 0xff8fb8, [0.13 + Math.cos(a) * 0.045, Math.sin(a) * 0.045, 0.06], { s: [1, 1, 0.5] }); }
+      M(new THREE.SphereGeometry(0.03, 10, 8), 0xffd23f, [0.13, 0, 0.07]);
+      g.position.y = -0.06;
+      break;
+    case 'starclip':
+      M(new THREE.OctahedronGeometry(0.07), 0xffd23f, [0.13, -0.04, 0.06], { glow: 0.4, s: [1, 1, 0.45] });
+      break;
+  }
+  g.position.y += top + 0.02;
+  return g;
+}
+
+// 목 장식 (높이 y, 몸통 반지름 r, 앞쪽 z)
+function wearNeck3D(id, y, r, z, mat) {
+  const g = new THREE.Group();
+  const M = (geo, c, pos, o = {}) => { const m = new THREE.Mesh(geo, mat(c, o.glow || 0)); m.position.set(...pos); if (o.s) m.scale.set(...o.s); g.add(m); return m; };
+  const ring = (c, t) => { const m = M(new THREE.TorusGeometry(r, t, 8, 28), c, [0, 0, 0]); m.rotation.x = Math.PI / 2; return m; };
+  switch (id) {
+    case 'scarf':
+      ring(0xe8534a, 0.04);
+      M(new THREE.BoxGeometry(0.07, 0.16, 0.03), 0xe8534a, [0.06, -0.08, z * 0.8 + 0.03]).rotation.z = 0.15;
+      break;
+    case 'bowtie':
+      for (const sx of [-1, 1]) { const w = M(new THREE.ConeGeometry(0.055, 0.1, 12), 0x7a6ff0, [sx * 0.05, 0, z + 0.02]); w.rotation.z = sx * Math.PI / 2; }
+      M(new THREE.SphereGeometry(0.03, 10, 8), 0x5a4fd0, [0, 0, z + 0.03]);
+      break;
+    case 'shellneck':
+      ring(0xc9963a, 0.008);
+      M(new THREE.SphereGeometry(0.045, 12, 8), 0xffe3d1, [0, -0.04, z * 0.8 + 0.03], { s: [1, 0.8, 0.5] });
+      break;
+    case 'bell':
+      ring(0xe8534a, 0.018);
+      M(new THREE.SphereGeometry(0.045, 14, 10), 0xffc93c, [0, -0.05, z * 0.8 + 0.04], { glow: 0.2 });
+      break;
+  }
+  g.position.y = y;
+  return g;
 }
 
 const SCALE_BY_STAGE = [0.72, 0.88, 1.0];
@@ -573,8 +689,10 @@ const SCALE_BY_STAGE = [0.72, 0.88, 1.0];
 export async function createBuddyView(el, sp, {
   stage = 0, onPet, onSlot, onPlot, room = null, slots = [], night = false, zzzEl = null,
   garden = null, place: startPlace = 'room', weatherKind = 'clear', tod = night ? 'night' : 'day',
-  guest = null, // 놀러 온 짝꿍 { sp, stage }
+  guest = null, // 놀러 온 짝꿍 { sp, stage, wear }
+  wear = null, // 옷장 꾸미기 { head, neck }
 } = {}) {
+  let wearNow = wear;
   if (!webglOk() || !(await loadThree())) return null;
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -881,7 +999,7 @@ export async function createBuddyView(el, sp, {
 
   function setStage(st) {
     stageNow = st;
-    addAccessories(model, st);
+    addAccessories(model, st, wearNow);
   }
   setCreature(sp, stage);
 
@@ -893,7 +1011,7 @@ export async function createBuddyView(el, sp, {
     guestHolder = new THREE.Group();
     guestHolder.add(blobShadow());
     guestModel = buildModel(THREE, guest.sp);
-    addAccessories(guestModel, guest.stage || 0);
+    addAccessories(guestModel, guest.stage || 0, guest.wear || null);
     guestModel.scale.setScalar(SCALE_BY_STAGE[guest.stage || 0] ?? 1);
     guestHolder.add(guestModel);
     guestHolder.position.set(-0.45, 0, 0.3);
@@ -1176,6 +1294,8 @@ export async function createBuddyView(el, sp, {
   return {
     setCreature,
     setStage,
+    /** 옷장 꾸미기 바꾸기 */
+    setWear(w) { wearNow = w; setStage(stageNow); castAll(model); },
     setRoom,
     setSleeping(v) {
       if (v !== sleeping) {

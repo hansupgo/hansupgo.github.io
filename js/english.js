@@ -212,7 +212,7 @@ async function buddySays([en, ko], extraClass = '') {
   const text = fill(en, ctx.name);
   const msg = document.createElement('div');
   msg.className = `msg buddy ${extraClass}`;
-  msg.innerHTML = `<div class="msg-av" aria-hidden="true">${monsterSVG(ctx.sp, { size: 40 })}</div>
+  msg.innerHTML = `<div class="msg-av" aria-hidden="true">${monsterSVG(ctx.sp, { size: 40, wear: ctx.wear })}</div>
     <div class="msg-bubble"><p class="en" lang="en">${wordsHtml(text)}</p><p class="ko">${esc(fill(ko, ctx.name))}</p>
     <button class="say-btn" type="button" aria-label="다시 듣기">🔊</button></div>`;
   $('talk-log').appendChild(msg);
@@ -372,7 +372,7 @@ function showMenu() {
   const l2 = level2Open(ctx.stage);
   const soundTrouble = inAppName() || !synth;
   $('talk-menu').innerHTML = `${soundTrouble ? soundHelpHtml() : ''}
-    <div class="talk-hello">${monsterSVG(ctx.sp, { size: 72 })}
+    <div class="talk-hello">${monsterSVG(ctx.sp, { size: 72, wear: ctx.wear })}
       <p><b lang="en">Hi! Let's talk in English!</b><br><span class="muted">영어로 이야기하자! 하루 3번까지 짝꿍이 쑥쑥 자라.</span></p></div>
     <button class="talk-rec" data-id="${rec.id}" type="button"><span class="talk-ico">${rec.icon}</span>
       <span><small>오늘의 대화</small><br><b>${esc(rec.title)}</b> <span class="muted">· ${esc(rec.where)}</span></span><span class="go">시작 ›</span></button>
@@ -566,7 +566,7 @@ async function showQuestion() {
   const q = quiz[qi];
   const P = questionParts(q);
   $('talk-quiz').innerHTML = `<div class="q-top"><span>${qi + 1} / ${quiz.length}${q.isNew ? ' · <b class="q-new">🆕 새 낱말 도전!</b>' : ''}</span><span>맞힌 수 ${qRight}</span></div>
-    <div class="quiz-ask">${monsterSVG(ctx.sp, { size: 64 })}
+    <div class="quiz-ask">${monsterSVG(ctx.sp, { size: 64, wear: ctx.wear })}
       <div class="quiz-bubble"><p class="en" lang="en">${esc(P.ask[0])}</p><p class="ko">${esc(P.ask[1])}</p>
       <button class="say-btn" type="button" id="quiz-say" aria-label="다시 듣기">🔊</button></div></div>
     ${P.mid}

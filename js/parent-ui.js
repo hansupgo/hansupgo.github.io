@@ -8,6 +8,7 @@ import {
   week, today,
 } from './parent.js';
 import { weekWords, accuracy } from './vocab.js';
+import { currentWear } from './wardrobe.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,7 +35,7 @@ function checkRest() {
   box.dataset.reason = r;
   const sp = buddySpecies();
   const name = sp ? displayName() : '';
-  $('rest-art').innerHTML = sp ? monsterSVG(sp, { size: 120 }) : '🌙';
+  $('rest-art').innerHTML = sp ? monsterSVG(sp, { size: 120, wear: currentWear() }) : '🌙';
   $('rest-title').textContent = r === 'bed' ? '잘 시간이야! 🌙' : '오늘은 여기까지! ⏰';
   $('rest-text').textContent = r === 'bed'
     ? `${name ? `${name}도 ` : ''}졸려… 푹 자고 내일 아침에 또 만나자!`
@@ -145,7 +146,7 @@ function renderReport() {
     </div>
     <h4>👟 날마다 걸은 거리</h4>${bars('walk', maxW, fmtDist, 'walk')}
     <h4>⏰ 날마다 놀이 시간</h4>${bars('play', maxP, (m) => `${Math.round(m)}분`, 'play')}
-    ${b ? `<h4>💛 짝꿍</h4><p class="rp-buddy">${monsterSVG(buddySpecies(), { size: 44 })}<span><b>${esc(displayName())}</b> · ${STAGES[stageIndex()].name} · 돌봐 준 횟수 ${r.care}번</span></p>` : ''}
+    ${b ? `<h4>💛 짝꿍</h4><p class="rp-buddy">${monsterSVG(buddySpecies(), { size: 44, wear: currentWear() })}<span><b>${esc(displayName())}</b> · ${STAGES[stageIndex()].name} · 돌봐 준 횟수 ${r.care}번</span></p>` : ''}
     <h4>📘 이번 주 새로 배운 영어 표현</h4>
     ${r.phrases.length ? `<ul class="rp-phr">${r.phrases.slice(0, 12).map(([en, v]) => `<li><b lang="en">${esc(en)}</b> ${esc(v.ko)}</li>`).join('')}</ul>${r.phrases.length > 12 ? `<p class="muted small">외 ${r.phrases.length - 12}개</p>` : ''}` : '<p class="muted">이번 주는 아직 없어요. 짝꿍이랑 영어로 이야기해 봐요!</p>'}
     <h4>🔤 이번 주 모은 단어 카드</h4>

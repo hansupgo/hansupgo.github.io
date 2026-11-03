@@ -230,6 +230,7 @@ export const remote = {
         // 업로드 횟수를 줄이려고 단계와 0.5km 단위 거리만 공유
         stage: state.buddy.growth >= 4500 ? 2 : state.buddy.growth >= 1350 ? 1 : 0,
         walkedKm: Math.floor(state.buddy.walkedM / 500) / 2,
+        wear: state.wardrobe?.wear ? { head: state.wardrobe.wear.head || null, neck: state.wardrobe.wear.neck || null } : null, // 옷장 꾸미기
       } : null,
       // 친구가 놀러 올 때 보이는 방과 텃밭
       home: state.room ? { wall: state.room.wall, floor: state.room.floor, slots: state.room.slots || {} } : null,

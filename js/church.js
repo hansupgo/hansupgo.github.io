@@ -8,6 +8,7 @@
 
 import { store } from './store.js';
 import { monsterSVG } from './monsters.js';
+import { currentWear } from './wardrobe.js';
 import { isXmas, NATIVITY, daysToXmas } from './christmas.js';
 
 // [책 장:절, 본문(개역한글), 쉬운 풀이]
@@ -144,7 +145,7 @@ function render() {
     const v = todayVerse();
     const sp = cb.buddySp();
     body.innerHTML = `<h3 class="ch-h">📖 오늘의 말씀</h3>${verseCard(v, true)}
-      ${sp ? `<p class="ch-buddy">${monsterSVG(sp, { size: 44 })}<span>${esc(cb.buddyName())}도 같이 들었어요. "말씀 고마워요!"</span></p>` : ''}
+      ${sp ? `<p class="ch-buddy">${monsterSVG(sp, { size: 44, wear: currentWear() })}<span>${esc(cb.buddyName())}도 같이 들었어요. "말씀 고마워요!"</span></p>` : ''}
       <h3 class="ch-h">🙏 같이 기도해요</h3>
       <div class="ch-verse"><p class="ch-text small">${esc(PRAYER)}</p>
       <button class="btn ghost ch-listen" type="button" data-say="${esc(PRAYER)}">🔊 기도 듣기</button></div>`;
@@ -192,7 +193,7 @@ export function openChurch(place) {
   $('church').hidden = false;
   document.body.classList.add('talking');
   const sp = cb.buddySp();
-  $('church-buddy').innerHTML = sp ? monsterSVG(sp, { size: 58 }) : '';
+  $('church-buddy').innerHTML = sp ? monsterSVG(sp, { size: 58, wear: currentWear() }) : '';
   render();
   if (r.first) cb.toast(`🕊️ 출석 도장 쾅! 숲볼 ${r.gift.balls}개 선물 · 🃏 말씀 카드 '${r.verse.ref}'`, 3500);
   cb.onChange();

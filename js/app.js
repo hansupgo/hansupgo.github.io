@@ -10,6 +10,7 @@ import { hasBuddy, buddy, buddySpecies, STAGES, displayName } from './buddy.js';
 import { TOWN, reveal, AREAS, areaProgress, areaDone, doneCount, townProgress, areaReward, treasure, warmth, WARMTH_TEXT, findTreasure, treasureDays, matText, placeLine, STORY_SPOTS } from './explore.js';
 import { sayEnglish } from './english.js';
 import { isXmas } from './christmas.js';
+import { currentWear, cleanWear } from './wardrobe.js';
 import { checkDexRewards, MILESTONES, KIND_TROPHY, MASTER, hasReward, isMaster, kindProgress } from './dexreward.js';
 import { initAdventUI, openAdvent } from './christmas-ui.js';
 import { initBuddyUI, renderBuddy, leaveBuddy, buddyWalked, setBuddyFromDex } from './buddy-ui.js';
@@ -361,11 +362,13 @@ function updateBuddyMarker() {
   } else {
     buddyMarker.setLatLng(pos);
   }
-  if (buddyMarkerFor !== sp.id) {
-    buddyMarkerFor = sp.id;
+  const w = currentWear();
+  const key = `${sp.id}:${w.head}:${w.neck}`;
+  if (buddyMarkerFor !== key) {
+    buddyMarkerFor = key;
     buddyMarker.setIcon(L.divIcon({
       className: 'me-buddy',
-      html: monsterSVG(sp, { size: 34 }),
+      html: monsterSVG(sp, { size: 34, wear: w }),
       iconSize: [34, 34],
       iconAnchor: [-4, 30], // 내 위치 점의 오른쪽 옆
     }));
@@ -805,7 +808,7 @@ function buddyBadge(b) {
   if (!sp) return '';
   const stage = STAGES[b.stage]?.name || STAGES[0].name;
   const km = num(b.walkedKm);
-  return `<br><span class="rank-buddy">${monsterSVG(sp, { size: 26 })}${esc(b.nick || sp.name)} · ${stage}${km ? ` · ${km}km` : ''}</span>`;
+  return `<br><span class="rank-buddy">${monsterSVG(sp, { size: 26, wear: cleanWear(b.wear) })}${esc(b.nick || sp.name)} · ${stage}${km ? ` · ${km}km` : ''}</span>`;
 }
 
 function familyList(players, myUid) {
@@ -825,7 +828,7 @@ function bindFamily(players) {
       if (!p) return;
       closeViewer();
       const bsp = p.buddy && speciesById[p.buddy.speciesId];
-      const buddyHtml = bsp ? `<div class="friend-buddy">${monsterSVG(bsp, { size: 72 })}
+      const buddyHtml = bsp ? `<div class="friend-buddy">${monsterSVG(bsp, { size: 72, wear: cleanWear(p.buddy.wear) })}
           <div><b>${esc(p.buddy.nick || bsp.name)}</b><br><span class="muted">${STAGES[p.buddy.stage]?.name || STAGES[0].name} ${bsp.name}${num(p.buddy.walkedKm) ? ` · 함께 ${num(p.buddy.walkedKm)}km 걸음` : ''}</span></div></div>` : '';
       $('sp-body').innerHTML = `<h3>${esc(p.name || '이름 없음')}의 도감</h3>
         ${buddyHtml}

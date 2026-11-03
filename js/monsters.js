@@ -553,6 +553,38 @@ function inner(s, silhouette) {
   return drawMonster(s, silhouette);
 }
 
+// ---------- 👕 짝꿍 옷장 그림 (wardrobe.js) ----------
+// 머리 장식은 (60, hy), 목 장식은 (60, ny)에 그림. 모양이 다른 친구는 WEAR_POS로 자리를 맞춤
+const WEAR_POS = {
+  default: { hy: 24, ny: 74, w: 1 },
+  // 갈래별 기본: 몬스터는 몸이 곧 얼굴이라 목 장식을 아래로, 동물은 옷깃 자리
+  monster: { ny: 90 }, animal: { ny: 81 }, fish: { ny: 84, w: 0.85 },
+  ladybug: { ny: 52 }, butterfly: { ny: 46 }, dragonfly: { ny: 44 }, beetle: { ny: 58 }, stag: { ny: 58 },
+  bee: { ny: 82 }, cicada: { ny: 66 }, ant: { ny: 62 },
+  fish: { hx: 52, hy: 46, ny: 84, w: 0.8 }, koi: { hx: 50, hy: 48, ny: 84, w: 0.8 }, gold: { hx: 50, hy: 46, ny: 84, w: 0.8 },
+};
+export function setWearPos(map) { Object.assign(WEAR_POS, map); }
+const WEAR_ART = {
+  leafhat: (x, y) => `<path d="M${x - 20} ${y + 6} Q${x} ${y - 22} ${x + 20} ${y + 6} Z" fill="#5fae55" stroke="#3f7f3a" stroke-width="2"/><path d="M${x} ${y - 8} q6 -10 14 -8 q-4 8 -14 8" fill="#8fd16a"/><ellipse cx="${x}" cy="${y + 6}" rx="24" ry="5" fill="#4f9a3a"/>`,
+  flower: (x, y) => `<g transform="translate(${x + 14} ${y + 2})">${[0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="-6" rx="4.5" ry="6.5" fill="#ff8fb8" transform="rotate(${a})"/>`).join('')}<circle r="4" fill="#ffd23f"/></g>`,
+  strawhat: (x, y) => `<ellipse cx="${x}" cy="${y + 6}" rx="28" ry="7" fill="#f2c86b" stroke="#c9963a" stroke-width="1.5"/><path d="M${x - 15} ${y + 5} Q${x - 14} ${y - 13} ${x} ${y - 13} Q${x + 14} ${y - 13} ${x + 15} ${y + 5} Z" fill="#f7d78a" stroke="#c9963a" stroke-width="1.5"/><path d="M${x - 15} ${y + 1} H${x + 15}" stroke="#e8534a" stroke-width="4"/>`,
+  starclip: (x, y) => `<path transform="translate(${x + 15} ${y + 3}) scale(0.9)" d="M0 -10 L3 -3 L10 -3 L4.5 1.5 L6.5 9 L0 4.5 L-6.5 9 L-4.5 1.5 L-10 -3 L-3 -3 Z" fill="#ffd23f" stroke="#e0a800" stroke-width="1.5"/>`,
+  beanie: (x, y) => `<path d="M${x - 19} ${y + 6} Q${x - 19} ${y - 16} ${x} ${y - 16} Q${x + 19} ${y - 16} ${x + 19} ${y + 6} Z" fill="#5b8def"/><rect x="${x - 21}" y="${y + 1}" width="42" height="8" rx="4" fill="#e8eef8"/><circle cx="${x}" cy="${y - 18}" r="5" fill="#e8eef8"/>`,
+  santa: (x, y) => `<path d="M${x - 18} ${y + 4} Q${x - 6} ${y - 19} ${x + 16} ${y - 11} L${x + 20} ${y + 4} Z" fill="#e8343a"/><circle cx="${x + 18}" cy="${y - 11}" r="5" fill="#fff"/><rect x="${x - 21}" y="${y}" width="44" height="8" rx="4" fill="#fff"/>`,
+  scarf: (x, y) => `<path d="M${x - 20} ${y} Q${x} ${y + 9} ${x + 20} ${y}" stroke="#e8534a" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M${x + 9} ${y + 4} l3 15 l7 -2 l-3 -14 Z" fill="#e8534a"/><path d="M${x + 11} ${y + 16} l6 -2" stroke="#fff" stroke-width="2"/>`,
+  bowtie: (x, y) => `<path d="M${x} ${y + 3} L${x - 11} ${y - 4} L${x - 11} ${y + 10} Z M${x} ${y + 3} L${x + 11} ${y - 4} L${x + 11} ${y + 10} Z" fill="#7a6ff0"/><circle cx="${x}" cy="${y + 3}" r="3.5" fill="#5a4fd0"/>`,
+  shellneck: (x, y) => `<path d="M${x - 17} ${y - 2} Q${x} ${y + 10} ${x + 17} ${y - 2}" stroke="#c9963a" stroke-width="1.5" fill="none"/><path d="M${x - 6} ${y + 5} Q${x} ${y - 3} ${x + 6} ${y + 5} Q${x} ${y + 12} ${x - 6} ${y + 5} Z" fill="#ffe3d1" stroke="#e8a088" stroke-width="1.5"/>`,
+  bell: (x, y) => `<path d="M${x - 17} ${y - 2} Q${x} ${y + 9} ${x + 17} ${y - 2}" stroke="#e8534a" stroke-width="3.5" fill="none" stroke-linecap="round"/><circle cx="${x}" cy="${y + 8}" r="5.5" fill="#ffc93c" stroke="#c99a1a" stroke-width="1.2"/><path d="M${x - 3} ${y + 9} h6" stroke="#7a5a10" stroke-width="1.2"/>`,
+};
+/** 입은 옷장 꾸미기 SVG 조각 (wear = { head, neck }) */
+export function wearSVG(s, wear) {
+  if (!wear) return '';
+  const p = { ...WEAR_POS.default, ...(WEAR_POS[s.kind] || {}), ...(WEAR_POS[s.draw] || {}), ...(WEAR_POS[s.id] || {}) };
+  const scale = (fn, x, y) => (p.w === 1 ? fn(x, y) : `<g transform="translate(${x} ${y}) scale(${p.w}) translate(${-x} ${-y})">${fn(x, y)}</g>`);
+  return (wear.neck && WEAR_ART[wear.neck] ? scale(WEAR_ART[wear.neck], 60, p.ny) : '')
+    + (wear.head && WEAR_ART[wear.head] ? scale(WEAR_ART[wear.head], p.hx ?? 60, p.hy) : '');
+}
+
 /**
  * 도감 캐릭터 SVG 문자열을 만든다.
  * @param {object|string} sp 종 데이터 또는 id
@@ -562,7 +594,7 @@ export function monsterSVG(sp, opts = {}) {
   const s = typeof sp === 'string' ? speciesById[sp] : sp;
   const size = opts.size || 120;
   const body = inner(s, opts.silhouette);
-  const content = opts.silhouette ? `<g filter="url(#sil)">${body}</g>` : body;
+  const content = opts.silhouette ? `<g filter="url(#sil)">${body}</g>` : body + wearSVG(s, opts.wear);
   const defs = opts.silhouette
     ? `<defs><filter id="sil"><feColorMatrix type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.38  0 0 0 0 0.42  0 0 0 1 0"/></filter></defs>` : '';
   const shadow = s.kind === 'fish' && s.draw !== 'turtle' ? '' : `<ellipse cx="60" cy="110" rx="34" ry="6" fill="#000" opacity=".12"/>`;
