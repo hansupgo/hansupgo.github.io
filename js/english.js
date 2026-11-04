@@ -3,7 +3,7 @@
 // - 대답은 영어 선택지를 누르거나, 직접 쓰거나, 🎤로 말해서 할 수 있어요.
 // - 끝까지 이야기하면 짝꿍이 자라고, 배운 표현이 표현 노트에 모입니다.
 
-import { SCENES, sceneById, LINES } from './english-data.js';
+import { SCENES, sceneById, LINES, GROUPS, playTurns } from './english-data.js';
 import { store } from './store.js';
 import { monsterSVG, josa } from './monsters.js';
 import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS, LEVELS, quizLevel, setQuizLevel, UNITS, unitWords, unitProgress, coreProgress, CORE_TOTAL, checkUnitDone, unitDone, UNIT_REWARD } from './vocab.js';
@@ -312,8 +312,10 @@ async function finish() {
   e.done[scene.id] = (e.done[scene.id] || 0) + 1;
   e.total = (e.total || 0) + 1;
   e.today++;
-  learnedNow = scene.learn.filter(([en]) => !e.phrases[en]);
-  for (const [en, ko] of scene.learn) e.phrases[en] = { ko, scene: scene.id, at: e.phrases[en]?.at || Date.now() };
+  // 이 장면 표현 + 이번에 나온 바뀐 대화의 표현
+  const learnList = [...scene.learn, ...scene.turns.flatMap(t => t.learn || [])];
+  learnedNow = learnList.filter(([en]) => !e.phrases[en]);
+  for (const [en, ko] of learnList) e.phrases[en] = { ko, scene: scene.id, at: e.phrases[en]?.at || Date.now() };
   store.save();
   // 대화에 나온 낱말도 단어 카드로
   learnFromText(scene.turns.map(t => [t.say[0], ...t.options.map(o => o.en)].join(' ')).join(' '));
@@ -340,7 +342,7 @@ async function finish() {
 
 function startScene(id) {
   sceneToken++;
-  scene = sceneById[id];
+  scene = { ...sceneById[id], turns: playTurns(sceneById[id]) };
   turnIdx = 0;
   hideViews();
   $('talk-chat').hidden = false;
@@ -383,12 +385,12 @@ function showMenu() {
       <button id="talk-quiz-btn" class="talk-learn-btn" type="button" ${canQuiz() ? '' : 'disabled'}><span class="talk-ico">🧩</span><b>짝꿍 퀴즈</b><small>${canQuiz() ? 'What\'s this? 맞혀 봐!' : `카드 ${QUIZ_MIN}장부터`}</small></button>
       <button id="talk-course-btn" class="talk-learn-btn wide" type="button"><span class="talk-ico">📘</span><b>초등 필수 영단어 ${CORE_TOTAL}</b><small>단원 ${UNITS.length}개 · ${coreProgress()}/${CORE_TOTAL} 익힘</small></button>
     </div>
-    <div class="talk-grid">${SCENES.map(s => {
+    ${GROUPS.map(g => `<h4 class="talk-group">${g.title}</h4><div class="talk-grid">${SCENES.filter(s => s.group === g.id).map(s => {
       const lock = s.level === 2 && !l2;
       return `<button class="talk-scene ${lock ? 'locked' : ''}" data-id="${s.id}" type="button" ${lock ? 'disabled' : ''}>
         <span class="talk-ico">${lock ? '🔒' : s.icon}</span><b>${esc(s.title)}</b>
         <small>${lock ? '짝꿍이 어린이가 되거나 5번 이야기하면' : e.done[s.id] ? `✓ ${e.done[s.id]}번` : esc(s.where)}</small></button>`;
-    }).join('')}</div>`;
+    }).join('')}</div>`).join('')}`;
   for (const b of $('talk-menu').querySelectorAll('[data-id]')) b.addEventListener('click', () => startScene(b.dataset.id));
   $('talk-book-btn').addEventListener('click', showBook);
   $('talk-words-btn').addEventListener('click', showWords);
@@ -406,7 +408,7 @@ function showBook() {
   hideViews();
   $('talk-book').hidden = false;
   $('talk-title').textContent = '📘 표현 노트';
-  const groups = SCENES.map(s => ({ s, items: s.learn.filter(([en]) => e.phrases[en]) })).filter(g => g.items.length);
+  const groups = SCENES.map(s => ({ s, items: s.allLearn.filter(([en]) => e.phrases[en]) })).filter(g => g.items.length);
   $('talk-book').innerHTML = `<button id="book-back" class="link-btn" type="button">‹ 대화 고르기</button>
     ${groups.length ? groups.map(g => `<h4>${g.s.icon} ${esc(g.s.title)}</h4><ul class="book-list">${g.items.map(([en, ko]) => `
       <li><button class="say-btn" type="button" data-say="${esc(en)}" aria-label="듣기">🔊</button><span><b lang="en">${esc(en)}</b><br><small>${esc(ko)}</small></span></li>`).join('')}</ul>`).join('')
