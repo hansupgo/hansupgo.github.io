@@ -36,7 +36,8 @@ function shake() {
 
 const $ = (id) => document.getElementById(id);
 const AR_KEY = 'hansupgo.ar';
-const SPEED = { common: 1, uncommon: 1.3, rare: 1.7, legendary: 2 };
+const SPEED = { common: 1.15, uncommon: 1.5, rare: 1.9, legendary: 2.2 };
+const HIT_R = 0.82; // 숲볼이 맞는 범위 (몬스터 크기 대비)
 
 let cur = null;      // 지금 만난 상대
 let sp = null;       // 그 종 데이터
@@ -405,7 +406,7 @@ function throwBall(x, y, vx, vy) {
   const c = monCenter();
   const mx = c ? c.x : -999;
   const my = c ? c.y : -999;
-  const hit = Boolean(c) && Math.hypot(tx - mx, ty - my) < c.r;
+  const hit = Boolean(c) && Math.hypot(tx - mx, ty - my) < c.r * HIT_R;
   const scaleAtHit = ringScale(performance.now() + 450);
   const b = ball();
   const startT = performance.now();
@@ -468,9 +469,9 @@ async function onBallHit(ring) {
   const r = RARITY[sp.rarity];
   let bonus = 1;
   let label = '맞았다!';
-  if (ring < 0.55) { bonus = 1.7; label = '최고예요!'; }
-  else if (ring < 0.75) { bonus = 1.35; label = '좋아요!'; }
-  const success = Math.random() < Math.min(0.97, r.catchRate * bonus);
+  if (ring < 0.5) { bonus = 1.6; label = '최고예요!'; }
+  else if (ring < 0.7) { bonus = 1.3; label = '좋아요!'; }
+  const success = Math.random() < Math.min(0.92, r.catchRate * bonus);
   const shakes = success ? 3 : Math.floor(Math.random() * 3);
   setMsg(label, 'good');
   $('enc-ring').hidden = true;
@@ -518,7 +519,7 @@ function startNet(first) {
   setMsg(first ? '처음 보는 곤충이에요! 움직이는 곤충을 톡 눌러 잠자리채를 휘두르세요!' : '곤충을 톡 눌러 잠자리채를 휘두르세요!');
   const mon = $('enc-monster');
   monState('flying');
-  bug = { x: 0, y: 0, r: 70, phase: Math.random() * 10, boost: 0 };
+  bug = { x: 0, y: 0, r: 58, phase: Math.random() * 10, boost: 0 };
   const speed = SPEED[sp.rarity];
   loop((now, dt) => {
     const st = stage();
@@ -529,7 +530,7 @@ function startNet(first) {
       const c = s3.screenPos();
       bug.x = c ? c.x : -999;
       bug.y = c ? c.y : -999;
-      bug.r = c ? Math.max(60, c.r) : 0;
+      bug.r = c ? Math.max(50, c.r * 0.85) : 0;
       return;
     }
     const t = bug.phase;
@@ -584,7 +585,7 @@ async function onNetTap(e) {
 let hearts = 0;
 let zone = { c: 0.5, w: 0.3 };
 let markerPos = 0;
-const ZONE_W = { common: 0.34, uncommon: 0.26, rare: 0.18, legendary: 0.12 };
+const ZONE_W = { common: 0.28, uncommon: 0.21, rare: 0.15, legendary: 0.1 };
 
 function startSnack(first) {
   hearts = 0;
@@ -593,7 +594,7 @@ function startSnack(first) {
   renderHearts();
   updateSnackCount();
   setMsg(first ? '처음 만난 동물이에요! 막대가 초록 칸에 왔을 때 간식을 주세요.' : '막대가 초록 칸에 왔을 때 간식을 주세요. 하트 3개면 친구!');
-  const speed = 1.6 * SPEED[sp.rarity];
+  const speed = 1.7 * SPEED[sp.rarity];
   let t = Math.random() * 6;
   loop((now, dt) => {
     t += dt * speed;
@@ -640,7 +641,7 @@ async function onSnack(e) {
   store.state.snacks -= 1;
   store.save();
   updateSnackCount();
-  if (Math.abs(pos - zone.c) <= zone.w / 2 + 0.02) {
+  if (Math.abs(pos - zone.c) <= zone.w / 2 + 0.01) {
     hearts += 1;
     renderHearts();
     monState('hop');
@@ -665,7 +666,8 @@ async function onSnack(e) {
 
 let fishHold = false;
 let fishState = null;
-const FISH_ZONE = { common: 0.38, uncommon: 0.32, rare: 0.26, legendary: 0.2 };
+const FISH_ZONE = { common: 0.32, uncommon: 0.27, rare: 0.25, legendary: 0.22 };
+const FISH_SPEED = { common: 1.1, uncommon: 1.45, rare: 1.7, legendary: 1.9 };
 
 function startFish(first) {
   $('fish-ui').hidden = false;
@@ -675,7 +677,7 @@ function startFish(first) {
   fishState = { pos: 0.3, target: 0.6, zoneY: 0.1, vel: 0, progress: 30, zh, retarget: 0 };
   setCount('');
   setMsg(first ? '처음 보는 물고기예요! 버튼을 꾹 누르면 초록 칸이 올라가요.' : '초록 칸 안에 물고기를 잡아 두세요!');
-  const speed = SPEED[sp.rarity];
+  const speed = FISH_SPEED[sp.rarity];
   loop((now, dt) => {
     const f = fishState;
     // 물고기가 위아래로 도망다님
@@ -692,7 +694,7 @@ function startFish(first) {
     if (f.zoneY < 0) { f.zoneY = 0; f.vel = Math.max(0, f.vel) * -0.3; }
     if (f.zoneY > 1 - f.zh) { f.zoneY = 1 - f.zh; f.vel = Math.min(0, f.vel) * -0.3; }
     const inZone = f.pos >= f.zoneY && f.pos <= f.zoneY + f.zh;
-    f.progress += (inZone ? 26 : -11) * dt;
+    f.progress += (inZone ? 24 : -13) * dt;
     $('fish-zone').style.bottom = `${f.zoneY * 100}%`;
     $('fish-zone').classList.toggle('in', inZone);
     $('fish-dot').style.bottom = `calc(${f.pos * 100}% - ${f.pos * 34}px)`;

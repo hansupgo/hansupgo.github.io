@@ -2,10 +2,10 @@
 // 몬스터·곤충·동물·물고기 모두 이 게임을 위해 새로 만든 오리지널 캐릭터입니다.
 
 export const RARITY = {
-  common:    { label: '흔함', color: '#7a8b6f', weight: 60, catchRate: 0.72, flee: 0.05, xp: 100 },
-  uncommon:  { label: '보통', color: '#3f8fd2', weight: 28, catchRate: 0.52, flee: 0.10, xp: 200 },
-  rare:      { label: '희귀', color: '#a45ee5', weight: 10, catchRate: 0.36, flee: 0.15, xp: 500 },
-  legendary: { label: '전설', color: '#e8a317', weight: 0,  catchRate: 0.22, flee: 0.20, xp: 2000 },
+  common:    { label: '흔함', color: '#7a8b6f', weight: 60, catchRate: 0.56, flee: 0.08, xp: 100 },
+  uncommon:  { label: '보통', color: '#3f8fd2', weight: 28, catchRate: 0.40, flee: 0.14, xp: 200 },
+  rare:      { label: '희귀', color: '#a45ee5', weight: 10, catchRate: 0.27, flee: 0.20, xp: 500 },
+  legendary: { label: '전설', color: '#e8a317', weight: 0,  catchRate: 0.16, flee: 0.26, xp: 2000 },
 };
 
 // 종류별 잡는 방법
