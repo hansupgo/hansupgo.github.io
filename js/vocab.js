@@ -4,6 +4,9 @@
 // - 자주 틀린 낱말, 오래 안 본 낱말이 퀴즈에 먼저 나와요. 세 번 맞히면 ⭐⭐⭐.
 
 import { store } from './store.js';
+import { NEW_WORDS, UNITS } from './core-words.js';
+
+export { UNITS };
 
 // cat: animal(동물·곤충) / nature(자연) / food(먹을 것) / home(집) / feel(기분) / do(하는 일)
 // [영어, 한국어, 그림, 분류, 예문 영어, 예문 한국어]
@@ -210,9 +213,10 @@ const RAW = [
   ['wash', '씻다', '🧼', 'do', 'Wash your hands before you eat.', '먹기 전에 손을 씻어.'],
   ['brush', '닦다(양치)', '🪥', 'do', 'Brush your teeth.', '이 닦아.'],
 ];
-export const WORDS = RAW.map(([en, ko, pic, cat, exEn, exKo]) => ({ en, ko, pic, cat, ex: [exEn, exKo] }));
+// np: 그림만으로는 알기 어려운 낱말 (그림 문제 대신 한글·소리 문제로)
+export const WORDS = [...RAW, ...NEW_WORDS].map(([en, ko, pic, cat, exEn, exKo, np]) => ({ en, ko, pic, cat, ex: [exEn, exKo], np: Boolean(np) }));
 export const wordByEn = Object.fromEntries(WORDS.map(w => [w.en, w]));
-export const CATS = { animal: '🐾 동물·곤충', nature: '🌿 자연', food: '🍓 먹을 것', home: '🏠 집·물건', wear: '👕 입는 것·물건', school: '✏️ 학교', people: '👪 가족·몸', place: '🚗 장소·탈것', color: '🎨 색깔·숫자', feel: '😊 기분', do: '🏃 하는 일' };
+export const CATS = { talk: '👋 인사·말', animal: '🐾 동물·곤충', nature: '🌿 자연·날씨', food: '🍓 먹을 것', home: '🏠 집·물건', wear: '👕 입는 것·물건', school: '✏️ 학교', people: '👪 사람·몸', place: '🚗 장소·탈것', time: '📅 때·요일', color: '🎨 색깔·숫자·모양', feel: '😊 기분·모습', do: '🏃 하는 일' };
 
 // 잡은 친구 → 낱말
 const SPECIES_WORDS = {
@@ -276,11 +280,13 @@ export function learnFrom(on, info = {}) {
 }
 
 /** 영어 대화에 나온 낱말 (대화를 끝냈을 때) */
+// 필수 영단어에만 있는 낱말(go, have, good ...)은 대화마다 나오니 퀴즈로 모아요
+const COURSE_ONLY = new Set(NEW_WORDS.map(r => r[0]));
 export function learnFromText(text) {
   const found = new Set();
   for (const raw of text.toLowerCase().match(/[a-z]+/g) || []) {
     const w = raw.replace(/(ies)$/, 'y').replace(/s$/, '');
-    for (const c of [raw, w]) if (wordByEn[c]) found.add(c);
+    for (const c of [raw, w]) if (wordByEn[c] && !COURSE_ONLY.has(c)) found.add(c);
   }
   return learn([...found]);
 }
@@ -312,8 +318,13 @@ export const quizLevel = () => V().quiz.level || 2;
 export function setQuizLevel(l) { V().quiz.level = l; store.save(); }
 
 // 헷갈리는 철자 만들기 (글자 바꾸기·빼기·겹치기·모음 바꾸기)
+// 헷갈리는 철자로 만들어지면 안 되는 말
+const RUDE = new Set(['hell', 'damn', 'ass', 'butt', 'poop', 'pee', 'shit', 'sex', 'die', 'dead', 'kill', 'stupid', 'fool']);
 const VOWEL = { a: 'e', e: 'a', i: 'e', o: 'u', u: 'o' };
 function misspell(word, rnd) {
+  if (word.length < 3) return [];
+  const cap = word[0] !== word[0].toLowerCase();
+  const fix = (m) => (cap ? m[0].toUpperCase() + m.slice(1) : m);
   const w = word.toLowerCase();
   const out = new Set();
   const tries = [
@@ -325,7 +336,7 @@ function misspell(word, rnd) {
   ];
   for (let k = 0; out.size < 3 && k < 40; k++) {
     const m = tries[k % tries.length]();
-    if (m && m !== w && m.length >= 2 && !wordByEn[m]) out.add(m);
+    if (m && m !== w && m.length >= 2 && /^[a-z]+$/.test(m) && !RUDE.has(m) && !wordByEn[m] && !wordByEn[fix(m)]) out.add(fix(m));
   }
   return [...out];
 }
@@ -342,18 +353,19 @@ function blankOut(word) {
  * type: pic(그림→영어) listen(듣고 그림) ko(한글→영어) listenWord(듣고 낱말) spell(바른 철자) blank(빈칸)
  * 쉬움은 모은 카드만, 보통은 모은 카드 + 새 낱말 조금, 어려움은 모든 낱말에서 나와요.
  */
-export function makeQuiz(n = 5, rnd = Math.random, now = Date.now(), level = quizLevel()) {
-  const mine = known();
-  if (mine.length < QUIZ_MIN) return [];
+export function makeQuiz(n = 5, rnd = Math.random, now = Date.now(), level = quizLevel(), pool = null) {
+  // pool: 필수 영단어 단원 퀴즈 (그 단원 낱말만, 모은 카드가 없어도 돼요)
+  const mine = pool ? pool.filter(w => V().words[w.en]) : known();
+  if (!pool && mine.length < QUIZ_MIN) return [];
   const L = LEVELS[level] || LEVELS[2];
-  const fresh = WORDS.filter(w => !V().words[w.en]);
+  const fresh = pool ? pool.filter(w => !V().words[w.en]) : WORDS.filter(w => !V().words[w.en]);
   const out = [];
   const used = new Set();
   for (let i = 0; i < n; i++) {
     // 보통: 다섯 문제 중 두 문제 정도는 새 낱말, 어려움: 절반은 새 낱말
-    const wantNew = fresh.length && (level === 3 ? rnd() < 0.5 : level === 2 ? rnd() < 0.4 : false);
+    const wantNew = fresh.length && (pool ? (!mine.length || rnd() < 0.6) : level === 3 ? rnd() < 0.5 : level === 2 ? rnd() < 0.4 : false);
     let cand = (wantNew ? fresh : mine).filter(w => !used.has(w.en));
-    if (!cand.length) cand = mine.filter(w => !used.has(w.en));
+    if (!cand.length) cand = (pool || mine).filter(w => !used.has(w.en));
     if (!cand.length) break;
     const total = cand.reduce((t, w) => t + weight(w.en, now), 0);
     let x = rnd() * total;
@@ -365,13 +377,16 @@ export function makeQuiz(n = 5, rnd = Math.random, now = Date.now(), level = qui
     const wrongSpell = type === 'spell' ? misspell(word.en, rnd) : [];
     if (type === 'blank' && !blank) type = 'ko';
     if (type === 'spell' && wrongSpell.length < 3) type = 'ko';
+    if (word.np && type === 'pic') type = 'ko';
+    if (word.np && type === 'listen') type = 'listenWord';
+    const picsShown = type === 'pic' || type === 'listen';
     let choices;
     if (type === 'spell') {
       choices = [{ en: word.en, spell: word.en }, ...wrongSpell.map(m => ({ en: m, spell: m }))];
     } else {
       // 오답: 같은 분류 먼저 (쉬움은 아는 낱말 중에서, 보통·어려움은 모든 낱말에서)
-      const others = WORDS.filter(w => w.en !== word.en && w.pic !== word.pic && w.ko !== word.ko);
-      const sameCat = others.filter(w => w.cat === word.cat && (level > 1 || V().words[w.en]));
+      const others = WORDS.filter(w => w.en !== word.en && w.pic !== word.pic && w.ko !== word.ko && !(picsShown && w.np));
+      const sameCat = others.filter(w => w.cat === word.cat && (level > 1 || pool || V().words[w.en]));
       const rest = others.filter(w => !sameCat.includes(w));
       const wrong = [];
       for (const list of [sameCat, rest]) {
@@ -419,6 +434,31 @@ export function popQuizReady(rnd = Math.random, now = new Date()) {
   return canQuiz() && q.pops < 3 && rnd() < 0.4;
 }
 export function usePopQuiz() { V().quiz.pops++; store.save(); }
+
+// ---------- 📘 초등 필수 영단어 단원 ----------
+
+export const unitWords = (u) => u.words.map(en => wordByEn[en]).filter(Boolean);
+/** 단원 진행: got 한 번 이상 맞힌 낱말, master 별 3개 낱말 */
+export function unitProgress(u) {
+  const list = unitWords(u);
+  return { got: list.filter(w => stars(w.en) >= 1).length, master: list.filter(w => stars(w.en) >= 3).length, total: list.length };
+}
+export const CORE_TOTAL = UNITS.reduce((t, u) => t + u.words.length, 0);
+export const coreProgress = () => UNITS.reduce((t, u) => t + unitProgress(u).got, 0);
+export const UNIT_REWARD = { balls: 3, snacks: 2 };
+/** 단원을 처음 다 익혔을 때 (낱말마다 별 1개 이상) 선물. 받았으면 true */
+export function checkUnitDone(u) {
+  const v = V();
+  v.course = v.course || {};
+  const p = unitProgress(u);
+  if (v.course[u.id] || p.got < p.total) return false;
+  v.course[u.id] = Date.now();
+  store.state.balls += UNIT_REWARD.balls;
+  store.state.snacks += UNIT_REWARD.snacks;
+  store.save();
+  return true;
+}
+export const unitDone = (u) => Boolean(V().course?.[u.id]);
 
 /** 이번 주(리포트용): 새 낱말, 퀴즈 정답률 */
 export function weekWords(fromMs) {

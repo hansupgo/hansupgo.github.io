@@ -6,7 +6,7 @@
 import { SCENES, sceneById, LINES } from './english-data.js';
 import { store } from './store.js';
 import { monsterSVG, josa } from './monsters.js';
-import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS, LEVELS, quizLevel, setQuizLevel } from './vocab.js';
+import { WORDS, CATS, known, knownCount, stars, canQuiz, makeQuiz, answerQuiz, finishRound, learnFromText, QUIZ_MIN, QUIZ_GROW_ROUNDS, LEVELS, quizLevel, setQuizLevel, UNITS, unitWords, unitProgress, coreProgress, CORE_TOTAL, checkUnitDone, unitDone, UNIT_REWARD } from './vocab.js';
 import { track } from './quests.js';
 import { inAppName, openExternal, externalHint, isIOS } from './browser.js';
 
@@ -381,6 +381,7 @@ function showMenu() {
     <div class="talk-learn">
       <button id="talk-words-btn" class="talk-learn-btn" type="button"><span class="talk-ico">🔤</span><b>단어 카드</b><small>${knownCount()}/${WORDS.length}장 모음</small></button>
       <button id="talk-quiz-btn" class="talk-learn-btn" type="button" ${canQuiz() ? '' : 'disabled'}><span class="talk-ico">🧩</span><b>짝꿍 퀴즈</b><small>${canQuiz() ? 'What\'s this? 맞혀 봐!' : `카드 ${QUIZ_MIN}장부터`}</small></button>
+      <button id="talk-course-btn" class="talk-learn-btn wide" type="button"><span class="talk-ico">📘</span><b>초등 필수 영단어 ${CORE_TOTAL}</b><small>단원 ${UNITS.length}개 · ${coreProgress()}/${CORE_TOTAL} 익힘</small></button>
     </div>
     <div class="talk-grid">${SCENES.map(s => {
       const lock = s.level === 2 && !l2;
@@ -394,6 +395,7 @@ function showMenu() {
   $('talk-voice-btn').addEventListener('click', showVoices);
   if (soundTrouble) bindSoundHelp($('talk-menu'));
   $('talk-quiz-btn').addEventListener('click', showQuizLevels);
+  $('talk-course-btn').addEventListener('click', showCourse);
 }
 
 function showBook() {
@@ -511,6 +513,7 @@ function showWords() {
 // ---------- 🧩 짝꿍 퀴즈 ----------
 
 let quiz = [];
+let quizUnit = null; // 필수 영단어 단원 퀴즈일 때 그 단원
 let qi = 0;
 let qRight = 0;
 let quizToken = 0;
@@ -527,22 +530,53 @@ function showQuizLevels() {
   $('talk-quiz').innerHTML = `<button id="ql-back" class="link-btn" type="button">‹ 대화 고르기</button>
     <p class="w-lead">어떤 난이도로 해 볼까? 보통·어려움에서는 아직 못 모은 낱말도 나와요. 맞히면 그 카드를 얻어요!</p>
     <div class="ql-list">${Object.entries(LEVELS).map(([k, L]) => `<button class="ql ${+k === cur ? 'on' : ''}" type="button" data-level="${k}">
-      <span class="ql-stars">${L.icon}</span><b>${L.name}</b><small>${L.desc}</small><small class="ql-grow">맞힐 때마다 짝꿍 성장 +${L.grow}</small></button>`).join('')}</div>`;
+      <span class="ql-stars">${L.icon}</span><b>${L.name}</b><small>${L.desc}</small><small class="ql-grow">맞힐 때마다 짝꿍 성장 +${L.grow}</small></button>`).join('')}</div>
+    <button id="ql-course" class="btn ghost ql-course" type="button">📘 초등 필수 영단어 ${CORE_TOTAL} (단원별 퀴즈)</button>`;
   $('ql-back').addEventListener('click', showMenu);
+  $('ql-course').addEventListener('click', showCourse);
   for (const b of $('talk-quiz').querySelectorAll('[data-level]')) b.addEventListener('click', () => { setQuizLevel(+b.dataset.level); startQuiz(5); });
 }
 
-function startQuiz(n) {
+// 📘 초등 필수 영단어: 단원 고르기
+function showCourse() {
   stopSpeak();
   sceneToken++;
   scene = null;
-  quiz = makeQuiz(n);
-  if (!quiz.length) { showWords(); return; }
+  quizToken++;
+  hideViews();
+  $('talk-quiz').hidden = false;
+  $('talk-title').textContent = '📘 초등 필수 영단어';
+  const cur = quizLevel();
+  $('talk-quiz').innerHTML = `<button id="cu-back" class="link-btn" type="button">‹ 대화 고르기</button>
+    <p class="w-lead">초등학생이 꼭 알아야 할 낱말 <b>${CORE_TOTAL}개</b>를 단원 ${UNITS.length}개로 나눴어요. 한 판에 10문제, 맞히면 단어 카드를 얻어요.
+      단원 낱말을 모두 한 번씩 맞히면 ✅ 숲볼 ${UNIT_REWARD.balls}개·간식 ${UNIT_REWARD.snacks}개 선물!</p>
+    <div class="cu-total"><span style="width:${Math.round((coreProgress() / CORE_TOTAL) * 100)}%"></span></div>
+    <p class="cu-total-text">익힌 낱말 <b>${coreProgress()}</b> / ${CORE_TOTAL}</p>
+    <div class="cu-levels" role="group" aria-label="난이도">${Object.entries(LEVELS).map(([k, L]) => `<button class="cu-lv ${+k === cur ? 'on' : ''}" type="button" data-cl="${k}">${L.icon} ${L.name}</button>`).join('')}</div>
+    <div class="cu-list">${UNITS.map((u, i) => {
+      const p = unitProgress(u);
+      return `<button class="cu-unit ${unitDone(u) ? 'done' : ''}" type="button" data-unit="${u.id}">
+        <span class="cu-ico">${u.icon}</span><span class="cu-name"><small>${i + 1}단원</small><b>${esc(u.title)}</b></span>
+        <span class="cu-prog"><i style="width:${Math.round((p.got / p.total) * 100)}%"></i></span>
+        <span class="cu-num">${unitDone(u) ? (p.master === p.total ? '🏆' : '✅') : ''} ${p.got}/${p.total}</span></button>`;
+    }).join('')}</div>`;
+  $('cu-back').addEventListener('click', showMenu);
+  for (const b of $('talk-quiz').querySelectorAll('[data-cl]')) b.addEventListener('click', () => { setQuizLevel(+b.dataset.cl); showCourse(); });
+  for (const b of $('talk-quiz').querySelectorAll('[data-unit]')) b.addEventListener('click', () => startQuiz(10, UNITS.find(u => u.id === b.dataset.unit)));
+}
+
+function startQuiz(n, unit = null) {
+  stopSpeak();
+  sceneToken++;
+  scene = null;
+  quizUnit = unit;
+  quiz = makeQuiz(n, Math.random, Date.now(), quizLevel(), unit ? unitWords(unit) : null);
+  if (!quiz.length) { if (unit) showCourse(); else showWords(); return; }
   qi = 0;
   qRight = 0;
   hideViews();
   $('talk-quiz').hidden = false;
-  $('talk-title').textContent = `🧩 짝꿍 퀴즈 · ${LEVELS[quizLevel()].name}`;
+  $('talk-title').textContent = unit ? `📘 ${unit.title} · ${LEVELS[quizLevel()].name}` : `🧩 짝꿍 퀴즈 · ${LEVELS[quizLevel()].name}`;
   showQuestion();
 }
 
@@ -607,19 +641,25 @@ async function pickAnswer(en) {
 function quizDone() {
   quizToken++;
   const round = finishRound();
-  const reward = ctx.onQuiz?.(qRight, round <= QUIZ_GROW_ROUNDS, LEVELS[quizLevel()].grow) || {};
+  const unit = quizUnit;
+  const gotUnit = unit ? checkUnitDone(unit) : false; // 선물 먼저 (짝꿍 화면 숫자가 함께 바뀌게)
+  const p = unit ? unitProgress(unit) : null;
+  // 단원 퀴즈는 10문제라 짝꿍 성장은 5문제 판과 같게 (진화 속도 유지)
+  const reward = ctx.onQuiz?.(unit ? Math.ceil(qRight / 2) : qRight, round <= QUIZ_GROW_ROUNDS, LEVELS[quizLevel()].grow) || {};
   const all = qRight === quiz.length;
   $('talk-quiz').innerHTML = `<div class="talk-done">
-    <h3>${all ? '🏆 다 맞혔어!' : '🎉 퀴즈 끝!'}</h3>
+    <h3>${gotUnit ? `✅ ${esc(unit.title)} 단원 완성!` : all ? '🏆 다 맞혔어!' : '🎉 퀴즈 끝!'}</h3>
     <p>${quiz.length}문제 중 <b>${qRight}개</b> 맞혔어!</p>
+    ${unit ? `<p>📘 ${esc(unit.title)}: 익힌 낱말 <b>${p.got}</b> / ${p.total}${gotUnit ? `<br>선물: 숲볼 ${UNIT_REWARD.balls}개, 간식 ${UNIT_REWARD.snacks}개` : ''}</p>` : ''}
     <p>${reward.pts ? `짝꿍 성장 +${reward.pts} · 경험치 +${reward.xp}` : `경험치 +${reward.xp || 0} (오늘 짝꿍 성장 보너스는 다 받았어)`}</p>
     <div class="talk-done-btns"><button id="quiz-again" class="btn primary" type="button">한 판 더</button>
-    <button id="quiz-words" class="btn ghost" type="button">🔤 단어 카드</button></div>
+    ${unit ? '<button id="quiz-course" class="btn ghost" type="button">📘 단원 목록</button>' : '<button id="quiz-words" class="btn ghost" type="button">🔤 단어 카드</button>'}</div>
     <button id="quiz-level" class="link-btn" type="button">난이도 바꾸기 (지금: ${LEVELS[quizLevel()].icon} ${LEVELS[quizLevel()].name})</button>
     <button id="quiz-menu" class="link-btn" type="button">‹ 대화 고르기</button></div>`;
-  $('quiz-again').addEventListener('click', () => startQuiz(5));
-  $('quiz-words').addEventListener('click', showWords);
-  $('quiz-level').addEventListener('click', showQuizLevels);
+  $('quiz-again').addEventListener('click', () => startQuiz(unit ? 10 : 5, unit));
+  $('quiz-words')?.addEventListener('click', showWords);
+  $('quiz-course')?.addEventListener('click', showCourse);
+  $('quiz-level').addEventListener('click', unit ? showCourse : showQuizLevels);
   $('quiz-menu').addEventListener('click', showMenu);
   speak(all ? 'Perfect! You are amazing!' : 'Good job! Let\'s play again!', { pitch: pitchFor(ctx.stage) });
   if (reward.evolved != null) ctx.onEvolve?.(reward.evolved);
