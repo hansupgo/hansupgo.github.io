@@ -3,6 +3,7 @@
 import { SPECIES, speciesById, monsterSVG, josa } from './monsters.js';
 import { store } from './store.js';
 import { createBuddyView } from './stage3d.js';
+import { WEARS, WEAR_SLOTS, wearById, ownsWear, currentWear, canMakeWear, makeWear, toggleWear } from './wardrobe.js';
 import { weather, weatherInfo, timeOfDay } from './weather.js';
 import {
   CROPS, CROP_IDS, PLOT_IDS, STAGE_NAMES, FOODS, seeds, crops, plot, tickGarden, stageOf, isReady, isThirsty,
@@ -108,14 +109,14 @@ async function ensureView() {
   try {
     v = await createBuddyView(box, sp, {
     stage: stageIndex(), onPet, onSlot: openSlot, onPlot: openPlot, room: room(), slots: SLOTS, zzzEl: $('buddy-zzz'),
-    garden: gardenView(), place: placeNow, weatherKind: weather().kind, tod: timeOfDay(),
+    garden: gardenView(), place: placeNow, weatherKind: weather().kind, tod: timeOfDay(), wear: currentWear(),
     });
   } catch (e) { console.warn('3D 짝꿍 화면을 못 만들었어요', e); v = null; }
   if (token !== viewToken || document.body.dataset.tab !== 'buddy') { v?.dispose(); return; }
   view = v;
   if (view && placeNow !== 'room') await view.setPlace(placeNow, gardenView()); // 불러오는 사이 텃밭으로 바꿨으면
   $('buddy-svg').hidden = Boolean(view);
-  if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180 });
+  if (!view) $('buddy-svg').innerHTML = monsterSVG(sp, { size: 180, wear: currentWear() });
   view?.setSleeping(buddy().sleeping);
   view?.setEditing(editing);
   const bb = buddy();
@@ -203,6 +204,7 @@ function startTalk(start = '', quizN = 5) {
   closeView(); // 대화하는 동안 3D 방은 쉼
   openTalk({
     sp: buddySpecies(),
+    wear: currentWear(),
     name: store.state.name,
     stage: stageIndex(),
     toast: toastFn,
@@ -392,6 +394,50 @@ function setEditing(v) {
 }
 
 function openSheet(id) { $(id).hidden = false; }
+
+// ---------- 👕 짝꿍 옷장 ----------
+function refreshWear() {
+  const w = currentWear();
+  view?.setWear(w);
+  if (!view && hasBuddy()) $('buddy-svg').innerHTML = monsterSVG(buddySpecies(), { size: 180, wear: w });
+  onChangeFn(); // 지도 위 짝꿍도 새 옷으로
+}
+function openWardrobe() {
+  const w = currentWear();
+  const ids = [...new Set(WEARS.flatMap(x => Object.keys(x.cost)))];
+  $('wear-mats').innerHTML = matChips(ids);
+  $('wear-preview').innerHTML = monsterSVG(buddySpecies(), { size: 120, wear: w });
+  $('wear-list').innerHTML = Object.entries(WEAR_SLOTS).map(([slot, label]) => `<h4>${slot === 'head' ? '🎩' : '🧣'} ${label}</h4>`
+    + WEARS.filter(x => x.slot === slot && (!x.xmas || canMakeWear(x) || ownsWear(x.id))).map(x => {
+      const have = ownsWear(x.id);
+      const on = w[slot] === x.id;
+      const can = canMakeWear(x) && canAfford(x.cost);
+      return `<div class="craft-item ${on ? 'wearing' : ''}">
+        <span class="craft-ico">${x.icon}</span>
+        <span><span class="craft-name">${x.name}</span>${x.xmas ? '<span class="craft-tag event">🎄 12월</span>' : ''}<br>
+          <span class="craft-meta">${have ? (on ? '입고 있어요' : '가지고 있어요') : costHtml(x.cost)}</span></span>
+        ${have ? `<button class="btn ${on ? 'ghost' : 'primary'}" data-wear="${x.id}" type="button">${on ? '벗기' : '입히기'}</button>`
+          : `<button class="btn primary" data-make="${x.id}" type="button" ${can ? '' : 'disabled'}>만들기</button>`}
+      </div>`;
+    }).join('')).join('');
+  for (const b of $('wear-list').querySelectorAll('[data-make]')) b.addEventListener('click', () => {
+    const x = wearById[b.dataset.make];
+    if (!makeWear(x.id)) return;
+    toastFn(`${x.icon} ${x.name} 완성! ${displayName()}에게 입혀 줬어요.`);
+    say(pick(['우와, 나 어때? 잘 어울려?', '새 옷이다! 고마워!', '히히, 멋쟁이가 됐어!']));
+    view?.play('happy');
+    refreshWear();
+    openWardrobe();
+  });
+  for (const b of $('wear-list').querySelectorAll('[data-wear]')) b.addEventListener('click', () => {
+    if (!toggleWear(b.dataset.wear)) return;
+    const on = Object.values(currentWear()).includes(b.dataset.wear);
+    if (on) { say(pick(['이거 좋아!', '어울려?', '오늘은 이걸로!'])); view?.play('happy'); }
+    refreshWear();
+    openWardrobe();
+  });
+  openSheet('wear-sheet');
+}
 function closeSheet(id) { $(id).hidden = true; }
 
 function openSlot(slotId) {
@@ -525,7 +571,7 @@ function onPet() { afterAction(pet(), 'hop'); }
 
 export function showEvolve(stage) {
   const sp = buddySpecies();
-  $('evolve-art').innerHTML = monsterSVG(sp, { size: 150 });
+  $('evolve-art').innerHTML = monsterSVG(sp, { size: 150, wear: currentWear() });
   $('evolve-title').textContent = `${josa(displayName(), '이', '가')} ${STAGES[stage].name}${stage === 1 ? '로' : '으로'} 자랐어!`;
   $('evolve-line').textContent = `"${evolveLine(stage)}"`;
   $('evolve').hidden = false;
@@ -560,6 +606,7 @@ export function initBuddyUI({ toast, onChange }) {
   $('act-sleep').addEventListener('click', () => afterAction(toggleSleep(), null));
   $('buddy-svg').addEventListener('click', onPet);
   $('buddy-change').addEventListener('click', () => { choosing = true; renderBuddy(); });
+  $('buddy-wear').addEventListener('click', openWardrobe);
   $('buddy-rename').addEventListener('click', () => {
     const f = $('rename-form');
     f.hidden = !f.hidden;
@@ -589,7 +636,7 @@ export function initBuddyUI({ toast, onChange }) {
   $('btn-popquiz').addEventListener('click', () => { usePopQuiz(); startTalk('quiz', 3); });
   $('room-talk').addEventListener('click', startTalk);
   initTalkUI();
-  for (const id of ['craft-sheet', 'slot-sheet']) {
+  for (const id of ['craft-sheet', 'slot-sheet', 'wear-sheet']) {
     $(id).addEventListener('click', (e) => {
       if (e.target.id === id || e.target.closest('.sheet-close')) closeSheet(id);
     });

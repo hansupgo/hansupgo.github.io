@@ -78,6 +78,7 @@
         <div class="page-inner buddy-info">
           <div class="buddy-title">
             <h2 id="buddy-name"></h2>
+            <button id="buddy-wear" class="wear-btn" type="button">👕 옷장</button>
             <button id="buddy-rename" class="link-btn" type="button">이름 짓기</button>
           </div>
           <form id="rename-form" class="rename-form" hidden>
@@ -411,6 +412,18 @@
       <div id="craft-list" class="craft-list"></div>
       <h3>벽지 · 바닥</h3>
       <div id="theme-list" class="craft-list"></div>
+    </div>
+  </section>
+
+  <!-- 👕 짝꿍 옷장 -->
+  <section id="wear-sheet" class="sheet" hidden>
+    <div class="sheet-card">
+      <button class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h3>👕 짝꿍 옷장</h3>
+      <div id="wear-preview" class="wear-preview"></div>
+      <p class="muted small">재료로 꾸미기를 만들어 입혀요. 머리 하나, 목 하나를 입을 수 있어요. 친구 화면에도 보여요!</p>
+      <div id="wear-mats" class="mat-strip"></div>
+      <div id="wear-list" class="craft-list"></div>
     </div>
   </section>
 

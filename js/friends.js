@@ -8,6 +8,7 @@ import { STAGES, hasBuddy, buddy, buddySpecies, stageIndex, displayName, visitRe
 import { MATERIALS, MATERIAL_IDS, addMaterials, matCount, cozyOf, cozyLevel, SLOTS } from './room.js';
 import { CROPS, PLOT_IDS, parseFriendGarden, waterFromFriend } from './garden.js';
 import { createBuddyView } from './stage3d.js';
+import { currentWear, cleanWear } from './wardrobe.js';
 import { showEvolve } from './buddy-ui.js';
 import { weather, timeOfDay } from './weather.js';
 import { track } from './quests.js';
@@ -339,13 +340,13 @@ async function buildVisitView() {
   const p = visiting;
   const hostSp = speciesById[p.buddy?.speciesId] || buddySpecies() || speciesById.sumbbong;
   const hostStage = num(p.buddy?.stage, 0, 2);
-  const mine = hasBuddy() && speciesById[p.buddy?.speciesId] ? { sp: buddySpecies(), stage: stageIndex() } : null;
+  const mine = hasBuddy() && speciesById[p.buddy?.speciesId] ? { sp: buddySpecies(), stage: stageIndex(), wear: currentWear() } : null;
   const home = p.home && typeof p.home === 'object' ? { wall: String(p.home.wall || 'cream'), floor: String(p.home.floor || 'wood'), slots: p.home.slots || {} } : { wall: 'cream', floor: 'wood', slots: {} };
   let v = null;
   try {
     v = await createBuddyView($('visit-3d'), hostSp, {
       stage: hostStage, room: home, slots: SLOTS, garden: parseFriendGarden(p.garden), place: visitPlace,
-      weatherKind: weather().kind, tod: timeOfDay(), guest: mine,
+      weatherKind: weather().kind, tod: timeOfDay(), guest: mine, wear: cleanWear(p.buddy?.wear),
       onPet: () => { visitView?.play('hop'); visitSay(pick(['헤헤, 반가워!', 'Nice to meet you! (만나서 반가워!)', '우리 집 어때?'])); },
       onPlot: waterFriendPlot,
     });
