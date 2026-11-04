@@ -7,7 +7,7 @@ import {
   settings, setSetting, restReason, allowMore, tickPlay, hasPin, setPin, checkPin,
   week, today,
 } from './parent.js';
-import { weekWords, accuracy } from './vocab.js';
+import { weekWords, accuracy, coreProgress, CORE_TOTAL } from './vocab.js';
 import { currentWear } from './wardrobe.js';
 
 const $ = (id) => document.getElementById(id);
@@ -143,6 +143,7 @@ function renderReport() {
       <div><b>${r.words.length}장</b><small>🔤 새 단어 카드</small></div>
       <div><b>${r.quiz ? `${Math.round((r.quizOk / r.quiz) * 100)}%` : '-'}</b><small>🧩 퀴즈 정답률 (${r.quizOk}/${r.quiz})</small></div>
       <div><b>${accuracy() ?? '-'}${accuracy() == null ? '' : '%'}</b><small>🧩 지금까지 정답률</small></div>
+      <div><b>${coreProgress()}/${CORE_TOTAL}</b><small>📘 필수 영단어 익힘</small></div>
     </div>
     <h4>👟 날마다 걸은 거리</h4>${bars('walk', maxW, fmtDist, 'walk')}
     <h4>⏰ 날마다 놀이 시간</h4>${bars('play', maxP, (m) => `${Math.round(m)}분`, 'play')}
