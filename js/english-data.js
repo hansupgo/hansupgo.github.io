@@ -6,7 +6,11 @@
 // time: 이 시간대에 "오늘의 대화"로 추천 (시작~끝 시각)
 // level: 1(쉬움) / 2(조금 길게) — 짝꿍이 어린이로 자라면 2단계 장면이 열립니다
 
-export const SCENES = [
+import { MORE_SCENES, EXTRA_TURNS, GROUP, GROUPS } from './english-more.js';
+
+export { GROUPS };
+
+const BASE_SCENES = [
   {
     id: 'morning', icon: '🌅', title: '좋은 아침', where: '집', time: [5, 10], level: 1,
     learn: [['Did you sleep well?', '잘 잤어?'], ["I'm still sleepy.", '아직 졸려.'], ["What's for breakfast?", '아침 뭐 먹어?']],
@@ -235,7 +239,7 @@ export const SCENES = [
         say: ['Can you pass the salt, please?', '소금 좀 건네줄래?'],
         options: [
           { en: 'Here you go!', ko: '여기 있어!', accept: ['here', 'sure', 'okay'], reply: ['Thank you so much!', '정말 고마워!'] },
-          { en: 'Sure! Anything else?', ko: '응! 또 필요한 거 있어?', accept: ['sure', 'anything', 'else'], reply: ['Maybe some water too, please.', '물도 좀 줄래?'] },
+          { en: 'Sure! Anything else?', ko: '응! 또 필요한 거 있어?', accept: ['anything', 'else', 'sure'], reply: ['Maybe some water too, please.', '물도 좀 줄래?'] },
         ],
       },
       {
@@ -468,6 +472,23 @@ export const SCENES = [
     ],
   },
 ];
+
+// 장면 묶음(집·학교·밖·마음)과 가끔 바뀌는 가운데 대화(extra), 노트에 나올 수 있는 모든 표현(allLearn)
+export const SCENES = [...BASE_SCENES.map(s => ({ ...s, group: GROUP[s.id] || 'home' })), ...MORE_SCENES].map(s => {
+  const extra = EXTRA_TURNS[s.id] || [];
+  return { ...s, extra, allLearn: [...s.learn, ...extra.flatMap(t => t.learn || [])] };
+});
+
+/** 이번에 할 대화: 가운데 대화가 가끔 다른 것으로 바뀌어요 (2마디 장면엔 끼워 넣어요) */
+export function playTurns(s, rnd = Math.random) {
+  const turns = [...s.turns];
+  if (!s.extra.length) return turns;
+  const options = [turns[1], ...s.extra].filter(Boolean);
+  const mid = options[Math.floor(rnd() * options.length)];
+  if (turns.length >= 3) turns[1] = mid;
+  else turns.splice(1, 0, s.extra[Math.floor(rnd() * s.extra.length)]);
+  return turns;
+}
 
 export const sceneById = Object.fromEntries(SCENES.map(s => [s.id, s]));
 

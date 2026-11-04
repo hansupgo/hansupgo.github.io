@@ -1192,3 +1192,4 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .cu-num { grid-column: 3; grid-row: 1; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .cu-prog { grid-column: 2 / 4; grid-row: 2; flex-shrink: 0; height: 8px; border-radius: 99px; background: #e8eef7; overflow: hidden; }
 .cu-prog i { display: block; height: 100%; background: #7cc46a; border-radius: 99px; }
+.talk-group { margin: 14px 0 6px; font-size: 15px; }
