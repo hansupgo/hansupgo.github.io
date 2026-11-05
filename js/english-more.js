@@ -8,6 +8,7 @@
 export const GROUPS = [
   { id: 'home', title: '🏠 집에서' },
   { id: 'school', title: '🏫 학교에서' },
+  { id: 'eat', title: '🍽️ 먹을 때' },
   { id: 'out', title: '🌳 밖에서' },
   { id: 'heart', title: '💗 친구·마음' },
 ];

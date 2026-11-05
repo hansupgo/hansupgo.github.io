@@ -7,6 +7,7 @@
 // level: 1(쉬움) / 2(조금 길게) — 짝꿍이 어린이로 자라면 2단계 장면이 열립니다
 
 import { MORE_SCENES, EXTRA_TURNS, GROUP, GROUPS } from './english-more.js';
+import { MORE_SCENES_2, MOVE_TO_EAT } from './english-more2.js';
 
 export { GROUPS };
 
@@ -474,7 +475,8 @@ const BASE_SCENES = [
 ];
 
 // 장면 묶음(집·학교·밖·마음)과 가끔 바뀌는 가운데 대화(extra), 노트에 나올 수 있는 모든 표현(allLearn)
-export const SCENES = [...BASE_SCENES.map(s => ({ ...s, group: GROUP[s.id] || 'home' })), ...MORE_SCENES].map(s => {
+export const SCENES = [...BASE_SCENES.map(s => ({ ...s, group: GROUP[s.id] || 'home' })), ...MORE_SCENES, ...MORE_SCENES_2].map(s => {
+  if (MOVE_TO_EAT.includes(s.id)) s = { ...s, group: 'eat' };
   const extra = EXTRA_TURNS[s.id] || [];
   return { ...s, extra, allLearn: [...s.learn, ...extra.flatMap(t => t.learn || [])] };
 });
