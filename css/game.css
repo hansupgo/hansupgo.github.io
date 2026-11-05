@@ -1193,3 +1193,41 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .cu-prog { grid-column: 2 / 4; grid-row: 2; flex-shrink: 0; height: 8px; border-radius: 99px; background: #e8eef7; overflow: hidden; }
 .cu-prog i { display: block; height: 100%; background: #7cc46a; border-radius: 99px; }
 .talk-group { margin: 14px 0 6px; font-size: 15px; }
+
+/* 🧑‍🎨 픽셀 아바타 */
+.px-avatar { image-rendering: pixelated; display: block; }
+.av-card { max-width: 480px; max-height: none; }
+.av-title { margin: 0; text-align: center; color: var(--forest); font-family: var(--display); font-weight: 400; font-size: 26px; }
+.av-stage { display: flex; align-items: center; gap: 14px; background: linear-gradient(180deg, #d9f0ff, #eaf7df); border-radius: 18px; padding: 10px 14px; }
+.av-preview { flex: none; width: 132px; display: grid; place-items: center; }
+.av-preview .av-big { width: 132px; height: auto; animation: avIdle 1.2s steps(2) infinite; filter: drop-shadow(0 4px 0 rgba(0,0,0,.12)); }
+.av-preview .av-big.pop { animation: avPop .3s ease-out, avIdle 1.2s steps(2) .3s infinite; }
+@keyframes avIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes avPop { from { transform: scale(.85); } to { transform: scale(1); } }
+.av-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.av-role-name { margin: 0; font-family: var(--display); font-size: 24px; color: var(--ink); }
+.av-role-name small { font-size: 14px; color: var(--muted); font-family: inherit; }
+.av-info p { margin: 0; }
+.small-btn { padding: 6px 10px; font-size: 14px; align-self: flex-start; }
+.av-roles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.av-role { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 4px; border-radius: 14px; border: 2px solid #d4def0; background: #fff; font: inherit; font-size: 12px; color: inherit; }
+.av-role svg { width: 44px; height: auto; }
+.av-role.on { border-color: #ffb02e; background: #fff8e1; font-weight: 700; }
+.av-styles { display: flex; gap: 8px; }
+.av-style { flex: 1; padding: 8px; border-radius: 12px; border: 2px solid #d4def0; background: #fff; font: inherit; color: inherit; }
+.av-style.on { border-color: #ffb02e; background: #fff8e1; font-weight: 700; }
+#av-done { margin-top: 10px; }
+.ob-again { align-self: center; margin-top: -2px; }
+.ob-hero .ob-me { margin: 0 -2px; width: 84px; height: auto; animation: avIdle 1.2s steps(2) infinite; }
+.set-avatar { display: flex; align-items: center; gap: 10px; }
+.set-avatar svg { width: 48px; height: auto; }
+.avatar.has-av, .mini-av:has(svg) { overflow: hidden; padding: 0; }
+.avatar.has-av svg, .mini-av svg { width: 100%; height: 100%; }
+/* 지도 위 내 아바타 */
+.me-dot.av { width: 42px; height: 56px; border: none; border-radius: 0; background: none; box-shadow: none; }
+.me-dot.av svg { position: absolute; left: 0; bottom: 4px; width: 42px; height: auto; filter: drop-shadow(0 2px 1px rgba(0,0,0,.25)); }
+.me-dot.av .me-base { position: absolute; left: 7px; bottom: 0; width: 28px; height: 10px; border-radius: 50%; background: var(--c); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.me-dot.av span { inset: auto; left: -2px; bottom: -12px; width: 46px; height: 34px; }
+.me-icon.riding .me-dot.av::after { top: 70%; }
+@media (max-width: 360px) { .av-roles { grid-template-columns: repeat(3, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .av-preview .av-big, .ob-hero .ob-me { animation: none; } }

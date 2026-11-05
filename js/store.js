@@ -3,6 +3,7 @@
 // - Firebase가 설정되어 있으면 친구 코드 그룹으로 기록을 공유합니다.
 //   공유되는 정보: 닉네임, 레벨, 잡은 몬스터 수 (위치 정보는 공유하지 않습니다)
 
+import { cleanAvatar } from './avatar.js';
 import { CONFIG, firebaseEnabled } from './config.js';
 import { RARITY, speciesById } from './monsters.js';
 import { cleanName } from './safety.js';
@@ -218,6 +219,7 @@ export const remote = {
     return {
       name: state.name.slice(0, 12),
       color: state.color,
+      avatar: cleanAvatar(state.avatar),
       xp: state.xp,
       level: levelFromXp(state.xp),
       species: Object.keys(caught).length,

@@ -23,6 +23,8 @@ import { initChurchUI, openChurch } from './church.js';
 import { initParentUI } from './parent-ui.js';
 import { onNewWord } from './vocab.js';
 import { isBad, BAD_NAME_MSG } from './safety.js';
+import { avatarSVG, cleanAvatar, roleById } from './avatar.js';
+import { initAvatarUI, openAvatarMaker, myAvatar } from './avatar-ui.js';
 import { track, todayKey as questDay } from './quests.js';
 import { initFriends, inboxHtml, bindInbox, walkCardHtml, walkBanner, onWalk, friendActionsHtml, bindFriendActions, WALK_GOAL } from './friends.js';
 
@@ -76,7 +78,10 @@ function renderHud() {
   const next = xpForLevel(lv + 1);
   $('hud-name').textContent = s.name || '트레이너';
   $('hud-avatar').style.background = s.color;
-  $('hud-avatar').textContent = (s.name || '?').slice(0, 1);
+  const av = myAvatar();
+  if (av) $('hud-avatar').innerHTML = avatarSVG(av, { size: 40, head: true });
+  else $('hud-avatar').textContent = (s.name || '?').slice(0, 1);
+  $('hud-avatar').classList.toggle('has-av', Boolean(av));
   $('hud-level').textContent = `Lv.${lv}`;
   $('hud-xpbar').style.width = `${Math.round(((s.xp - base) / (next - base)) * 100)}%`;
   $('hud-balls').textContent = s.balls;
@@ -93,6 +98,16 @@ function renderHud() {
 
 // ---------- 지도 ----------
 function playerIcon() {
+  const av = myAvatar();
+  // 내 픽셀 아바타 (발밑에 내 색 동그라미)
+  if (av) {
+    return L.divIcon({
+      className: 'me-icon',
+      html: `<div class="me-dot av" style="--c:${store.state.color}"><i class="me-base"></i><span></span>${avatarSVG(av, { size: 54 })}</div>`,
+      iconSize: [42, 56],
+      iconAnchor: [21, 52],
+    });
+  }
   return L.divIcon({
     className: 'me-icon',
     html: `<div class="me-dot" style="--c:${store.state.color}"><span></span></div>`,
@@ -815,7 +830,7 @@ function familyList(players, myUid) {
   return `<ol class="rank">${players.map((p, i) => `
     <li><button class="rank-row" data-uid="${esc(p.uid)}" type="button">
       <span class="rank-no">${i + 1}</span>
-      <span class="mini-av" style="background:${safeColor(p.color)}">${esc((p.name || '?').slice(0, 1))}</span>
+      <span class="mini-av" style="background:${safeColor(p.color)}">${cleanAvatar(p.avatar) ? avatarSVG(cleanAvatar(p.avatar), { size: 34, head: true }) : esc((p.name || '?').slice(0, 1))}</span>
       <span class="rank-name">${esc(p.name || '이름 없음')}${p.uid === myUid ? ' <small>(나)</small>' : ''}${buddyBadge(p.buddy)}</span>
       <span class="rank-stat"><b>${num(p.species)}</b>/${SPECIES.length}종 · Lv.${num(p.level) || 1}${num(p.eng) ? ` · 📘${num(p.eng)}` : ''}</span>
     </button></li>`).join('')}</ol>`;
@@ -851,6 +866,16 @@ function renderSettings() {
     ? (remote.ready ? '친구 공유 연결됨' : '친구 공유 연결 중...')
     : '친구 공유 꺼짐 (README 참고)';
   renderColors('set-colors');
+  const av = myAvatar();
+  $('set-avatar-pic').innerHTML = av ? avatarSVG(av, { size: 64 }) : '';
+  $('set-avatar-name').textContent = av ? `${roleById[av.role].name}` : '아직 없어요';
+}
+
+/** 아바타를 고른 뒤 화면 곳곳을 새로 그림 */
+function avatarChanged() {
+  if (meMarker) meMarker.setIcon(playerIcon());
+  renderHud();
+  renderSettings();
 }
 
 function renderColors(id) {
@@ -872,6 +897,7 @@ function normalizeGroup(v) {
 }
 
 function bindSettings() {
+  $('set-avatar-btn').addEventListener('click', () => openAvatarMaker({ onDone: () => { avatarChanged(); toast('🧑‍🎨 아바타를 바꿨어요!'); } }));
   $('set-gfx').addEventListener('change', (e) => { setGfxLevel(e.target.value); toast(`3D 화질: ${GFX_LEVELS[e.target.value]}`); });
   $('settings-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -897,10 +923,19 @@ function bindSettings() {
 }
 
 // ---------- 처음 시작 ----------
+// 처음 시작: ① 아바타 만들기 → ② 닉네임
+function showOnboardForm() {
+  const hero = document.querySelector('.ob-hero');
+  hero.innerHTML = monsterSVG('dotoriram', { size: 84 }) + avatarSVG(myAvatar(), { size: 110, cls: 'ob-me' }) + monsterSVG('jongsorinyang', { size: 84 });
+  $('onboard').hidden = false;
+}
+function startOnboarding() {
+  openAvatarMaker({ first: true, onDone: showOnboardForm });
+}
+
 function bindOnboarding() {
-  document.querySelector('.ob-hero').innerHTML =
-    ['dotoriram', 'sumbbong', 'jongsorinyang'].map((id, i) => monsterSVG(id, { size: i === 1 ? 110 : 84 })).join('');
   renderColors('ob-colors');
+  $('ob-avatar-again').addEventListener('click', () => { $('onboard').hidden = true; startOnboarding(); });
   $('onboard-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const name = $('ob-name').value.trim().slice(0, 12);
@@ -1012,10 +1047,13 @@ async function main() {
   showTab('map');
   // 3D 엔진은 미리 받아 둠 (잡기 화면을 빨리 열기 위해)
   setTimeout(() => { loadThree(); }, 1500);
+  initAvatarUI();
   if (!store.state.name) {
-    $('onboard').hidden = false;
+    startOnboarding();
   } else {
     begin();
+    // 아바타가 생기기 전부터 놀던 친구: 한 번 만들어 보게 함
+    if (!myAvatar()) openAvatarMaker({ first: true, onDone: () => { avatarChanged(); toast('🧑‍🎨 나만의 아바타가 생겼어요!'); } });
   }
   if (await remote.init()) {
     remote.watchGroup(store.state.group);
