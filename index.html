@@ -167,6 +167,9 @@
           <input id="set-name" maxlength="12" autocomplete="nickname" />
           <label for="set-group">친구 코드 <small>(같은 코드를 쓰는 사람끼리 도감을 공유해요)</small></label>
           <input id="set-group" maxlength="20" placeholder="예: HANSUP-1004" autocapitalize="characters" />
+          <span class="label">내 아바타</span>
+          <div class="set-avatar"><span id="set-avatar-pic"></span><span id="set-avatar-name"></span>
+            <button id="set-avatar-btn" class="btn ghost small-btn" type="button">🧑‍🎨 바꾸기</button></div>
           <span class="label">내 색</span>
           <div id="set-colors" class="colors"></div>
           <button class="btn primary" type="submit">저장</button>
@@ -241,10 +244,40 @@
     </div>
   </section>
 
+  <!-- 🧑‍🎨 나의 아바타 만들기 -->
+  <section id="avatar-sheet" class="modal" hidden>
+    <div class="modal-card av-card">
+      <button id="av-close" class="sheet-close" type="button" aria-label="닫기">✕</button>
+      <h2 id="av-title" class="av-title">🧑‍🎨 나의 아바타 만들기</h2>
+      <p id="av-lead" class="ob-lead small"></p>
+      <div class="av-stage">
+        <div id="av-preview" class="av-preview"></div>
+        <div class="av-info">
+          <p id="av-role-name" class="av-role-name"></p>
+          <p id="av-role-desc" class="muted small"></p>
+          <button id="av-random" class="btn ghost small-btn" type="button">🎲 아무거나</button>
+        </div>
+      </div>
+      <span class="label">역할</span>
+      <div id="av-cats" class="av-cats" role="group" aria-label="역할 묶음"></div>
+      <div id="av-roles" class="av-roles"></div>
+      <span class="label">피부색</span>
+      <div id="av-skins" class="colors"></div>
+      <span class="label">머리색</span>
+      <div id="av-hairs" class="colors"></div>
+      <span class="label">머리 모양</span>
+      <div id="av-styles" class="av-styles"></div>
+      <span class="label">머리 장식 <small>(모자를 쓰는 역할은 모자 아래로 가려져요)</small></span>
+      <div id="av-accs" class="av-styles"></div>
+      <button id="av-done" class="btn primary" type="button">이 모습으로 할래요! ›</button>
+    </div>
+  </section>
+
   <!-- 처음 시작 -->
   <section id="onboard" class="modal" hidden>
     <form id="onboard-form" class="modal-card">
       <div class="ob-hero" aria-hidden="true"></div>
+      <button id="ob-avatar-again" class="link-btn ob-again" type="button">🧑‍🎨 아바타 다시 고르기</button>
       <h1>한숲GO</h1>
       <p class="ob-lead">지도를 눌러 한숲시티와 남곡초 주변을 산책하며 몬스터, 곤충, 동물, 물고기를 모아 보세요!</p>
       <label for="ob-name">닉네임</label>
