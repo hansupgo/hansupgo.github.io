@@ -1235,3 +1235,4 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .me-icon.riding .me-dot.av::after { top: 70%; }
 @media (max-width: 360px) { .av-roles { grid-template-columns: repeat(3, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .av-preview .av-big, .ob-hero .ob-me { animation: none; } }
+.av-hair-note { margin: 4px 0 0; padding: 6px 10px; background: #f1f3f5; border-radius: 10px; }

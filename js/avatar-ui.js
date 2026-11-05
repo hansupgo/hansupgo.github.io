@@ -23,6 +23,10 @@ function render() {
   $('av-skins').innerHTML = SKINS.map((c, i) => `<button type="button" class="color-dot ${i === draft.skin ? 'on' : ''}" style="background:${c}" data-skin="${i}" aria-label="피부색 ${i + 1}"></button>`).join('');
   $('av-hairs').innerHTML = HAIRS.map((c, i) => `<button type="button" class="color-dot ${i === draft.hair ? 'on' : ''}" style="background:${c}" data-hair="${i}" aria-label="머리색 ${HAIR_NAMES[i]}"></button>`).join('');
   $('av-styles').innerHTML = STYLES.map(s => `<button type="button" class="av-style ${s.id === draft.style ? 'on' : ''}" data-style="${s.id}">${s.name}</button>`).join('');
+  // 머리카락이 안 보이는 역할은 알려 주기
+  const hidden = { robot: '🤖 로봇은 머리카락이 없어요!', ninja: '🥷 닌자는 두건으로 머리를 가려요.' }[draft.role] || '';
+  $('av-hair-note').textContent = hidden;
+  $('av-hair-note').hidden = !hidden;
   $('av-accs').innerHTML = ACCS.map(a => `<button type="button" class="av-style ${a.id === draft.acc ? 'on' : ''}" data-acc="${a.id}">${a.name}</button>`).join('');
 }
 

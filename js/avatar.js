@@ -54,7 +54,8 @@ export const DEFAULT_AVATAR = { role: 'explorer', skin: 0, hair: 1, style: 'shor
 
 /** 저장된 값·친구에게 받은 값을 믿지 않고 아는 값만 남김 */
 export function cleanAvatar(a) {
-  if (!a || typeof a !== 'object' || !roleById[a.role]) return null;
+  // 친구에게서 온 값: 'toString' 같은 이름도 걸러야 해서 자기 속성만 봄
+  if (!a || typeof a !== 'object' || typeof a.role !== 'string' || !Object.hasOwn(roleById, a.role)) return null;
   const n = (v, max) => (Number.isInteger(v) && v >= 0 && v < max ? v : 0);
   return {
     role: a.role, skin: n(a.skin, SKINS.length), hair: n(a.hair, HAIRS.length),
