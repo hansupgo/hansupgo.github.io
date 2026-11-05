@@ -1213,7 +1213,11 @@ body.xmas .wx-layer.clear, body.xmas .wx-layer.cloudy {
 .av-role { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 4px; border-radius: 14px; border: 2px solid #d4def0; background: #fff; font: inherit; font-size: 12px; color: inherit; }
 .av-role svg { width: 44px; height: auto; }
 .av-role.on { border-color: #ffb02e; background: #fff8e1; font-weight: 700; }
-.av-styles { display: flex; gap: 8px; }
+.av-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
+.av-styles .av-style { padding: 7px 4px; font-size: 14px; }
+.av-cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.av-cat { flex: none; padding: 6px 12px; border-radius: 999px; border: 2px solid #d4def0; background: #fff; font: inherit; font-size: 14px; color: inherit; }
+.av-cat.on { border-color: var(--forest); background: var(--forest); color: #fff; }
 .av-style { flex: 1; padding: 8px; border-radius: 12px; border: 2px solid #d4def0; background: #fff; font: inherit; color: inherit; }
 .av-style.on { border-color: #ffb02e; background: #fff8e1; font-weight: 700; }
 #av-done { margin-top: 10px; }
